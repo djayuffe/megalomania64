@@ -59,5 +59,10 @@ _names=_t['islands']+[_t['finale'],'THE MOTHER']
 assert len(_names)==28 and all(len(n)<=11 for n in _names)
 out.append('island_names:')
 for n in _names:out.append(' !text "'+n.ljust(11)+'",0')
+_smp=json.loads((ROOT/'assets/orig/samples.json').read_text())['samples']
+out.append('smp_off_lo: !byte '+','.join(f'<(smp_data+{e["offset"]})' for e in _smp))
+out.append('smp_off_hi: !byte '+','.join(f'>(smp_data+{e["offset"]})' for e in _smp))
+out.append('smp_len_lo: !byte '+','.join(str(e['nibbles']&255) for e in _smp))
+out.append('smp_len_hi: !byte '+','.join(str(e['nibbles']>>8) for e in _smp))
 (ROOT/'src/tables.asm').write_text('\n'.join(out)+'\n')
 print('wrote src/tables.asm')

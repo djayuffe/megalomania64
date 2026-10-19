@@ -1,5 +1,5 @@
 """v4 engine tests: IRQ engine, title, joystick, diplomacy, inventions, develop, disk, fuzz."""
-import random, re, unittest
+import json, random, re, unittest
 from common import *
 
 NAMES=['CLUB','SPEAR','SWORD','BALLIS','XBOW','MUSKET','CANNON','TANK','MISSIL','LASER']
@@ -84,9 +84,9 @@ class IrqEngine(GameCase):
             self.cpu.run_irq();self.assertEqual(self.state('irq_stage'),0);self.assertEqual(self.cpu.m[0xd012],250)
     def test_wait_frame_sleeps_until_irq(self):
         self.irq_on()
-        self.cpu.push(0x7f);self.cpu.push(0xff);self.cpu.pc=self.sym['wait_frame']
+        self.cpu.push(0xff);self.cpu.push(0xef);self.cpu.pc=self.sym['wait_frame']
         v=self.state('vblank')
-        steps=self.cpu.run_until(0x8000,irq_every=700)
+        steps=self.cpu.run_until(0xfff0,irq_every=700)
         self.assertEqual(self.state('vblank'),(v+1)&255)
         self.assertGreater(steps,100)           # it genuinely spun waiting for the interrupt
     def test_boot_disables_kernal_cursor_blink_and_starts_raster_irq(self):
@@ -145,18 +145,18 @@ class IrqEngine(GameCase):
 class Title(GameCase):
     def test_title_flushes_stale_keyboard_queue(self):
         self.irq_on();self.cpu.m[0xc6]=3
-        self.cpu.push(0x7f);self.cpu.push(0xff);self.cpu.pc=self.sym['title_screen']
+        self.cpu.push(0xff);self.cpu.push(0xef);self.cpu.pc=self.sym['title_screen']
         n=[0]
         def watch(c):
             if c.pc==self.sym['title_wait']:
                 n[0]+=1
                 if n[0]==1:self.assertEqual(c.m[0xc6],0)
                 if n[0]==4:c.key=32
-        self.cpu.run_until(0x8000,on_pc=watch,irq_every=1500)
+        self.cpu.run_until(0xfff0,on_pc=watch,irq_every=1500)
         self.assertGreaterEqual(n[0],4)
     def test_title_screen_shows_bitmap_intro_and_hands_over_on_key(self):
         self.irq_on()
-        self.cpu.push(0x7f);self.cpu.push(0xff);self.cpu.pc=self.sym['title_screen']
+        self.cpu.push(0xff);self.cpu.push(0xef);self.cpu.pc=self.sym['title_screen']
         n=[0]
         def key(c):
             if c.pc==self.sym['title_wait']:
@@ -166,16 +166,11 @@ class Title(GameCase):
                     self.assertEqual(c.m[0xd018],0x78)                       # screen $5C00, bitmap $6000
                     self.assertEqual(c.m[0xd011]&0x7f,0x3b)                  # bitmap mode, display on
                     self.assertEqual(c.m[0xd016]&0x1f,0x18)                  # multicolour, 40 columns
-                    self.assertEqual(self.state('title_active'),1)
+                    self.assertEqual(self.state('title_active'),0)           # bars and tune wait for the parade (see test_intro.py)
                     self.assertEqual(self.state('title_bmp'),1)
                     self.assertEqual(c.m[0xd015],0)
-                    # colour RAM holds the picture's %11 colours; the PRESS FIRE row cycles
-                    pic=(ROOT/'assets/intro_color.bin').read_bytes()
-                    self.assertEqual(bytes(c.m[0xd800+i] for i in range(880)),pic[:880])
-                    row=[c.m[0xd800+22*40+x] for x in range(40)]
-                    self.assertGreater(len(set(row)),3)
                 if n[0]==9:c.key=ord('X')
-        self.cpu.run_until(0x8000,on_pc=key,irq_every=1500)
+        self.cpu.run_until(0xfff0,on_pc=key,irq_every=1500)
         self.assertEqual(self.state('title_active'),0)
         self.assertEqual(self.state('title_bmp'),0)
         self.assertEqual(self.cpu.m[0xdd00]&3,3)                              # back to VIC bank 0
@@ -185,8 +180,8 @@ class Title(GameCase):
     def test_fire_button_dismisses_title(self):
         self.irq_on()
         self.cpu.joystick=0xef
-        self.cpu.push(0x7f);self.cpu.push(0xff);self.cpu.pc=self.sym['title_screen']
-        self.cpu.run_until(0x8000,irq_every=1500)
+        self.cpu.push(0xff);self.cpu.push(0xef);self.cpu.pc=self.sym['title_screen']
+        self.cpu.run_until(0xfff0,irq_every=1500)
         self.assertEqual(self.state('title_active'),0)
 
     def test_intro_assets_are_consistent_and_in_vic_bank_1(self):
@@ -195,9 +190,10 @@ class Title(GameCase):
         self.assertEqual((len(bm),len(sc),len(co)),(8000,1000,1000))
         c=CPU(PRG)
         self.assertEqual(bytes(c.m[0x6000:0x6000+8000]),bm)
-        self.assertEqual(bytes(c.m[0x5c00:0x5c00+1000]),sc)
+        self.assertEqual(bytes(c.m[sym['intro_screen_src']:sym['intro_screen_src']+1000]),sc)   # revealed into $5C00 by the intro
         self.assertEqual(bytes(c.m[sym['intro_color']:sym['intro_color']+1000]),co)
-        self.assertLess(sym['engine_end'],0x5800)
+        self.assertGreaterEqual(sym['orig_build']+640,sym['orig_build']);self.assertLess(sym['orig_build']+640,0x5800)   # sprite frames end before the picture
+        self.assertEqual(sym['orig_army'],0x4000);self.assertLessEqual(sym['smp_end'],0xC000)
         self.assertTrue(0x4000<=0x6000 and 0x6000+8000<=0x8000 and 0x5c00+1000<=0x6000)
         # the PRESS FIRE row is %11 only so it can colour-cycle: no %01/%10 pixels there
         for cell in range(22*40,23*40):
@@ -646,30 +642,43 @@ class AiPacing(GameCase):
             self.assertEqual(self.state('owner',10)==2,attacked,msg=defence)
 
 
+SMP_IDS={k:i for i,k in enumerate(['stick','throw','musket','machinegun','cannon','missile','laser','explosion','grunt','orchestra','timpani'])}
+SMP_INDEX=json.loads((ROOT/'assets/orig/samples.json').read_text())['samples']
+
 class SoundFx(GameCase):
+    def sample_started(self):
+        """Index of the sample whose read pointer the player is at the start of (None if idle)."""
+        m=self.cpu.m;s=self.sym
+        if m[s['smp_left']]|m[s['smp_left']+1]==0:return None
+        rd=m[s['smp_rd']+1]|(m[s['smp_rd']+2]<<8)
+        for i,e in enumerate(SMP_INDEX):
+            if rd==s['smp_data']+e['offset']:return i
+        return -1
     def irq_frames(self,n):
         for _ in range(n):self.cpu.run_irq()
     def test_sfx_programs_voice1_and_sweeps_then_releases(self):
         self.irq_on()
         self.call('sfx_play',) if False else None
-        self.cpu.a=2;self.call('sfx_play')                       # attack: noise, sweeping down
+        self.cpu.a=7;self.call('sfx_play')                       # build: saw, sweeping down (no original sample)
         self.assertEqual(self.cpu.m[0xd404],0x81)
         f0=self.cpu.m[0xd401]
-        self.assertEqual(self.state('soundtime'),12)
-        self.irq_frames(3)
-        self.assertEqual(self.cpu.m[0xd401],(f0-6)&255)          # -2 per frame
-        self.irq_frames(12)
+        self.assertEqual(self.state('soundtime'),4)
+        self.irq_frames(2)
+        self.assertEqual(self.cpu.m[0xd401],(f0-12)&255)         # -6 per frame
+        self.irq_frames(4)
         self.assertEqual(self.cpu.m[0xd404]&1,0)                 # gate released
         self.assertEqual(self.state('sfx_cur_prio'),0)
     def test_lower_priority_never_cuts_a_higher_one_but_equal_or_higher_does(self):
         self.irq_on()
-        self.cpu.a=11;self.call('sfx_play')                      # defeat sting, priority 6
-        self.cpu.a=9;self.call('sfx_play')                       # cursor tick, priority 0
-        self.assertEqual(self.cpu.m[0xd404],0x21)
-        self.assertEqual(self.state('soundtime'),70)
-        self.cpu.a=10;self.call('sfx_play')                      # victory, priority 6: replaces
-        self.assertEqual(self.cpu.m[0xd404],0x41)
-        self.assertEqual(self.state('soundtime'),60)
+        self.cpu.a=5;self.call('sfx_play')                       # invention jingle, priority 4
+        self.cpu.a=9;self.call('sfx_play')                       # cursor tick, priority 0: ignored
+        self.assertEqual(self.cpu.m[0xd401],20)                  # still the invention pitch, not the tick's 40
+        self.assertEqual(self.state('soundtime'),22)
+        self.irq_frames(5);self.assertEqual(self.state('soundtime'),17)
+        self.cpu.a=1;self.call('sfx_play')                       # refusal beep, priority 2: ignored
+        self.assertEqual(self.state('soundtime'),17)
+        self.cpu.a=5;self.call('sfx_play')                       # equal priority: replaces (retriggers)
+        self.assertEqual(self.state('soundtime'),22)
     def test_sfx_tables_are_aligned(self):
         for name in ('sfx_fhi','sfx_flo','sfx_sweep','sfx_wave','sfx_ad','sfx_sr','sfx_pw','sfx_len','sfx_prio'):
             self.assertEqual(self.sym[name]+13,self.sym[{'sfx_fhi':'sfx_flo','sfx_flo':'sfx_sweep','sfx_sweep':'sfx_wave','sfx_wave':'sfx_ad','sfx_ad':'sfx_sr','sfx_sr':'sfx_pw','sfx_pw':'sfx_len','sfx_len':'sfx_prio','sfx_prio':'sound_tick'}[name]])
@@ -700,12 +709,12 @@ class SoundFx(GameCase):
         for i in range(12):self.put('owner',1,i)
         self.call('draw_score')
         self.assertEqual(self.state('state'),2);self.assertEqual(self.state('music_over'),4)
-        self.assertEqual(self.state('fx_timer'),50);self.assertEqual(self.cpu.m[0xd404],0x41)
+        self.assertEqual(self.state('fx_timer'),50);self.assertEqual(self.sample_started(),SMP_IDS['orchestra'])
         self.call('load_island');self.assertEqual(self.state('music_over'),0)
         for i in range(12):self.put('owner',0,i)
         self.call('draw_score')
         self.assertEqual(self.state('state'),3);self.assertEqual(self.state('music_over'),5)
-        self.assertEqual(self.cpu.m[0xd404],0x21)
+        self.assertEqual(self.sample_started(),SMP_IDS['timpani'])
     def test_border_flash_alternates_and_returns_to_epoch_colour(self):
         self.irq_on()
         self.put('epoch',3);self.call('set_border')
@@ -746,7 +755,8 @@ class SoundFx(GameCase):
         self.put('selected',t[0]);self.press('T')
         self.assertEqual(self.state('shake_timer'),8)
         self.assertEqual(self.state('fx_col'),13);self.assertEqual(self.state('fx_timer'),12)
-        self.assertEqual(self.state('sfx_cur_prio'),4)                  # capture fanfare replaced the attack noise
+        self.assertEqual(self.state('smp_prio'),4)                      # the capture explosion replaced the attack sample
+        self.assertEqual(self.sample_started(),SMP_IDS['explosion'])
     def test_cursor_move_ticks(self):
         self.irq_on()
         self.put('selected',0);self.press('D')
@@ -759,7 +769,7 @@ class SoundFx(GameCase):
         self.put('selected',s);self.put('source',e);self.put('attacking',2);self.put('force',40);self.put('usedarms',0)
         self.cpu.x=s;self.call('attack_capture')
         self.assertEqual(self.state('fx_col'),2);self.assertEqual(self.state('shake_timer'),6)
-        self.assertEqual(self.cpu.m[0xd404],0x21)                       # sector-lost sting
+        self.assertEqual(self.sample_started(),SMP_IDS['grunt'])        # sector-lost grunt
     def test_hud_colours(self):
         self.call('draw_score');self.call('draw_panel')
         self.call('panel_values')

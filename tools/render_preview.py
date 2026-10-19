@@ -16,7 +16,7 @@ def preview(out,scenario='start'):
   cpu.m[0x02a6]=1;cpu.pc=syms['start'];seen=[0]
   def stop(c):
    if c.pc==syms['title_wait']:seen[0]+=1
-   if seen[0]>=6:raise StopIteration
+   if seen[0]>=340:raise StopIteration
   try:cpu.run_until(syms['main_loop'],on_pc=stop)
   except StopIteration:pass
  else:boot(cpu,syms)

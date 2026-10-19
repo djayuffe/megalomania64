@@ -1,10 +1,16 @@
-# Mega-Lo-Mania 64 v4.3 — norsk spillmanual
+# Mega-Lo-Mania 64 v4.4 — norsk spillmanual
 
 Uoffisielt, selvstendig utviklet strategispill inspirert av Mega-Lo-Mania for **Commodore 64 / C64C uten minneutvidelse**. Ekte 6510-maskinkode, VIC-II tegnsett og sprites, SID, rasterinterrupt-motor og fire konkurrerende fraksjoner.
 
 ## Oppstart
 
 Monter `dist/MegaLoMania64.d64` på en 1541-kompatibel stasjon, eller autostart `dist/MegaLoMania64.prg` i VICE. På BASIC-prompten: `LOAD"MEGALOMANIA",8,1` og `RUN`. Trykk **FIRE eller en tast** på tittelbildet.
+
+## Nytt i 4.4
+
+* **Originale lydeffekter** fra Amiga-utgaven (nedkonvertert til 4 bit / 5 kHz): angrep spiller epokens våpen, erobring = eksplosjon, tapt sektor = grynt, seier = orkesterslag, nederlag = pauker.
+* **Ny intro:** galaksen åpnes fra midten, åtte originale soldater (en per epoke) marsjerer inn med hver sin våpenlyd, deretter rasterstolper og tittelmelodi. Tast eller FIRE hopper over.
+* Den *originale* Amiga-introen er ikke portet: dataene lot seg ikke gjenvinne. Introen er en ny sekvens av originale bilder og lyder. Ingen har lyttet til lydene, og ingenting er prøvd på ekte maskinvare.
 
 ## Spillet
 

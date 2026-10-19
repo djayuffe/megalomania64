@@ -1,5 +1,18 @@
 # Endringslogg
 
+## v4.4.0 (19. oktober 2026)
+
+Originale Amiga-lydeffekter og en ny flerscene-intro bygget av de dekodede originaldataene.
+
+- **Originale lydeffekter:** 11 Amiga-8SVX-effekter (stokk, kast, muskett, maskingevær, kanon, rakett, laser, eksplosjon, grynt, orkesterslag, pauker) er nedkonvertert til 4 bit / 5 kHz (`tools/orig_convert.py`, 8401 byte) og spilles via SID-hovedvolumet (`$D418`) av en NMI-spiller (CIA 2 timer A, latch 196 PAL / 203 NTSC, `src/sample.asm`). SID-stemmene dempes og musikken står stille mens en lyd spilles; `disk_begin` stopper spilleren (seriebussen er tidskritisk).
+- **Hendelser:** angrep spiller epokens våpen (stokk, stokk, kast, kast, muskett, muskett, maskingevær, kanon, rakett, laser), erobring = eksplosjon, tapt sektor = grynt, avvist angrep = muskett, seier = orkesterslag, nederlag = pauker. Prioritet som for SID-effektene; øvrige effekter (valg, feil, oppfinnelse, våpenhvile, bygg, disk, tikk) er uendret på SID.
+- **Ny intro (`src/title.asm`):** (1) galaksen åpnes rad for rad fra midten, 4 bilder per steg, med originalt orkesterslag; (2) åtte originale soldater (epoke 0–7 fra `ARMIES.LBM`) marsjerer inn fra venstre til hver sin plass og hilser med epokens våpenlyd; (3) rasterstolper bak logoen, tittelmelodi og PRESS FIRE. Tast eller FIRE hopper over når som helst; spillets sprite-registre lagres og gjenopprettes.
+- **Minne:** motoren flyttet til `$8000` (kode og tabeller opp til `$9447`), lydbanken `$9447–$B517` (`$A000–$BFFF` er RAM fordi BASIC kobles ut, `$01=$36`); spriteramme og introskjerm-kilde i VIC-bank 1 (`$4000`, `$4D00`). Se `docs/MEMORY_MAP.md`.
+- **Feil funnet av nye tester/VICE og rettet før utgivelse:** den selvmodifiserende `lda` i spilleren ble satt sammen som null-side-instruksjon og overskrev egen kode (modelltest); `fx_tick` og `orig_tick` kjørte under introen og overstyrte soldat-spritene (modelltest).
+- **Tester:** 177 (nye: lydspiller, NMI-inngang, hendelses-samples, intro-avsløring, parade, hopp-over/gjenoppretting, 6502-modellen støtter nå RTI), 45 mutanter (22 nye).
+- **Verifisert i VICE 3.7.1 (PAL):** introen vises (avsløring, parade, stolper, PRESS FIRE-syklus; skjermbilder), lydopptak fra VICE viser lydbrudd under avsløring/parade og deretter tittelmelodien, og spillet fungerer etter introen (marsj, erobring, sprites gjenopprettet); NMI-spilleren kjørte en hel eksplosjonslyd til slutt og stoppet (lest fra minnet via VICE-monitoren). **Ingen har lyttet** til lydene eller vurdert kvaliteten (4 bit / 5 kHz), og ingenting er prøvd på ekte maskinvare.
+- **Ikke gjenvunnet:** den originale introsekvensen (Amiga-ILBM-bildene er fragmenterte, DOS-`.DAT`-filene er udekodet) og Amiga-musikken. Introen er en ny sekvens av originale ressurser. Valget av lyd per hendelse og soldat per epoke er dette prosjektets.
+
 ## v4.3.0 (19. oktober 2026)
 
 Originaldata (PC-utgaven fra 1991, via reverse-engineering-pakke v11) pakket ut og nedkonvertert til C64. Se `docs/ORIGINAL_DATA.md`.

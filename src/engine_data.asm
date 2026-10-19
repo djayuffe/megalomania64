@@ -23,6 +23,18 @@ border_col:   !byte 6
 fx_timer:     !byte 0
 fx_col:       !byte 0
 shake_timer:  !byte 0
+music_hold:   !byte 0         ; 1 = music/SFX sequencer paused (intro)
+it:           !byte 0         ; intro: reveal frame counter (saturates at 52)
+ip_clock:     !byte 0         ; intro: parade clock (saturates at 255)
+ip_arrived:   !byte 0         ; intro: soldiers that reached their slot
+ip_msb:       !byte 0
+ip_k:         !byte 0
+rv_k:         !byte 0
+rv_hi:        !byte 0
+ip_st:        !fill 8,0       ; 0 waiting, 1 walking, 2 arrived
+ip_xlo:       !fill 8,0
+ip_xhi:       !fill 8,0
+ts_save:      !fill 31,0      ; VIC sprite registers saved around the intro
 title_bmp:    !byte 0         ; 1 while the multicolour intro bitmap is shown
 titleidx:     !byte 0
 titleph:      !byte 0
@@ -41,6 +53,7 @@ saved_d015:   !byte 3
 ; The KERNAL serial-bus routines are cycle-sensitive: VIC badline and sprite DMA
 ; can break them. Blank the screen and switch sprites off around every disk access.
 disk_begin:
+ jsr sample_stop             ; no NMI while the serial bus is busy
  lda $d015
  sta saved_d015
  lda #0

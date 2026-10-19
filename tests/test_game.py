@@ -411,9 +411,9 @@ class StrategyTest(unittest.TestCase):
   for stage in (0,7,14,21,27):
    cpu=CPU(ROOT/'dist/MegaLoMania64.prg')
    cpu.m[self.sym['campaign_island']]=stage
-   cpu.push(0x7f);cpu.push(0xff);cpu.pc=self.sym['load_island']
+   cpu.push(0xff);cpu.push(0xef);cpu.pc=self.sym['load_island']
    count=0;seen=0
-   while cpu.pc!=0x8000:
+   while cpu.pc!=0xfff0:
     if cpu.pc==self.sym['plot']:
      seen+=1
      self.assertLess(cpu.x,40,('x overflow',stage,cpu.x))

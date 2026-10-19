@@ -16,11 +16,17 @@ The converted results are committed in `assets/orig/` so a normal build needs ne
 | `BUILDS.LBM` — building cells (64x60) | same | `assets/orig/build_icons.bin`: 10 icons, scaled to 12x21 multicolour |
 | `MEGA.EXE` — text tables | `orig_import.exe_text_tables` | `assets/orig/orig_text.json`: island names (26 + finale), epoch labels, rank titles, element names (with file offsets); island names are shown on the HUD |
 
+| Amiga ADF carves, `amiga_8svx/original_*_8SVX.iff` — 8SVX sound effects (stick, throw, musket, machine gun, cannon, missile, laser, explosion, grunt, orchestra hit, timpani) | `orig_import.load_8svx` | `assets/orig/samples.bin` (+ `samples.json` index): mean removed, resampled to 5 kHz, soft-limited and error-diffused to 4 bit, packed two per byte (8401 bytes). Played through the SID master volume by an NMI player (v4.4) |
+
+v4.4 note: the Amiga disk carves are fragmented — the **samples** are intact (8SVX has no compression here) but the carved ILBM **images** are garbled, so only the PC pictures above are used. The original *intro sequence* is therefore **not** recovered: the intro in v4.4 is a new sequence made of the decoded original art (galaxy, soldier sprites) and sounds. The Amiga music score is not available either; the tunes stay this port's own.
+
 Sprite colour mapping: dark → black (`$D025`), light low-saturation → light grey (`$D026`), coloured clothing/brick → the owner's colour (per-sprite). The galaxy is mapped by brightness onto black / blue / light blue / cyan / white with an ordered dither.
 
 ## Choices that are this port's, not recovered data
 
 * Which sheet row is shown for which epoch (`ARMY_STRIPS` in `tools/orig_convert.py`) and which building cell goes with which epoch.
+* Which sample goes with which event: attack = the epoch's weapon (stick, stick, throw, throw, musket, musket, machine gun, cannon, missile, laser), capture = explosion, sector lost = grunt, repulsed = musket, victory = orchestra hit, defeat = timpani. Clip lengths (0.09–0.5 s) and the 4-bit/5 kHz quality are the C64 limits, not the original's.
+* The eight soldiers of the intro parade are epochs 0–7 of the army sheet (epochs 8 and 9 are only in the game).
 * Slot 28 of the island names is "THE MOTHER" (from the original "the mother / of battles" strings); the original text refers to island 27 as MEGALOMANIA.
 
 ## Not used (not decoded by anyone yet)

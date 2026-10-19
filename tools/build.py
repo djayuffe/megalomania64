@@ -42,7 +42,7 @@ def main():
  table=(ROOT/'dist/symbols.txt').read_text()
  code_end=symbol(table,'cpu_count');last_data=symbol(table,'checksum_sum')+1
  if not (0x1000 < code_end < last_data < 0x3200):raise SystemExit('FATAL: program code/state overlaps the original-art sprite RAM at $3200')
- if symbol(table,'engine_end')>=0x5800:raise SystemExit('FATAL: engine code overlaps the intro picture data at $5800')
+ if symbol(table,'smp_end')>0xC000:raise SystemExit('FATAL: engine/sample bank runs into the $C000 save buffer')
  prg=output.read_bytes();top=prg[0]+256*prg[1]+len(prg)-3
  if top>=0xC000:raise SystemExit(f'FATAL: program ends at ${top:04X}, overlaps the $C000 save buffer')
  print(f'PRG ${prg[0]+256*prg[1]:04X}-${top:04X}, {len(prg)} bytes; free below save buffer: {0xC000-top-1} bytes')

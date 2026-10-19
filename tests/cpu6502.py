@@ -33,7 +33,9 @@ class CPU:
   pc=self.pc;op=self.fetch()
   if op not in DECODER:raise AssertionError(f'invalid opcode ${op:02X} at ${pc:04X}')
   name,mode=DECODER[op];self.steps+=1
-  if name in ('BRK','RTI'):raise AssertionError(f'unsupported interrupt ${pc:04X}')
+  if name=='RTI':   # NMI handlers end here (the sample player); IRQs leave through the $EA31/$EA81 shim
+   self.p=self.pop()|U;self.pc=self.pop()|(self.pop()<<8);return
+  if name=='BRK':raise AssertionError(f'unsupported interrupt ${pc:04X}')
   if name=='JSR':
    addr=self.fetch16()
    if addr==0xffe4:
@@ -88,7 +90,7 @@ class CPU:
     if self.in_irq:  # KERNAL IRQ tail: pull Y,X,A then RTI
      self.y=self.pop();self.x=self.pop();self.a=self.pop();self.p=self.pop()|U
      self.pc=self.pop()|(self.pop()<<8);self.in_irq=False
-    else:self.pc=0x8000   # direct call of a handler from a test
+    else:self.pc=0xfff0   # direct call of a handler from a test
     return
    self.pc=a if mode=='abs' else (self.m[a] | (self.m[(a&0xff00)|((a+1)&255)]<<8))
    return
@@ -169,9 +171,9 @@ class CPU:
   else:raise AssertionError(f'unimplemented {name} at ${pc:04X}')
  def call(self,addr,max_ops=400000):
   # emulate external JSR from a safe dummy $8000 entry
-  self.push(0x7f);self.push(0xff);self.pc=addr
+  self.push(0xff);self.push(0xef);self.pc=addr
   count=0;s0=self.s+2
-  while self.pc!=0x8000:
+  while self.pc!=0xfff0:
    self.step();count+=1
    if count>max_ops:raise AssertionError(f'runaway at ${self.pc:04X}: {count} instructions')
   self.s=s0&255

@@ -21,6 +21,8 @@ SFX_REPULSE = 12
 ; A = effect id. A running effect is only replaced by one of equal/higher priority.
 sfx_play:
  tax
+ jsr sfx_sample              ; original Amiga sample instead of the SID effect?
+ bcs sp_skip
  lda soundtime
  beq sp_go
  lda sfx_prio,x
@@ -55,6 +57,49 @@ sp_go:
 sp_skip:
  rts
 
+; X = effect id. Returns carry set when the SID effect must be skipped: either the
+; original sample for this event just started, or a sample is still playing (the SID
+; voices are muted for the duration). Preserves X.
+sfx_sample:
+ txa
+ pha
+ lda sfx_smp,x
+ cmp #$ff
+ beq ss_none
+ cmp #$fe
+ bne ss_have
+ ldy epoch                   ; attack: the weapon of the current epoch
+ lda attack_smp,y
+ss_have:
+ tay
+ lda smp_left
+ ora smp_left+1
+ beq ss_go
+ lda sfx_prio,x
+ cmp smp_prio
+ bcc ss_busy                 ; a more important sample is still playing
+ss_go:
+ lda sfx_prio,x
+ sta smp_prio
+ tya
+ jsr sample_play
+ss_busy:
+ pla
+ tax
+ sec
+ rts
+ss_none:
+ pla
+ tax
+ lda smp_left
+ ora smp_left+1
+ cmp #1                      ; carry set when a sample is playing (non-zero)
+ rts
+
+; sample per SFX id ($ff none, $fe by epoch)
+sfx_smp:   !byte $ff,$ff,$fe,SMP_XPLO,SMP_GRUNT,$ff,$ff,$ff,$ff,$ff,SMP_ORCH,SMP_TYMP,SMP_MUSKET
+attack_smp: !byte SMP_STICK,SMP_STICK,SMP_THROW,SMP_THROW,SMP_MUSKET,SMP_MUSKET,SMP_MG,SMP_CANNON,SMP_MISSILE,SMP_LASER
+
 beep_ok:
  lda #SFX_OK
  jmp sfx_play
@@ -74,6 +119,10 @@ sfx_len:   !byte 6, 9,12,16,14,22,10, 4,12, 2,60,70,10
 sfx_prio:  !byte 1, 2, 3, 4, 4, 4, 3, 1, 3, 0, 6, 6, 3
 
 sound_tick:
+ lda smp_left
+ ora smp_left+1
+ ora music_hold
+ bne st_quiet                ; sample playing (SID voices muted) or intro hold: music/SFX wait
  lda soundtime
  beq st_music
  dec soundtime
@@ -92,6 +141,8 @@ st_sweep:
  sta $d401
 st_music:
  jmp music_tick
+st_quiet:
+ rts
 
 ; Voice 2 = pulse lead (PWM), voice 3 = sawtooth bass. Each step releases both notes
 ; and re-gates them two frames later so repeated notes are articulated.

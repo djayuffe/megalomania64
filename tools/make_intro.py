@@ -223,7 +223,7 @@ def centre(text):
     return (W - len(text) * 8) // 2
 glyph_text('PRESS FIRE OR KEY', centre('PRESS FIRE OR KEY'), TEXT_ROW * 8, 1)
 glyph_text('UNOFFICIAL FAN GAME', centre('UNOFFICIAL FAN GAME'), (TEXT_ROW + 1) * 8, 12)
-glyph_text('C64C EDITION V4.3', centre('C64C EDITION V4.3'), (TEXT_ROW + 2) * 8, 11)
+glyph_text('C64C EDITION V4.4', centre('C64C EDITION V4.4'), (TEXT_ROW + 2) * 8, 11)
 
 # ---- convert to multicolour bitmap -----------------------------------------------
 def dist(a, b):

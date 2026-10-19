@@ -11,6 +11,8 @@
 ; --------------------------------------------------------------------------
 irq_install:
  sei
+ lda #$36
+ sta $01                    ; BASIC ROM out: RAM at $A000-$BFFF (sample bank); KERNAL and I/O stay
  lda #$7f
  sta $dc0d                   ; CIA1: no interrupt sources
  sta $dd0d                   ; CIA2: no NMI sources
@@ -28,6 +30,7 @@ irq_install:
  sta $d011
  lda #$ff
  sta $d019                   ; clear VIC flags
+ jsr sample_init             ; NMI vector for the sample player
  lda #$01
  sta $d01a                   ; raster IRQ only
  lda #0

@@ -1,10 +1,22 @@
-# Mega-Lo-Mania 64 — Island Wars, C64C Edition 4.3.0
+# Mega-Lo-Mania 64 — Island Wars, C64C Edition 4.4.0
 
 **Unofficial, independently programmed, fan-inspired real-time strategy game for an unexpanded Commodore 64 / C64C.** Native NMOS 6502/6510 machine code, 64 KB RAM, VIC-II character/sprite graphics, 3-voice SID, raster-interrupt engine. Everything — assembler, build, disk-image writer, 6502 test model — is in this repository and runs with plain Python 3.
 
 > Not a 1:1 port or licensed copy of the commercial *Mega-Lo-Mania*. It is a complete, playable strategy game of the same flavour. See [Honest status](#honest-status).
 
-## What is new in 4.3 — original game data, down-converted
+## What is new in 4.4 — original sound effects and a new multi-scene intro
+
+| Area | Status |
+|---|---|
+| **Original Amiga sound effects**: 11 8SVX samples (stick, throw, musket, machine gun, cannon, missile, laser, explosion, grunt, orchestra hit, timpani) down-converted to 4 bit / 5 kHz and played through the SID master volume by a CIA 2 NMI player; attacks use the weapon of the current epoch, capture = explosion, sector lost = grunt, victory = orchestra hit, defeat = timpani. The SID voices are muted and the music waits while a sample plays | **new** |
+| **Intro**: (1) the galaxy opens row by row from the middle with the original orchestra hit; (2) eight original soldiers (epochs 0–7 from `ARMIES.LBM`) march in from the left, each arrival playing that epoch's weapon sample; (3) raster bars behind the logo, title tune, PRESS FIRE. Any key/FIRE skips it and restores the game's sprite registers | **new** |
+| Memory: engine moved to `$8000`, 8.4 KB sample bank to `$B517` (`$A000–$BFFF` is RAM with BASIC banked out) | changed |
+| Bugs found before release: the self-modifying sample read was assembled as a zero-page `LDA` and overwrote its own code (model test); the colour pulse and army-sprite code ran during the intro and hijacked the soldier sprites (model test) | fixed |
+| 177 tests, 45 mutants (the 6502 model now supports RTI) | updated |
+
+**The original Amiga intro is not ported.** Its picture data in the Amiga disk carves is fragmented and the DOS `.DAT` files are undecoded, so no original intro sequence could be recovered; the intro above is a new sequence made from the decoded original art and sounds. The Amiga music score is not available either (the tunes stay this port's own). See [`docs/ORIGINAL_DATA.md`](docs/ORIGINAL_DATA.md).
+
+## What was new in 4.3 — original game data, down-converted
 
 The original 1991 data files (PC *Mega-Lo-Mania*, from the reverse-engineering package v11) were unpacked and converted for the C64. See [`docs/ORIGINAL_DATA.md`](docs/ORIGINAL_DATA.md) for exactly what was used, what could not be, and the licence note.
 
@@ -126,7 +138,7 @@ Sidebar rows: sector number, owner, **PACT** (truce ticks left with the selected
 Python 3.10+, no third-party packages for assembling and testing:
 
 ```bash
-python3 tools/build.py --test              # assemble, D64, 135 tests
+python3 tools/build.py --test              # assemble, D64, 177 tests
 python3 tools/build.py --test --preview --package   # + PNG previews (needs Pillow) + release ZIP
 make test
 ```
@@ -137,16 +149,18 @@ make test
 
 ```
 src/main.asm        game rules, AI, renderer, HUD, save/load (origin $0801/$1000, data to $30F9)
-src/engine.asm      v4 engine modules (origin $4000), includes:
+src/engine.asm      engine modules (origin $8000; bank-1 art at $4000), includes:
   irq.asm           raster IRQ engine + wait_frame
   joystick.asm      port-2 decoder: moves, FIRE tap, 8 chords
-  title.asm         title screen
+  title.asm         intro: reveal, soldier parade, title
+  sample.asm        NMI 4-bit sample player (original Amiga effects)
+  orig.asm          original-art army/icon sprites, island names
   diplomacy.asm     truces, power calculation
   inventions.asm    era weapons, rank-up notice, extra HUD rows, source sprite
   develop.asm       U key + extra key dispatch
   tables.asm        GENERATED: music + raster-bar tables
   engine_data.asm   volatile engine state, disk blanking, get_device
-assets/             charset (2 KB), cursor sprite, source-marker sprite
+assets/             charset (2 KB), cursor sprite, source-marker sprite, intro picture, orig/ (down-converted original sprites, galaxy, 4-bit samples)
 tools/              assembler, build, D64 writer, table/sprite generators, previews, packager
 tests/              6502 model + 135 tests (engine, game rules, tools)
 docs/               architecture, memory map, design, save format, QA, hardware test plan
@@ -161,4 +175,5 @@ dist/               built PRG, D64, symbols, checksums, previews, release ZIP
 * **NOT verified:** the sound effects' loudness/feel, real joystick feel (the joystick path is only model-tested), hardware-level 1541 / SD2IEC / Ultimate serial timing, a real C64C, raster-bar stability on real silicon, and balance against a human player over all 28 islands. Run [`docs/HARDWARE_TEST_PLAN.md`](docs/HARDWARE_TEST_PLAN.md) on real hardware and save only to a **copy** of a disk until then.
 * The raster bars are deliberately simple (not cycle-stable): expect slight edge jitter, title screen only.
 * Not a 1:1 recreation: the original *graphics* and island names are used (down-converted), but there are no original maps, invention tree, speech or multiplayer — the proprietary `.DAT` files are undecoded. The sheet-row-to-epoch assignment of the soldier and building sprites is this port's choice.
+* New in 4.4: the sample player and the intro run in VICE (PAL; screenshots, a WAV recording showing sample bursts then the title tune, and a memory read showing a full explosion sample played and stopped), but **nobody has listened** to the samples or judged their 4-bit / 5 kHz quality, NTSC was not run for 4.4, and the NMI load (about 5 kHz) makes raster-bar edges jitter during samples. Not tried on real hardware.
 * New in 4.3 and only checked in VICE by screenshot: the marching army and conquest icon (real-time positions, colours). Not judged on real hardware.

@@ -33,6 +33,8 @@ def _unpack_byterun1(src, expect):
             out += src[i:i + n + 1]
             i += n + 1
         elif n > 128:
+            if i >= len(src):
+                break
             out += bytes([src[i]]) * (257 - n)
             i += 1
     return bytes(out[:expect])
@@ -67,6 +69,32 @@ def load_ilbm(path):
                     row[x] |= 1 << p
         rows.append(row)
     return w, h, pal, rows
+
+
+def load_8svx(path):
+    """Return (rate_hz, name, signed_samples[list of int]) of an uncompressed 8SVX file."""
+    data = Path(path).read_bytes()
+    if data[:4] != b'FORM' or data[8:12] != b'8SVX':
+        raise ValueError('not an 8SVX file')
+    vhdr = body = None
+    name = ''
+    pos = 12
+    while pos + 8 <= len(data):
+        cid = data[pos:pos + 4]
+        size = struct.unpack('>I', data[pos + 4:pos + 8])[0]
+        payload = data[pos + 8:pos + 8 + size]
+        if cid == b'VHDR':
+            vhdr = struct.unpack('>IIIHBBI', payload[:20])
+        elif cid == b'NAME':
+            name = payload.decode('latin1').strip('\0 ')
+        elif cid == b'BODY':
+            body = payload
+        pos += 8 + size + (size & 1)
+    if vhdr is None or body is None:
+        raise ValueError('missing VHDR/BODY')
+    if vhdr[5] != 0:
+        raise ValueError('compressed 8SVX is not supported')
+    return vhdr[3], name, [b - 256 if b > 127 else b for b in body]
 
 
 def read_strings(exe_path):

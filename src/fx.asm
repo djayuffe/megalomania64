@@ -1,6 +1,6 @@
 ; --------------------------------------------------------------------------
 ; Visual effects driven from the frame IRQ: border flashes, screen shake
-; (horizontal scroll jitter) and pulsing sprite colours. Inactive on the title.
+; (horizontal scroll jitter) and pulsing sprite colours. Inactive during the title/intro.
 ; --------------------------------------------------------------------------
 ; A = border colour, X = frames
 fx_flash:
@@ -14,6 +14,7 @@ fx_shake_start:
 
 fx_tick:
  lda title_active
+ ora title_bmp                ; the intro owns the sprites and the border
  bne fx_done
  jsr orig_tick               ; marching army + conquest building icon
  lda fx_timer

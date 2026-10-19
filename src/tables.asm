@@ -59,3 +59,7 @@ island_names:
  !text "ZAPPA      ",0
  !text "MEGALOMANIA",0
  !text "THE MOTHER ",0
+smp_off_lo: !byte <(smp_data+0),<(smp_data+450),<(smp_data+925),<(smp_data+1150),<(smp_data+1388),<(smp_data+2388),<(smp_data+3638),<(smp_data+4388),<(smp_data+5513),<(smp_data+6213),<(smp_data+7463)
+smp_off_hi: !byte >(smp_data+0),>(smp_data+450),>(smp_data+925),>(smp_data+1150),>(smp_data+1388),>(smp_data+2388),>(smp_data+3638),>(smp_data+4388),>(smp_data+5513),>(smp_data+6213),>(smp_data+7463)
+smp_len_lo: !byte 132,182,194,220,208,196,220,202,120,196,84
+smp_len_hi: !byte 3,3,1,1,7,9,5,8,5,9,7

@@ -8,6 +8,7 @@ Outputs (committed, deterministic):
   assets/orig/galaxy_c64.png      160x200 palette-index backdrop in C64 colours (rows 58-175)
   assets/orig/army_frames.bin     10 epochs x 4 walk frames x 64 bytes (multicolour sprites)
   assets/orig/build_icons.bin     10 building icons x 64 bytes (multicolour sprites)
+  assets/orig/samples.bin         4-bit packed samples (original Amiga 8SVX, 5 kHz) + samples.json index
   assets/orig/orig_text.json      island / epoch / rank / element names with EXE offsets
   assets/orig/sprites_preview.png palette-accurate preview of every converted sprite
 
@@ -17,7 +18,8 @@ The mapping of sheet rows to epochs is a design choice of this port, not recover
 import argparse, json, sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from orig_import import load_ilbm, exe_text_tables
+from orig_import import load_ilbm, exe_text_tables, load_8svx
+import math
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'assets/orig'
@@ -67,6 +69,51 @@ def write_galaxy_png(img):
     im.putpalette(flat + [0] * (768 - len(flat)))
     im.putdata([c for row in img for c in row])
     im.save(OUT / 'galaxy_c64.png')
+
+
+# ---------------------------------------------------------------- samples (original Amiga 8SVX)
+SMP_RATE = 5000                      # playback rate of the C64 NMI player (Hz)
+# (key, carved file id on the Amiga disk, seconds kept, gain into the limiter)
+SAMPLES = [('stick', '00cda00', 0.18, 1.0), ('throw', '00c6e00', 0.19, 1.0), ('musket', '00c6800', 0.09, 1.0),
+           ('machinegun', '00c3400', 0.095, 1.0), ('cannon', '00c3a00', 0.40, 1.0), ('missile', '00c7e00', 0.50, 1.0),
+           ('laser', '00d0800', 0.30, 1.0), ('explosion', '00c9e00', 0.45, 1.0), ('grunt', '00cfc00', 0.28, 1.0),
+           ('orchestra', '0050a00', 0.50, 1.0), ('timpani', '0066600', 0.375, 1.0)]
+
+
+def sample_nibbles(orig, fid, seconds, gain):
+    rate, name, pcm = load_8svx(orig / 'amiga_8svx' / f'original_{fid}_8SVX.iff')
+    n_out = int(seconds * SMP_RATE)
+    step = rate / SMP_RATE
+    mean = sum(pcm) / len(pcm)
+    out = []
+    for k in range(n_out):
+        a, b = k * step, (k + 1) * step
+        i0, i1 = int(a), min(len(pcm), max(int(a) + 1, int(math.ceil(b))))
+        seg = pcm[i0:i1] if i0 < len(pcm) else [mean]
+        out.append(sum(seg) / len(seg) - mean)
+    peak = max(abs(v) for v in out) or 1.0
+    q, err, res = 1.6 * gain, 0.0, []
+    for k, v in enumerate(out):
+        y = math.tanh(q * v / peak) / math.tanh(q)
+        fade = min(1.0, (k + 1) / 4.0, (n_out - k) / 6.0)
+        t = 8.0 + 7.4 * y * fade + err
+        c = max(0, min(15, int(round(t))))
+        err = max(-1.0, min(1.0, t - c))
+        res.append(c)
+    if len(res) & 1:
+        res.append(8)
+    return name, res
+
+
+def samples(orig):
+    blob = bytearray()
+    index = []
+    for key, fid, secs, gain in SAMPLES:
+        name, nib = sample_nibbles(orig, fid, secs, gain)
+        index.append({'key': key, 'original_name': name, 'carve': fid, 'offset': len(blob), 'nibbles': len(nib), 'rate': SMP_RATE})
+        for i in range(0, len(nib), 2):
+            blob.append((nib[i] << 4) | nib[i + 1])
+    return bytes(blob), index
 
 
 # ---------------------------------------------------------------- sprites
@@ -213,6 +260,11 @@ def main():
     t = exe_text_tables(orig / 'MEGA.EXE')
     (OUT / 'orig_text.json').write_text(json.dumps(t, indent=1))
     preview(army, builds)
+    if (orig / 'amiga_8svx').is_dir():
+        blob, index = samples(orig)
+        (OUT / 'samples.bin').write_bytes(blob)
+        (OUT / 'samples.json').write_text(json.dumps({'rate': SMP_RATE, 'samples': index}, indent=1))
+        print('samples:', len(index), len(blob), 'bytes')
     print('wrote', ', '.join(sorted(p.name for p in OUT.iterdir())))
 
 

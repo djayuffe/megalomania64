@@ -138,6 +138,34 @@ test_small_outpost_can_recover (test_game.StrategyTest.test_small_outpost_can_re
 test_snapshot_range_validation_even_with_valid_checksums (test_game.StrategyTest.test_snapshot_range_validation_even_with_valid_checksums) ... ok
 test_stage_code_and_invalid_recovery (test_game.StrategyTest.test_stage_code_and_invalid_recovery) ... ok
 test_variable_research_cost (test_game.StrategyTest.test_variable_research_cost) ... ok
+test_fire_skips_the_intro_too (test_intro.Intro.test_fire_skips_the_intro_too) ... ok
+test_intro_opens_with_the_original_orchestra_hit (test_intro.Intro.test_intro_opens_with_the_original_orchestra_hit) ... ok
+test_intro_source_data_and_layout (test_intro.Intro.test_intro_source_data_and_layout) ... ok
+test_key_skips_at_any_point_and_restores_everything (test_intro.Intro.test_key_skips_at_any_point_and_restores_everything) ... ok
+test_msb_set_only_for_sprites_past_x_255 (test_intro.Intro.test_msb_set_only_for_sprites_past_x_255) ... ok
+test_music_and_bars_wait_for_the_end_of_the_parade (test_intro.Intro.test_music_and_bars_wait_for_the_end_of_the_parade) ... ok
+test_parade_walks_in_lands_on_slots_and_fires_the_epoch_weapon (test_intro.Intro.test_parade_walks_in_lands_on_slots_and_fires_the_epoch_weapon) ... ok
+test_press_fire_row_cycles_only_after_it_is_revealed (test_intro.Intro.test_press_fire_row_cycles_only_after_it_is_revealed) ... ok
+test_sequencer_is_held_during_the_reveal_even_without_a_sample (test_intro.Intro.test_sequencer_is_held_during_the_reveal_even_without_a_sample) ... ok
+test_starts_black_and_reveals_from_the_middle_row_outwards (test_intro.Intro.test_starts_black_and_reveals_from_the_middle_row_outwards) ... ok
+test_title_tune_plays_once_the_parade_is_done (test_intro.Intro.test_title_tune_plays_once_the_parade_is_done) ... ok
+test_vic_bank_and_bitmap_setup (test_intro.Intro.test_vic_bank_and_bitmap_setup) ... ok
+test_attack_uses_the_weapon_of_the_epoch (test_intro.SampleEvents.test_attack_uses_the_weapon_of_the_epoch) ... ok
+test_disk_access_stops_the_sample (test_intro.SampleEvents.test_disk_access_stops_the_sample) ... ok
+test_event_samples_and_silent_events (test_intro.SampleEvents.test_event_samples_and_silent_events) ... ok
+test_lower_priority_sample_does_not_cut_a_higher_one (test_intro.SampleEvents.test_lower_priority_sample_does_not_cut_a_higher_one) ... ok
+test_sequencer_waits_while_a_sample_plays (test_intro.SampleEvents.test_sequencer_waits_while_a_sample_plays) ... ok
+test_sid_effect_replaced_by_sample_and_blocked_while_it_plays (test_intro.SampleEvents.test_sid_effect_replaced_by_sample_and_blocked_while_it_plays) ... ok
+test_boot_installs_the_nmi_vector_and_idle_volume (test_intro.SamplePlayer.test_boot_installs_the_nmi_vector_and_idle_volume) ... ok
+test_every_sample_streams_its_nibbles_high_first_to_the_sid_volume (test_intro.SamplePlayer.test_every_sample_streams_its_nibbles_high_first_to_the_sid_volume) ... ok
+test_new_sample_replaces_the_running_one (test_intro.SamplePlayer.test_new_sample_replaces_the_running_one) ... ok
+test_nmi_entry_steps_the_player_and_keeps_registers (test_intro.SamplePlayer.test_nmi_entry_steps_the_player_and_keeps_registers) ... ok
+test_nmi_without_cia_flag_is_ignored (test_intro.SamplePlayer.test_nmi_without_cia_flag_is_ignored) ... ok
+test_playback_rate_pal_and_ntsc (test_intro.SamplePlayer.test_playback_rate_pal_and_ntsc) ... ok
+test_sample_bank_matches_the_index (test_intro.SamplePlayer.test_sample_bank_matches_the_index) ... ok
+test_sid_voices_are_muted_while_a_sample_plays_and_restored_after (test_intro.SamplePlayer.test_sid_voices_are_muted_while_a_sample_plays_and_restored_after) ... ok
+test_step_on_idle_player_just_stops (test_intro.SamplePlayer.test_step_on_idle_player_just_stops) ... ok
+test_stop_preserves_registers_and_is_safe_when_idle (test_intro.SamplePlayer.test_stop_preserves_registers_and_is_safe_when_idle) ... ok
 test_converted_assets_are_well_formed (test_tools.OriginalData.test_converted_assets_are_well_formed) ... ok
 test_ilbm_reader_decodes_planar_byterun1 (test_tools.OriginalData.test_ilbm_reader_decodes_planar_byterun1) ... ok
 test_ilbm_reader_rejects_other_files (test_tools.OriginalData.test_ilbm_reader_rejects_other_files) ... ok
@@ -146,11 +174,11 @@ test_assembly_is_reproducible (test_tools.Tools.test_assembly_is_reproducible) .
 test_basic_stub_and_entry (test_tools.Tools.test_basic_stub_and_entry) ... ok
 test_generated_tables_and_sprite_are_up_to_date (test_tools.Tools.test_generated_tables_and_sprite_are_up_to_date) ... ok
 test_music_tables_are_in_sid_range (test_tools.Tools.test_music_tables_are_in_sid_range) ... ok
-test_package_is_reproducible_and_complete (test_tools.Tools.test_package_is_reproducible_and_complete) ... MegaLoMania64_v4.3.0_Source.zip: 224527 bytes, sha256 867fedf85522b678968f19dad610078ad7749ce25656805a3d2bd4af678d42f6
-MegaLoMania64_v4.3.0_Source.zip: 224527 bytes, sha256 867fedf85522b678968f19dad610078ad7749ce25656805a3d2bd4af678d42f6
+test_package_is_reproducible_and_complete (test_tools.Tools.test_package_is_reproducible_and_complete) ... MegaLoMania64_v4.4.0_Source.zip: 266134 bytes, sha256 6ff21f11574a61497dace6ffec190c9e2766d661edbfe9915c1a1549dcbf0279
+MegaLoMania64_v4.4.0_Source.zip: 266134 bytes, sha256 6ff21f11574a61497dace6ffec190c9e2766d661edbfe9915c1a1549dcbf0279
 ok
 
 ----------------------------------------------------------------------
-Ran 149 tests in 53.590s
+Ran 177 tests in 71.725s
 
 OK
