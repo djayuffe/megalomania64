@@ -65,10 +65,10 @@ title_done:
 
 title_tx: !byte 12,4,2,5,5,9,1
 title_ty: !byte 5,7,10,12,15,19,22
-title_ti: !byte 1,14,5,13,10,7,11
+title_ti: !byte 1,3,5,7,4,7,3         ; colours 0-7 only: 8-15 would switch the glyphs to multicolour
 title_tl: !byte <ttl_0,<ttl_1,<ttl_2,<ttl_3,<ttl_4,<ttl_5,<ttl_6
 title_th: !byte >ttl_0,>ttl_1,>ttl_2,>ttl_3,>ttl_4,>ttl_5,>ttl_6
-title_pal: !byte 2,10,7,1,7,10,2,9
+title_pal: !byte 2,4,7,1,7,3,5,4
 ttl_0: !text "MEGA-LO-MANIA 64",0
 ttl_1: !text "ISLAND WARS  -  C64C EDITION 4.0",0
 ttl_2: !text "28 ISLANDS - 10 EPOCHS - 4 FACTIONS",0

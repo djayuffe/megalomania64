@@ -18,3 +18,16 @@
 9. Validate sprite vs screen at boundaries x0..x3, y0..y2, no scrolling/collision.
 
 **Gate to production/hardware-verified label**: record actual VICE/real-system results for every test, with video/serial logs or screenshots, and correct failures before upgrading confidence status.
+
+## v4 additions (all NOT yet executed)
+
+10. **Boot and IRQ.** Title appears; colour-cycled logo; raster bars visible (expect slight edge jitter, none after dismissal; border returns to blue). Any key and joystick FIRE both leave the title. RUN/STOP+RESTORE still returns to BASIC. No cursor-blink artefacts anywhere on screen after 5 minutes.
+11. **Frame pacing.** One game tick per 16 (PAL) / 19 (NTSC) frames while idle and while the AI is busy; pause/resume does not burst; after a disk operation time does not jump more than 8 frames.
+12. **Music.** Tunes change with epoch (islands 1–12 / 13–21 / 22–28 → ancient / medieval / industrial); title tune differs; no hanging note after pause or disk access; SFX on voice 1 still audible over music.
+13. **Joystick.** Direction edges move one step; diagonal moves once; FIRE tap = ENTER/raid; all 8 chords work on a real stick and cancel the tap; FIRE on pause/victory/defeat screens. No phantom keystrokes from stick movement.
+14. **Diplomacy.** `E` on a weaker/stronger rival gives refusal/acceptance; AI stays off you for 90 ticks; attacking the partner prints `YOU BROKE THE TRUCE!`; `PACT:` HUD counts down.
+15. **Inventions / U.** Era weapon on HUD changes per island group; rank-up message; `U` ladder on a fresh sector.
+16. **Disk, the important one.** Use a **copy** of the disk. `O` twice in a row (second must replace the first): directory shows one `ML64SAVE`, message `GAME SAVED AND VERIFIED`; screen is blank and sprites vanish only during the access and return afterwards; no "SAVING" text over the map. `I` after `N` restores everything incl. truces. Boot from device 9/10 and repeat (device follows the boot drive). Write-protect the disk: `O` must report `DISK/SAVE ERROR`, never `SAVED`. Test SD2IEC/Ultimate/real 1541.
+17. **Source marker.** Sprite 1 diamond sits in the army-source sector, is visible next to the cursor and survives island changes and loads.
+
+**Gate to a "hardware-verified" label:** record the result of every numbered test above (video, screenshots or logs) and fix failures first.

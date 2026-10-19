@@ -1,5 +1,40 @@
 # Endringslogg
 
+## v4.0.0 (19. oktober 2026)
+
+**Motor**
+- Rasterinterrupt-motor: én IRQ per bilde (CIA-timer-IRQ av) som kjeder til KERNAL (`$EA31`). Hovedløkken sover på `vblank` i stedet for å polle `$D012`; tikk-klokken akkumulerer forløpte bilder og beholder restbilder (ingen drift), og klemmer etter lange diskoperasjoner (maks. 8 bilder).
+- Joystick port 2 samples i IRQ med kolonnene avvalgt (`$DC00=$FF`) før tastaturskanning.
+- SID-musikk og lydeffekter kjører fra IRQ. Fire melodier (antikk, middelalder, industri, tittel) velges etter epoke.
+- Tittelbilde med fargesyklet logo og kjedet rasterstolpe-stabel (16 stolper, 3 linjer, svingende startlinje). Siste stolpe vises nå full høyde (eget gjenopprettings-IRQ).
+- Hardware-sprite 1 markerer hærkilde-sektoren.
+
+**Spill**
+- Diplomati: `E` foreslår våpenhvile med eieren av valgt rivalsektor. Aksept hvis din styrke ≥ rivalens (folk + våpen/2 + 4·teknologi, 16-bit). Varighet 90 tikk; avslag, brudd og utløp gir 60 tikk karantene. AI angriper ikke spilleren under våpenhvile; ekte angrep (garnison ≥ 8) mot partneren opphever avtalen.
+- Oppfinnelser: hver epoke har et signaturvåpen på HUD (`ARM:`); hvert forskningsnivå for spillerens sektorer melder `INVENTION: <VÅPEN> MARK n`.
+- `U` utvikler valgt sektor automatisk (laboratorium → fabrikk → gruvearbeidere → gruve → forskere → fort → våpen → …) via de vanlige byggerutinene.
+- Joystick: FIRE-trykk + åtte FIRE+retning-akkorder (T, U, Q, E, H, Y, Z, pause) med 4 bilders debounce; FIRE er kontekstavhengig ved pause, seier og nederlag.
+- Ny HUD-linje `PACT:` og `ARM:`; hjelpelinjer oppdatert.
+
+**Disk**
+- Lagring: DOS `S0:ML64SAVE` (scratch) over kommandokanal 15, deretter vanlig `SAVE` (ingen upålitelig `@0:`), deretter KERNAL **VERIFY**-tilbakelesing og `READST`-kontroll. Innlasting kontrollerer også `READST`.
+- Enhetsnummer følger `$BA` (stasjonen spillet ble startet fra), ellers 8.
+- Skjerm og sprites slås av rundt all serielinjeaktivitet (badline-/sprite-DMA); `$D011`-MSB røres aldri; avbrudd slås på igjen også etter feil.
+- Snapshot-format **v4** (inkluderer våpenhviler). v3-filer avvises.
+
+**Rettelser**
+- KERNAL-markørblink (`$CC`) kunne XOR-e skjermminnet — slått av.
+- KERNAL-meldinger (`$9D`) slått av så «SAVING»/«SEARCHING» ikke havner over kartet; gamle tastetrykk i tastaturkøen forkastes ved tittelbildet.
+- Hjelpelinjer var 41 tegn og brøt over kanten (fanget av test).
+- Tittelfarger 8–15 ga flerfargetegn og ødela teksten (fanget i forhåndsvisning).
+- `D64`-testen validerte en foreldet fil; bygger nå alltid på nytt.
+
+**Test og bygg**
+- Testmodellen får IRQ-avfyring, KERNAL-diskshim (OPEN/CLOSE/SAVE/LOAD/VERIFY/READST), joystick-pinner, rasterlinje-MSB. 43 → 114 tester, mutasjonssjekket (13 bevisste feil, alle fanget).
+- `tools/gen_tables.py`, `tools/make_sprites.py`, `tools/package.py` (reproduserbar ZIP), `Makefile`, GitHub Actions CI.
+
+**Fortsatt ikke verifisert:** ekte VICE/maskinvare for VIC-II, SID, CIA, 1541, rasterstolpenes utseende og PAL/NTSC-tempo. Se `docs/HARDWARE_TEST_PLAN.md`.
+
 ## v3.0.0 (19. oktober 2026)
 
 - Implementert lagring/gjenoppretting av levende spilltilstand ved C64 KERNAL SAVE/LOAD på logisk enhet 8, med versjonert filformat `ML64` v3, lengde og to 8-bits sjekksummer, kontroll av eier- og ressursgrenser, samt rekonstruksjon av epokegrafikk. Dette er verifisert med en modellert KERNAL-disk-shim, **ikke** VICE eller fysisk 1541.

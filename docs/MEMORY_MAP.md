@@ -1,14 +1,18 @@
-# Native C64 memory plan v3
+# Native C64 memory plan v4
 
 | Range | Purpose |
 |---|---|
-| `$0000–$00FF` | KERNAL/CPU zero page; game uses `$FB–$FE` temporary string/display pointers |
-| `$0400–$07E7` | VIC-II 1000-byte screen map; sprite pointer at `$07F8` |
-| `$0801–$080C` | BASIC launcher `10 SYS4096` |
-| `$1000–$30FA` | Compiled game code, 28 map pairs, text, state; has no 256-byte page restrictions |
-| `$3700–$373F` | Sprite 0 shape (64 bytes) |
-| `$3800–$3FFF` | 2 KB custom character memory / VIC bank 0, selected with `$D018=$1E` |
-| `$C000–$C0E6` | Temporary savegame file staging buffer; not used for game code |
-| `$D800–$DBE7` | VIC colour RAM per character, not byte-latched program RAM |
+| `$0000–$00FF` | Zero page. Game uses `$FB–$FE` (text/screen pointers). Touches KERNAL `$9D` (message flag, set 0), `$BA` (device, read), `$C6` (key queue length, cleared), `$CC` (cursor blink, set 1) |
+| `$0314/$0315` | IRQ vector → `irq_handler` |
+| `$0400–$07E7` | Screen; `$07F8` cursor sprite pointer (`$DC`), `$07F9` source-marker pointer (`$DD`) |
+| `$0801–$080C` | BASIC `10 SYS4096` |
+| `$1000–$30F9` | Game code, 28 maps, text, state (snapshot block `owner..cpu_count`) |
+| `$3700–$373F` | Sprite 0 (cursor) |
+| `$3740–$377F` | Sprite 1 (army-source diamond) |
+| `$3800–$3FFF` | 2 KB character set (VIC bank 0, `$D018=$1E`) |
+| `$4000–$491F` | **v4 engine**: IRQ, joystick, title, diplomacy, inventions, develop, tables, engine state (`dist/symbols.txt` has exact addresses) |
+| `$4920–$BFFF` | Free (≈30 KB) |
+| `$C000–…` | Save/load staging buffer (8 + N bytes) |
+| `$D800–$DBE7` | Colour RAM. **Text must use colours 0–7**: values 8–15 select multicolour glyphs |
 
-The assembler exports symbols in `dist/symbols.txt`. Game updates only changed 6×5-character sectors and redraws HUD counters with short routines, rather than generating a 320×200 bitmap (which would need 8000 graphic bytes). Screenshots reconstructed from the native memory arrays are **not** evidence of VIC-II timing acceptance.
+VIC bank 0 is `$0000–$3FFF`; the engine sits above it because it needs no VIC access. `tools/build.py` fails the build if code/state reaches `$3700` or the PRG reaches `$C000`.

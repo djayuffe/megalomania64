@@ -1,3 +1,69 @@
+test_develop_never_touches_enemy_or_free_land (test_engine.Develop.test_develop_never_touches_enemy_or_free_land) ... ok
+test_fortification_is_built_when_ore_allows (test_engine.Develop.test_fortification_is_built_when_ore_allows) ... ok
+test_priority_ladder (test_engine.Develop.test_priority_ladder) ... ok
+test_ai_never_attacks_human_under_truce_but_does_without (test_engine.Diplomacy.test_ai_never_attacks_human_under_truce_but_does_without) ... ok
+test_equal_power_is_accepted (test_engine.Diplomacy.test_equal_power_is_accepted) ... ok
+test_failed_launch_does_not_void_truce (test_engine.Diplomacy.test_failed_launch_does_not_void_truce) ... ok
+test_new_island_clears_truces (test_engine.Diplomacy.test_new_island_clears_truces) ... ok
+test_only_rival_sectors_can_be_negotiated_with (test_engine.Diplomacy.test_only_rival_sectors_can_be_negotiated_with) ... ok
+test_player_attack_voids_truce (test_engine.Diplomacy.test_player_attack_voids_truce) ... ok
+test_power_comparison_is_16_bit (test_engine.Diplomacy.test_power_comparison_is_16_bit) ... ok
+test_second_proposal_does_not_extend (test_engine.Diplomacy.test_second_proposal_does_not_extend) ... ok
+test_simulate_ticks_truces (test_engine.Diplomacy.test_simulate_ticks_truces) ... ok
+test_snapshot_rejects_out_of_range_truce_even_with_valid_checksums (test_engine.Diplomacy.test_snapshot_rejects_out_of_range_truce_even_with_valid_checksums) ... ok
+test_stronger_player_gets_truce_and_hud_shows_it (test_engine.Diplomacy.test_stronger_player_gets_truce_and_hud_shows_it) ... ok
+test_truce_expires_and_starts_cooldown (test_engine.Diplomacy.test_truce_expires_and_starts_cooldown) ... ok
+test_truce_only_protects_against_the_partner (test_engine.Diplomacy.test_truce_only_protects_against_the_partner) ... ok
+test_truce_state_survives_save_and_load (test_engine.Diplomacy.test_truce_state_survives_save_and_load) ... ok
+test_weaker_player_is_refused_then_cooldown_blocks (test_engine.Diplomacy.test_weaker_player_is_refused_then_cooldown_blocks) ... ok
+test_follows_the_device_we_were_loaded_from (test_engine.Disk.test_follows_the_device_we_were_loaded_from) ... ok
+test_missing_drive_reports_error_and_keeps_state (test_engine.Disk.test_missing_drive_reports_error_and_keeps_state) ... ok
+test_raster_compare_msb_is_never_set_by_disk_blanking (test_engine.Disk.test_raster_compare_msb_is_never_set_by_disk_blanking) ... ok
+test_read_error_status_after_load_is_rejected (test_engine.Disk.test_read_error_status_after_load_is_rejected) ... ok
+test_save_scratches_then_saves_plain_name_and_verifies (test_engine.Disk.test_save_scratches_then_saves_plain_name_and_verifies) ... ok
+test_screen_and_sprites_are_off_during_every_kernal_io_call_and_restored_after (test_engine.Disk.test_screen_and_sprites_are_off_during_every_kernal_io_call_and_restored_after) ... ok
+test_screen_is_restored_even_when_the_disk_fails (test_engine.Disk.test_screen_is_restored_even_when_the_disk_fails) ... ok
+test_second_save_replaces_first (test_engine.Disk.test_second_save_replaces_first) ... ok
+test_unknown_device_number_falls_back_to_8 (test_engine.Disk.test_unknown_device_number_falls_back_to_8) ... ok
+test_version_3_files_are_refused (test_engine.Disk.test_version_3_files_are_refused) ... ok
+test_write_protected_disk_is_reported_not_trusted (test_engine.Disk.test_write_protected_disk_is_reported_not_trusted) ... ok
+test_random_play_keeps_every_invariant (test_engine.Fuzz.test_random_play_keeps_every_invariant) ... ok
+test_memory_map_has_no_collisions (test_engine.Graphics.test_memory_map_has_no_collisions) ... ok
+test_panel_extra_rows_do_not_overflow_the_screen (test_engine.Graphics.test_panel_extra_rows_do_not_overflow_the_screen) ... ok
+test_source_marker_tracks_source_sector (test_engine.Graphics.test_source_marker_tracks_source_sector) ... ok
+test_sprite_data_is_in_place_and_nonempty (test_engine.Graphics.test_sprite_data_is_in_place_and_nonempty) ... ok
+test_sprite_pointers_survive_screen_clear (test_engine.Graphics.test_sprite_pointers_survive_screen_clear) ... ok
+test_ai_rank_up_is_silent (test_engine.Inventions.test_ai_rank_up_is_silent) ... ok
+test_hud_lists_current_epoch_weapon (test_engine.Inventions.test_hud_lists_current_epoch_weapon) ... ok
+test_message_names_the_current_epoch_and_rank (test_engine.Inventions.test_message_names_the_current_epoch_and_rank) ... ok
+test_rank_up_announces_epoch_weapon_for_player_only (test_engine.Inventions.test_rank_up_announces_epoch_weapon_for_player_only) ... ok
+test_rank_up_does_not_derail_the_rest_of_that_sector_update (test_engine.Inventions.test_rank_up_does_not_derail_the_rest_of_that_sector_update) ... ok
+test_rank_up_keeps_simulation_index_intact (test_engine.Inventions.test_rank_up_keeps_simulation_index_intact) ... ok
+test_bars_stay_off_during_play (test_engine.IrqEngine.test_bars_stay_off_during_play) ... ok
+test_boot_disables_kernal_cursor_blink_and_starts_raster_irq (test_engine.IrqEngine.test_boot_disables_kernal_cursor_blink_and_starts_raster_irq) ... ok
+test_foreign_interrupt_is_not_counted (test_engine.IrqEngine.test_foreign_interrupt_is_not_counted) ... ok
+test_frame_irq_counts_vblank_samples_joystick_and_restores_registers (test_engine.IrqEngine.test_frame_irq_counts_vblank_samples_joystick_and_restores_registers) ... ok
+test_install_programs_vic_cia_and_vector (test_engine.IrqEngine.test_install_programs_vic_cia_and_vector) ... ok
+test_main_loop_runs_one_tick_per_frames_per_tick_and_is_drift_free (test_engine.IrqEngine.test_main_loop_runs_one_tick_per_frames_per_tick_and_is_drift_free) ... ok
+test_music_sequence_wraps_after_16_steps (test_engine.IrqEngine.test_music_sequence_wraps_after_16_steps) ... ok
+test_music_tune_follows_epoch_and_title (test_engine.IrqEngine.test_music_tune_follows_epoch_and_title) ... ok
+test_pause_freezes_the_simulation_clock (test_engine.IrqEngine.test_pause_freezes_the_simulation_clock) ... ok
+test_slow_frames_keep_the_remainder (test_engine.IrqEngine.test_slow_frames_keep_the_remainder) ... ok
+test_stall_after_disk_access_is_clamped_to_eight_frames (test_engine.IrqEngine.test_stall_after_disk_access_is_clamped_to_eight_frames) ... ok
+test_title_raster_bars_cycle_and_restore_frame (test_engine.IrqEngine.test_title_raster_bars_cycle_and_restore_frame) ... ok
+test_wait_frame_sleeps_until_irq (test_engine.IrqEngine.test_wait_frame_sleeps_until_irq) ... ok
+test_all_eight_chords_decode_after_debounce (test_engine.Joystick.test_all_eight_chords_decode_after_debounce) ... ok
+test_changing_direction_while_holding_fire_restarts_debounce (test_engine.Joystick.test_changing_direction_while_holding_fire_restarts_debounce) ... ok
+test_chord_effects_through_read_keys (test_engine.Joystick.test_chord_effects_through_read_keys) ... ok
+test_diagonal_moves_once_and_sequential_press_moves_again (test_engine.Joystick.test_diagonal_moves_once_and_sequential_press_moves_again) ... ok
+test_fire_tap_is_context_sensitive_on_pause_victory_and_defeat (test_engine.Joystick.test_fire_tap_is_context_sensitive_on_pause_victory_and_defeat) ... ok
+test_fire_tap_sets_source_on_own_land_and_raids_otherwise (test_engine.Joystick.test_fire_tap_sets_source_on_own_land_and_raids_otherwise) ... ok
+test_joystick_never_mutates_enemy_or_state_on_idle (test_engine.Joystick.test_joystick_never_mutates_enemy_or_state_on_idle) ... ok
+test_unmapped_chord_and_release_do_nothing (test_engine.Joystick.test_unmapped_chord_and_release_do_nothing) ... ok
+test_fire_button_dismisses_title (test_engine.Title.test_fire_button_dismisses_title) ... ok
+test_title_flushes_stale_keyboard_queue (test_engine.Title.test_title_flushes_stale_keyboard_queue) ... ok
+test_title_screen_draws_waits_and_hands_over_on_key (test_engine.Title.test_title_screen_draws_waits_and_hands_over_on_key) ... ok
+test_title_text_uses_hires_colours_only (test_engine.Title.test_title_text_uses_hires_colours_only) ... ok
 test_28_stage_end_to_end_victory (test_game.StrategyTest.test_28_stage_end_to_end_victory) ... ok
 test_adjacency_at_row_boundary (test_game.StrategyTest.test_adjacency_at_row_boundary) ... ok
 test_ai_adapts_workforce (test_game.StrategyTest.test_ai_adapts_workforce) ... ok
@@ -41,8 +107,15 @@ test_small_outpost_can_recover (test_game.StrategyTest.test_small_outpost_can_re
 test_snapshot_range_validation_even_with_valid_checksums (test_game.StrategyTest.test_snapshot_range_validation_even_with_valid_checksums) ... ok
 test_stage_code_and_invalid_recovery (test_game.StrategyTest.test_stage_code_and_invalid_recovery) ... ok
 test_variable_research_cost (test_game.StrategyTest.test_variable_research_cost) ... ok
+test_assembly_is_reproducible (test_tools.Tools.test_assembly_is_reproducible) ... ok
+test_basic_stub_and_entry (test_tools.Tools.test_basic_stub_and_entry) ... ok
+test_generated_tables_and_sprite_are_up_to_date (test_tools.Tools.test_generated_tables_and_sprite_are_up_to_date) ... ok
+test_music_tables_are_in_sid_range (test_tools.Tools.test_music_tables_are_in_sid_range) ... ok
+test_package_is_reproducible_and_complete (test_tools.Tools.test_package_is_reproducible_and_complete) ... MegaLoMania64_v4.0.0_Source.zip: 146386 bytes, sha256 877a86f0ce65ba020aa3bd49d40550bab90f0894fe3a06821bf0a8645c683df9
+MegaLoMania64_v4.0.0_Source.zip: 146386 bytes, sha256 877a86f0ce65ba020aa3bd49d40550bab90f0894fe3a06821bf0a8645c683df9
+ok
 
 ----------------------------------------------------------------------
-Ran 43 tests in 8.980s
+Ran 114 tests in 30.554s
 
 OK

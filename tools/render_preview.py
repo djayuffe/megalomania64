@@ -6,19 +6,27 @@ from PIL import Image
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'tests'))
 from cpu6502 import CPU
+from common import boot
 PALETTE=[(0,0,0),(255,255,255),(136,0,0),(170,255,238),(204,68,204),(0,204,85),(0,0,170),(238,238,119),(221,136,85),(102,68,0),(255,119,119),(51,51,51),(119,119,119),(170,255,102),(0,136,255),(187,187,187)]
 
 def preview(out,scenario='start'):
  syms={v:int(k,16) for k,v in (line.split() for line in (ROOT/'dist/symbols.txt').read_text().splitlines())}
- cpu=CPU(ROOT/'dist/MegaLoMania64.prg');cpu.pc=syms['start']
- for _ in range(400000):
-  if cpu.pc==syms['main_loop']:break
-  cpu.step()
- else:raise RuntimeError('Boot never reached main loop')
+ cpu=CPU(ROOT/'dist/MegaLoMania64.prg')
+ if scenario=='title':
+  cpu.m[0x02a6]=1;cpu.pc=syms['start'];seen=[0]
+  def stop(c):
+   if c.pc==syms['title_wait']:seen[0]+=1
+   if seen[0]>=6:raise StopIteration
+  try:cpu.run_until(syms['main_loop'],on_pc=stop)
+  except StopIteration:pass
+ else:boot(cpu,syms)
  if scenario=='expansion':
   cpu.key=ord('D');cpu.call(syms['read_keys'])
   cpu.key=ord('X');cpu.call(syms['read_keys'])
   for _ in range(8):cpu.call(syms['simulate'])
+ if scenario=='truce':
+  cpu.key=ord('S');cpu.call(syms['read_keys'])   # selection onto a rival after moving
+  cpu.m[syms['selected']]=11;cpu.key=ord('E');cpu.call(syms['read_keys']);cpu.call(syms['panel_values'])
  if scenario=='future':
   for key in ('L','2','8'):
    cpu.key=ord(key);cpu.call(syms['read_keys'])
@@ -47,10 +55,19 @@ def preview(out,scenario='start'):
     b=m[0x3700+y*3+(bx//8)]
     if b&(1<<(7-bx%8)) and 0<=sx+bx<320 and 0<=sy+y<200:
      pixels[sx+bx,sy+y]=PALETTE[m[0xd027]&15]
+ if m[0xd015]&2:
+  sx=m[0xd002]-24;sy=m[0xd003]-50
+  for y in range(21):
+   for bx in range(24):
+    b=m[0x3740+y*3+(bx//8)]
+    if b&(1<<(7-bx%8)) and 0<=sx+bx<320 and 0<=sy+y<200:
+     pixels[sx+bx,sy+y]=PALETTE[m[0xd028]&15]
  out=Path(out);out.parent.mkdir(parents=True,exist_ok=True);px.resize((960,600),Image.Resampling.NEAREST).save(out)
  print(f'Rendered memory-accurate reference: {out}')
 
 if __name__=='__main__':
+ preview(ROOT/'dist/preview_title.png','title')
  preview(ROOT/'dist/preview_initial.png')
+ preview(ROOT/'dist/preview_truce.png','truce')
  preview(ROOT/'dist/preview_expansion.png','expansion')
  preview(ROOT/'dist/preview_future.png','future')

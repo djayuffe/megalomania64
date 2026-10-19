@@ -176,6 +176,23 @@ class Title(GameCase):
         self.cpu.run_until(0x8000,irq_every=1500)
         self.assertEqual(self.state('title_active'),0)
 
+    def test_title_text_uses_hires_colours_only(self):
+        # Colour RAM values 8-15 switch a character to multicolour mode and garble text glyphs.
+        for table,n in (('title_ti',7),('title_pal',8)):
+            vals=[self.cpu.m[self.sym[table]+i] for i in range(n)]
+            self.assertTrue(all(0<=v<=7 for v in vals),(table,vals))
+        self.irq_on();self.cpu.push(0x7f);self.cpu.push(0xff);self.cpu.pc=self.sym['title_screen']
+        seen=[0]
+        def watch(c):
+            if c.pc==self.sym['title_wait']:
+                seen[0]+=1
+                if seen[0]==3:
+                    for row in (5,7,10,12,15,19,22):
+                        cols=[c.m[0xd800+row*40+x] for x in range(40) if c.m[0x400+row*40+x]!=32]
+                        self.assertTrue(all(v<=7 for v in cols),(row,cols))
+                if seen[0]==5:c.key=32
+        self.cpu.run_until(0x8000,on_pc=watch,irq_every=1500)
+
 class Joystick(GameCase):
     def stick(self,raw):
         self.put('joy_raw',raw);self.call('read_keys')

@@ -1,38 +1,32 @@
-# v2.0 teknisk arkitektur for VIC-II / 6510
+# Architecture v4 (VIC-II / 6510)
 
-## Minnekart
+## Frame and tick model
 
-| Adresse | Bruk |
-|---|---|
-| `$0801–$080C` | BASIC-kjede, linje `10 SYS4096` |
-| `$1000–$2CBA` (omtrent) | Maskinkode, musikkdata, 28 verdenskart, datastrukturer, live spilltilstand. Nøyaktig sluttadresse må leses fra `dist/symbols.txt`. |
-| `$3700–$373F` | Justert 64-byte markørsprite, `$07F8=$DC` |
-| `$3800–$3FFF` | 256 glyphs × 8 byte = 2048-byte karaktersett |
-| `$0400–$07E7` | 40×25 synlig tegnskjerm |
-| `$07F8` | Sprite-0-peker |
-| `$D800–$DBE7` | Colour RAM (bare lav nibble) |
-| `$D400...` | SID registre for stemme 1/2/3 |
-| `$FB–$FE` | Arbeidspekere for skriving i skjerm/Color RAM |
+`irq_install` (called from `start`) switches the CIA1/CIA2 interrupt sources off, points `$0314` at `irq_handler`, and enables only the VIC raster IRQ on line 250 (PAL and NTSC). One IRQ per frame:
 
-Programmet starter ved `$1000` uten RAM-utvidelse og er lastet inn via standard PRG-lasteadresse. PRG inkluderer hull frem til grafikken med nullutfylling. Build-systemet sjekker kodens slutt før sprites på `$3700` og bekrefter 2 KB font / 64-byte sprite. Kjørbar fil er omkring 14 KB, inkludert hull og BASIC-entry. Ingen ROM-hacks eller raster-avbruddsrutiner.
+1. acknowledge `$D019`; bump `vblank`;
+2. write `$DC00 = $FF` (no keyboard column selected) and sample port 2 into `joy_raw`;
+3. `sound_tick` — SFX gate timer and the 2-voice music sequencer (tune by epoch; tune 3 on the title);
+4. if the title is up, arm the raster-bar stack; then `JMP $EA31` — the KERNAL keeps the jiffy clock and keyboard buffer alive.
 
-## Tegnsystem
+`main_loop` sleeps in `wait_frame` until `vblank` changes, adds the elapsed frames (clamped to 8 after long disk I/O) to `frames`, and when `frames ≥ frames_per_tick` (16 PAL / 19 NTSC) subtracts the tick length **keeping the remainder**, then runs `simulate`. A slow frame therefore never loses time.
 
-`$D018=$1E`: VIC bank 0; skjerm ved `$0400`, custom glyphs ved `$3800`. `$D016=$18`: 40 kolonner og tegn-multicolor. For tegn med Color RAM-verdier 8–15 brukes 4 tobits-piksler pr. grafikkbyte og vertikal 8x multiplikasjon; for tekst med Color RAM 0–7 brukes 8 individuelle piksler. Land har 5 biomer, ekstra nyansesymboler, epoke-bygg, tårn og havmønster; tegnsystemet tegner separate 6×5-ruters sektorer i fire formmasker.
+## Raster bars (title only)
 
-Den dyre operasjonen `clear_screen` utføres bare ved innlasting av ny øy. Under spill endres territorier selektivt ved erobring/bygningsendringer/befolkningsvekst; HUD-verdier oppdateres separat. `plot` kopierer en byte til `$0400` og den tilsvarende fargen ved base `$D800` gjennom et par zero-page pointers. Maskinkodetestene instrumenterer alle `plot`-kall under initialisering av representative verdenskart og verifiserer at X er 0–39, Y er 0–24.
+Stage 0 picks a start line from a 32-entry wobble table and sets `irq_stage=1`. Stages 1..16 each write one colour to `$D020/$D021`, advance the compare line by 3 and leave through `$EA81` (register restore + RTI). Stage 17 restores the blue frame and re-arms line 250. They are **not** cycle-stable: expect a little edge jitter. The sequence is allowed to finish even if the title is dismissed mid-stack.
 
-## Spillmotor
+## Input
 
-`main_loop`: venter på rasterlinje 250, oppdaterer SID, leser tastatur/joystick, og simulerer hver 16/19 videoframes. `simulate`: balanserer jobber, oppdaterer økonomi, forskning, AI-autoøkonomi, vedlikeholder berørte sektorer og måler seier. `ai_turn`: roterer fiendefraksjon + kildesektor og gjør ett tilstøtende strategisk angrep dersom vilkårene oppfylles. `do_attack`: felles deterministisk angreps- og beleiringsmotor for alle eier-ID-er. `reinforce`: separat, kapasitetsbeskyttet vennlig overføring.
+`read_keys` = KERNAL `GETIN`, else `read_joystick`. The decoder (see `src/joystick.asm`) turns stick edges, FIRE taps and debounced FIRE+direction chords into the equivalent key code, so there is exactly one command path. `key_extra` (in `develop.asm`) handles the v4 keys `E` and `U`.
 
-Det er **ingen** grafikkblitter, sprite-multiplexer, 8 KB bitmap-tegnearbeid, ekstern musikkplayer, harddiskbehov eller bank-switching for gameplay. Datastrukturer er 12 byte per sektorarray og bruker rent 8-bit regnskap.
+## Rules engine
 
-## Verifikasjonsgrense
+Unchanged from v3 (see `GAME_DESIGN.md`): `simulate` → economy, research, AI economy, AI turn; `do_attack` is shared by human and AI. v4 hooks: `rank_up_notice` after a rank-up, `diplo_tick` every tick, truce test in `ai_turn`'s target loop, `break_truce` in `player_attack`, `panel_extra` at the end of `panel_values`.
 
-`tests/cpu6502.py` kjører ekte utsendte opcodes med minne/registre og egne KERNAL-GETIN-stubber. Verktøyet **emulerer ikke** VIC-II syklustiming, SID-analogt filter, real joystick multiplexing, 1541 mekanikk eller KERNAL IRQ atferd. Ingen tilsvarende påstander følger av at CPU-testene består. Menneskelig spillbarhet/balanse gjennom alle 28 nivåer må også vurderes manuelt.
+## Disk
 
+See `SAVE_FORMAT.md`. KERNAL serial I/O runs with the display and sprites off (`disk_begin/disk_end`); the snapshot is staged at `$C000` so a failed validation never touches live state.
 
-## v3 persistence and runtime data
+## Verification boundary
 
-Memory `$C000` contains a temporary serialized state file after O/I. KERNAL LOAD uses secondary address 0 to relocate trusted file contents regardless of embedded PRG header. The game state block is `[owner, cpu_count]` inclusive; the `doctrine` array is part of this contiguous RAM block. This state has a checksum and version but is **not** isolated from oversize I/O at the KERNAL layer. Disk I/O is blocking and is called on user keypress only, never from raster IRQ. No persistent SQL/flash storage or expansion hardware.
+`tests/cpu6502.py` executes the shipped opcodes with: raster IRQ entry/RTI (`fire_irq`, `run_irq`, `run_for`), KERNAL `GETIN`, `SETLFS/SETNAM/OPEN/CLOSE/CLRCHN/SAVE/LOAD/VERIFY/READST`, port-2 pins, the live raster MSB in `$D011`, a write-protected disk, device numbers. It does **not** emulate VIC-II timing, badlines, sprite DMA, SID, CIA timers, IEC bit timing or 1541 DOS. A pass means the logic is right, not that the hardware agrees.

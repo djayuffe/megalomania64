@@ -1,106 +1,122 @@
-# Mega-Lo-Mania 64 — Campaign, Doctrine & Disk Save Edition 3.0.0
+# Mega-Lo-Mania 64 — Island Wars, C64C Edition 4.0.0
 
-**Unofficial, independently programmed, fan-inspired real-time strategy game for an unexpanded Commodore 64 / C64C.** Native NMOS 6502/6510 machine code; 64 KB RAM; VIC-II character/sprite renderer; 3-voice SID sound. Source code, generator, image builders and 1541 disk image included.
+**Unofficial, independently programmed, fan-inspired real-time strategy game for an unexpanded Commodore 64 / C64C.** Native NMOS 6502/6510 machine code, 64 KB RAM, VIC-II character/sprite graphics, 3-voice SID, raster-interrupt engine. Everything — assembler, build, disk-image writer, 6502 test model — is in this repository and runs with plain Python 3.
 
-## What is playable
+> Not a 1:1 port or licensed copy of the commercial *Mega-Lo-Mania*. It is a complete, playable strategy game of the same flavour. See [Honest status](#honest-status).
 
-- A 28-stage campaign spanning ten progressive eras. Each stage has a deterministic 12-sector island grid, distinct terrain and finite mineral deposits.
-- **Four independent factions**: one human plus red, blue and gold AI rivals. Rivals can attack each other. Capture every sector to win a stage; lose every sector to be defeated. After island 28 the campaign ends in a victory screen.
-- Population, mining, construction of labs and factories, technology research to rank five, weapons, defenses, and occupation/rebuilding of captured sectors.
-- Two offensive orders: a standard raid and a heavy assault. Failed attacks weaken the defender and dismantle fortifications. Friendly transfers carry troops and weapons without resetting buildings.
-- Toggle automated weapons production and fortification **per owned sector**.
-- Three **strategic doctrines**, selectable per territory: `I` Industry (additional ore with technology 2+), `M` Military (+6 attack power at technology 2+), `D` Defense (+8 defense power at technology 2+). Technology cost increases by 8 research points each rank (`24,32,40,48,56`). Rivals assign additional workers as towns grow.
-- **KERNAL-based disk save/load on device 8:** `O` saves `ML64SAVE` (using CBM DOS replace syntax), `I` reloads a versioned, length-checked and two-checksum-protected snapshot. The test interpreter models KERNAL file operations; *the real drive/VICE path has not been verified*. Use writable media with free blocks and a backup. Do not treat it as a guaranteed 1541-tested feature.
-- Colour-coded island ownership, four silhouette shapes for coastlines, buildings and evolving citadels, hardware-sprite cursor, SID melody and action cues. The UI also shows names for the ten epochs.
+## What is in 4.0
 
-**Important scope distinction:** This is a complete playable *independent game design* with start, strategy loop and end states, **not a 1:1 recreation or licensed copy** of the commercial *Mega-Lo-Mania*. The original game's full diplomacy, every historical invention, speech, and exact art/map data are not included. We also do not claim VICE/physical-hardware acceptance testing or that all 28 islands have been beaten in real-time human play. Disk-save routines are only model-tested, not yet verified against 1541 timing or DOS edge cases. The bundled automated tests validate the native opcodes in a software 6502 interpreter.
+| Area | Status |
+|---|---|
+| 28 islands, 10 epochs, 12 sectors per island, finite ore deposits | done (3.0) |
+| 4 factions (you + red/blue/gold AI), AI-vs-AI wars, sieges, heavy assaults, troop transfers | done (3.0) |
+| Mines, labs, factories, research to rank 5, weapons, forts, doctrines (I/M/D), automation | done (3.0) |
+| **Raster-IRQ engine**: one IRQ per frame (CIA timer IRQ off) chains into the KERNAL; vblank-driven, drift-free tick clock; SID music + SFX run from the IRQ | **new** |
+| **Title screen** with colour-cycled logo and a chained-IRQ raster-bar stack | **new** |
+| **Diplomacy**: propose truces (`E`); rivals accept if you are at least as strong; AI honours them; attacking a partner voids the pact | **new** |
+| **Inventions**: each epoch has a signature weapon on the HUD; every research rank-up announces `INVENTION: MUSKET MARK 3` | **new** |
+| **`U` develop**: spends the sector's ore on the next most useful step (lab → factory → miners → mine → scientists → fort → arms …) | **new** |
+| **Full joystick play**: FIRE tap + 8 FIRE+direction chords reach every command that matters, plus context-sensitive FIRE on pause/victory/defeat screens | **new** |
+| Army-source marker (hardware sprite 1) | **new** |
+| Four SID tunes (ancient / medieval / industrial / title), chosen by epoch | **new** |
+| **Safer disk save**: DOS `S0:` scratch + plain `SAVE`, then a KERNAL **VERIFY** read-back and status check; device follows the drive you booted from; screen and sprites blanked around serial I/O; snapshot v4 (includes truces) | **new** |
+| Fixes: KERNAL cursor blink could XOR screen RAM; KERNAL "SAVING/SEARCHING" messages suppressed; stale keystrokes flushed at title | **new** |
+| 114 automated tests on a 6502 model, mutation-checked | see below |
 
-## Download / start
+## Run it
 
-Run `dist/MegaLoMania64.prg` via VICE's autostart, a PRG loader, or mount `dist/MegaLoMania64.d64` on a Commodore 1541-compatible device. The 1541 disk directory has one PRG named `MEGALOMANIA`.
+Autostart `dist/MegaLoMania64.prg` in VICE (x64sc), or mount `dist/MegaLoMania64.d64` on a 1541/SD2IEC/Ultimate:
 
 ```basic
 LOAD"MEGALOMANIA",8,1
 RUN
 ```
 
-The BASIC launcher uses `10 SYS4096`; all gameplay is machine code beginning at `$1000`.
+`10 SYS4096` starts the machine-code game at `$1000`. Press **FIRE or any key** on the title screen.
 
-## Keyboard controls
+## Controls
+
+### Keyboard
 
 | Keys | Action |
 |---|---|
-| `W A S D` | Move selection across the non-wrapping 4 × 3 sector grid |
-| `RETURN` | Set selected friendly sector as troop source |
-| `X` | Launch a standard raid against an adjacent neutral/enemy sector |
-| `T` | Launch a heavy assault, committing ~75% of the source population; stronger but costlier |
-| `H` | Transfer half the source population (up to target capacity), plus up to four weapons, to an adjacent **friendly** sector |
-| `M` / `J` | Add/remove one miner on friendly selected sector |
-| `R` / `K` | Add/remove one researcher (requires local laboratory) |
-| `B` | Mine upgrade, 8 ore, maximum rank 2 |
-| `V` | Construct laboratory, 6 ore |
-| `G` | Construct factory, 10 ore |
-| `P` | Produce one weapon, 4 ore, factory required |
-| `F` | Reinforce local fort, 12 ore, maximum rank 9 |
-| `Y` | Toggle automatic weapon production (uses surplus ore) |
-| `Q` | Cycle local doctrine `I` industry → `M` military → `D` defense → `I` |
-| `Z` | Toggle automatic fortification (uses surplus ore) |
-| `O` | Save current game on device 8 in file `ML64SAVE` (writable disk required) |
-| `I` | Load `ML64SAVE` from device 8; validates signature, length, checksum and basic state ranges |
-| `SPACE` | Pause/resume current active island |
-| `C` | Continue after island victory |
-| `L`, followed by `01`–`28` | Start an island checkpoint, **not** load saved live state |
-| `N` | Restart campaign, or cancel checkpoint entry |
+| `W A S D` | Move the selection over the 4 × 3 island grid (no wrap) |
+| `RETURN` | Make the selected own sector the army source (sprite 1 marks it) |
+| `X` / `T` | Raid / heavy assault against an adjacent non-own sector |
+| `H` | Send half the source garrison + up to 4 weapons to an adjacent own sector |
+| `M` `J` / `R` `K` | Add / remove one miner / one scientist |
+| `B` `V` `G` `P` `F` | Mine upgrade (8 ore) · laboratory (6) · factory (10) · weapon (4) · fort (12) |
+| `Y` / `Z` | Toggle auto-arms / auto-fort for the selected sector |
+| `Q` | Cycle doctrine: **I**ndustry → **M**ilitary → **D**efense |
+| **`E`** | **Propose a truce to the owner of the selected rival sector** |
+| **`U`** | **Develop the selected own sector (smart build)** |
+| `O` / `I` | Save / load `ML64SAVE` on the boot device (default 8) |
+| `L` + `01`–`28` | Start an island checkpoint (not a live-state load) |
+| `SPACE` | Pause |
+| `C` / `N` | Next island after a win / new campaign |
 
-Joystick port 2: direction to move selection, FIRE on friendly sector to set source, or on other sector to make a standard raid. Heavy assaults and economic management require the keyboard. The joystick shares CIA input with keyboard scanning; physical interaction is not yet independently verified.
+### Joystick (port 2)
 
-## Economy and interface
+| Input | Action |
+|---|---|
+| Stick | Move selection (one step per newly pressed direction) |
+| FIRE tap | `RETURN` on own land, raid otherwise · resume when paused · next island on the win screen · new campaign on defeat |
+| FIRE held + stick **up** | `T` heavy assault |
+| FIRE + **down** | `U` develop |
+| FIRE + **left** | `Q` doctrine |
+| FIRE + **right** | `E` truce |
+| FIRE + up-left / up-right | `H` send troops / `Y` auto-arms |
+| FIRE + down-left / down-right | `Z` auto-fort / pause |
 
-Sidebar displays selected sector's owner (`YOU`, `RED`, `BLUE`, `GOLD`, `FREE`), population, ore in storage, remaining ore deposit, tech, assigned miners/researchers, weapons, buildings and automated policies. `BLD:0/0/0` means mine/lab/factory; `AUTO:0/0` means auto-arm/auto-fort. The bottom of the sidebar shows the currently chosen source and the defensive level. **CPU** on the score line totals the three AI factions' holdings.
+A chord fires after the pattern is stable for 4 frames; moving the stick with FIRE held cancels the FIRE tap.
 
-Mining yields `miners + minegrade` ore per strategy tick (subject to deposit/storage caps). Technology research costs 24, 32, 40, 48, then 56 scientist-work points (maximum rank five). Population grows once every eight ticks while enough residents are not working, and weakened colonies can recover. Each stage starts with four separated factions; every stage uses its own embedded terrain and ore patterns.
+## HUD
 
-**Strategy:** Assign miners first, build a laboratory and factory on useful land, research in defended bases, and reinforce frontline colonies. Ordinary raids scout or weaken defenses, while heavy assaults break mature positions. Turn on automation selectively so weapons or fortifications do not consume all ore intended for research buildings.
+Sidebar rows: sector number, owner, **PACT** (truce ticks left with the selected rival, `--` otherwise), people, ore, deposit, **ARM** (this era's weapon), tech, era name, miners, role, labs, auto flags, weapons, buildings (`mine/lab/factory`), base and fort. Score line: your land, CPU land, tick, era and island.
 
-## Building from source
+## Diplomacy rules
 
-Python 3.10+; no third-party Python packages required for normal assembly and tests:
+* Strength = Σ over a faction's sectors of `people + weapons/2 + 4·tech`.
+* A rival accepts when **your strength ≥ theirs**, otherwise it refuses and will not talk for 60 ticks.
+* A truce lasts 90 ticks. While it holds, that rival never attacks your sectors (other rivals still may).
+* Launching a real attack (garrison ≥ 8) on a truce partner voids the pact and starts a 60-tick cool-down. Attacking free land never does.
+* When a truce expires a 60-tick cool-down starts, so truces cannot be chained indefinitely.
+
+## Build
+
+Python 3.10+, no third-party packages for assembling and testing:
 
 ```bash
-python3 tools/build.py --test
+python3 tools/build.py --test              # assemble, D64, 114 tests
+python3 tools/build.py --test --preview --package   # + PNG previews (needs Pillow) + release ZIP
+make test
 ```
 
-The `--preview` and `--regen-gfx` switches require Pillow. The included binary art assets mean a normal build requires **no** graphics library:
+`tools/build.py` regenerates `src/tables.asm` (music, raster bars) and `assets/source_sprite.bin`; `--regen-gfx` rebuilds the charset (Pillow).
 
-```bash
-python3 -m pip install Pillow
-python3 tools/build.py --regen-gfx --test --preview
+## Repository layout
+
+```
+src/main.asm        game rules, AI, renderer, HUD, save/load (origin $0801/$1000, data to $30F9)
+src/engine.asm      v4 engine modules (origin $4000), includes:
+  irq.asm           raster IRQ engine + wait_frame
+  joystick.asm      port-2 decoder: moves, FIRE tap, 8 chords
+  title.asm         title screen
+  diplomacy.asm     truces, power calculation
+  inventions.asm    era weapons, rank-up notice, extra HUD rows, source sprite
+  develop.asm       U key + extra key dispatch
+  tables.asm        GENERATED: music + raster-bar tables
+  engine_data.asm   volatile engine state, disk blanking, get_device
+assets/             charset (2 KB), cursor sprite, source-marker sprite
+tools/              assembler, build, D64 writer, table/sprite generators, previews, packager
+tests/              6502 model + 114 tests (engine, game rules, tools)
+docs/               architecture, memory map, design, save format, QA, hardware test plan
+dist/               built PRG, D64, symbols, checksums, previews, release ZIP
 ```
 
-`tools/run_vice.sh` starts the compiled PRG when VICE x64sc/x64 is installed.
+## Honest status
 
-## Project structure
-
-- `src/main.asm` — all machine-code rules, AI, render engine, custom HUD, audio and campaign data
-- `assets/` — custom 2 KB character ROM image, 64-byte sprite, PNG glyph atlas
-- `tools/asm6502.py` — original standalone two-pass assembler for supported official 6502 opcodes
-- `tools/build.py` and `tools/make_d64.py` — build the PRG and verified standard 35-track 1541 image
-- `tools/make_gfx.py` — regenerate character/sprite assets (optional Pillow)
-- `tools/render_preview.py` — re-render **emulated screen RAM**, not real VICE screenshots
-- `tests/cpu6502.py` — opcode test interpreter with deterministic KERNAL disk-save shim (not a cycle-perfect C64 emulator or actual 1541/DOS implementation)
-- `tests/test_game.py` — gameplay and memory regression tests, full-stage transition probes
-- `docs/` — hardware, design, QA and release notes
-
-The included assembly source is editable; release files can be rebuilt without missing binary blobs. See `docs/HARDWARE_TEST_PLAN.md` for unverified real-machine acceptance cases, and `docs/QA_REPORT.md` for what was actually checked.
-
-The release validation runs **43 automated tests**. No hardware/VICE test was performed.
-
-## Save-game implementation and limitations
-
-Press `O` to SAVE; press `I` to LOAD. Snapshot includes all 12 sector economies, territories, commanders, selected source, campaign stage, epoch and policies; geography itself is reconstructed from static island tables. Snapshot is stored in working RAM at `$C000`, then transferred using KERNAL `SETLFS`, `SETNAM`, `SAVE`/`LOAD`. Saving uses `@0:ML64SAVE` and loading uses `ML64SAVE`. Saved-file size is checked and the game rejects malformed/unsupported snapshots. The loader uses secondary address 0 to force the destination to `$C000`; it does **not** honor an untrusted PRG load address. This does not limit the maximum bytes the KERNAL loader could write if a malicious oversized file were supplied; load only game-created save files. The memory checksum is for accidental corruption, not tamper resistance.
-
-**Drive caveat:** the Commodore DOS `@` save-with-replace command has historically had reliability issues on some 1541 firmware/media. Keep backups or use copied disk images; this function requires testing in VICE and with the user's actual storage device before trusting critical progress. The game itself loads as a regular PRG independent of SAVE support.
-
-## What is still not a 1:1 port
-
-Original character speech, animated production screens, specific historical invention set, diplomacy, maps and sound assets, multiplayer and original victory narrative are outside this independently created compact adaptation. Tests verify code behaviour, not visual/audio identity with the 16-bit release. This release is a functional strategy-game implementation, not a byte-exact recreation.
+* **Verified here:** assembly, byte-for-byte D64 chain, reproducible builds, and 114 tests that execute the real shipped opcodes in a 6502 model with raster-IRQ firing, a KERNAL disk shim (OPEN/CLOSE/SAVE/LOAD/VERIFY/READST/SETLFS/SETNAM) and port-2 joystick pins. The suite was mutation-checked: 13 deliberate bugs (AI ignoring truces, no IRQ acknowledge, no disk scratch, raster-MSB leak, …) are all caught.
+* **NOT verified (no emulator was available in the build sandbox):** anything that needs real VIC-II/SID/CIA/1541 behaviour — raster-bar jitter and looks, SID sound, joystick feel, KERNAL serial I/O against a real or emulated drive, PAL/NTSC pacing. The model shows the logic is right; it cannot show the machine agrees. Run [`docs/HARDWARE_TEST_PLAN.md`](docs/HARDWARE_TEST_PLAN.md) in VICE x64sc before trusting it, and save only to a **copy** of a disk until then.
+* The raster bars are deliberately simple (not cycle-stable): expect slight edge jitter, title screen only.
+* Not a 1:1 recreation: no speech, original maps, original invention tree or multiplayer.

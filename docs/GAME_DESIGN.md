@@ -60,3 +60,14 @@ Per-sector doctrine is a 3-state cycle: industry=0 (level>=2 gives +2 ore per ti
 ## Live game save
 
 See `SAVE_FORMAT.md`. Save and load on device 8 are modeled in opcode unit tests but need live hardware/VICE acceptance.
+
+
+## v4 additions
+
+**Diplomacy.** `truce[f]` (ticks left) and `truce_cool[f]` (ticks until talks) per faction id. Key `E` on a rival sector: refused if no rival is selected, if a truce is active, or while cooling down; otherwise compares 16-bit strengths `Σ people + weapons/2 + 4·level` and grants 90 ticks when the human's is ≥ the rival's, else imposes 60 ticks of cool-down. `ai_turn` never targets human sectors for a faction holding a truce. `player_attack` voids the target's truce (60 tick cool-down) only when the launch will really happen (source garrison ≥ 8) and the target is a rival. Expiry also starts the 60-tick cool-down. Truces are reset on every island and saved in snapshot v4.
+
+**Inventions.** Ten signature weapons, one per epoch: CLUB, SPEAR, SWORD, BALLIS, XBOW, MUSKET, CANNON, TANK, MISSIL, LASER. HUD row 12 shows the current one. A human sector's rank-up prints `INVENTION: <NAME> MARK <rank>`. This is presentation only: combat maths is unchanged (tech still adds 4 per rank to offence and defence).
+
+**Develop (`U`).** Priority ladder on the selected own sector, executed through the normal build routines: laboratory (6 ore) → factory (10) → miners up to 2 → mine upgrade (8) ×2 → scientists up to 2 → fort up to 3 (12) → weapons up to 30 (4) → miners up to 4 → fort up to 9. Does nothing (shows the normal denial) when nothing is affordable.
+
+**Joystick.** See `README.md`: FIRE tap, eight FIRE+direction chords, context-sensitive tap on pause/victory/defeat.
