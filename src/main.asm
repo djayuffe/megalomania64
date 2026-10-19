@@ -13,6 +13,8 @@ KGETIN = $FFE4
 PTR = $FB
 CPTR = $FD
 SAVE_BUFFER = $C000          ; 256-byte scratch buffer in free RAM
+TRUCE_TICKS = 90             ; length of an agreed truce, in strategy ticks
+TRUCE_COOL = 60              ; cool-down before a faction talks again
 
 * = $0801
 !byte $0B,$08,$0A,$00,$9E,$34,$30,$39,$36,$00,$00,$00   ; 10 SYS4096
@@ -64,38 +66,51 @@ init_frames:
  sta frames_per_tick
  lda #$00
  sta SID_GATE
- lda #$01
- sta $d015                   ; sprite 0 enabled
+ lda #$03
+ sta $d015                   ; sprite 0 = cursor, sprite 1 = army-source marker
  lda #$07
  sta $d027
+ lda #$0a
+ sta $d028
  lda #$dc
- sta $07f8                   ; sprite at $3700
- cli
+ sta $07f8                   ; cursor sprite at $3700
+ lda #$dd
+ sta $07f9                   ; source marker sprite at $3740
+ lda #1
+ sta $cc                     ; KERNAL cursor blink off: it XORs screen RAM otherwise
+ lda #0
+ sta $9d                     ; KERNAL messages off (no "SAVING"/"SEARCHING" over the map)
+ jsr irq_install             ; raster IRQ engine (ends with CLI)
+ jsr title_screen
  jsr new_game
+ lda vblank
+ sta lastvb
 main_loop:
- jsr wait_frame
- jsr sound_tick
+ jsr wait_frame              ; sleeps until the raster IRQ bumps vblank
+ lda vblank
+ sec
+ sbc lastvb
+ sta elapsed
+ lda vblank
+ sta lastvb
  jsr read_keys
  lda state
- bne main_loop              ; 1 paused, 2 game over
- inc frames
- lda frames
+ bne main_loop              ; 1 paused, 2+ game over
+ lda elapsed
+ cmp #9
+ bcc elapsed_ok
+ lda #8                     ; clamp after long disk I/O
+elapsed_ok:
+ clc
+ adc frames
+ sta frames
  cmp frames_per_tick
  bcc main_loop
- lda #0
+ sec
+ sbc frames_per_tick        ; keep remainder: drift-free tick clock
  sta frames
  jsr simulate
  jmp main_loop
-
-wait_frame:
- lda RASTER
- cmp #$fa
- bne wait_frame
-wait_off:
- lda RASTER
- cmp #$fa
- beq wait_off
- rts
 
 sound_tick:
  lda soundtime
@@ -108,15 +123,31 @@ sound_end:
  jsr music_tick
  rts
 
-; Simple original two-channel tracker loop with voice 1 reserved for UI/war SFX.
+; Two-voice tracker, run from the raster IRQ. Voice 1 is reserved for UI/war SFX.
+; Four tunes of 16 steps (ancient, medieval, industrial, title) see music_data.asm.
 music_tick:
+ ldy title_active
+ beq music_game
+ ldy #3
+ bne music_have
+music_game:
+ ldy epoch
+ lda music_variant,y
+ tay
+music_have:
  inc music_frame
  lda music_frame
- cmp #12
+ cmp music_tempo,y
  bcc music_return
  lda #0
  sta music_frame
- ldx music_pos
+ tya
+ asl
+ asl
+ asl
+ asl
+ ora music_pos
+ tax
  lda melody_lo,x
  sta $d407
  lda melody_hi,x
@@ -224,6 +255,13 @@ resource_init:
  sta doctrine,x
  dex
  bpl resource_init
+ ldx #4
+truce_reset:
+ lda #0
+ sta truce,x
+ sta truce_cool,x
+ dex
+ bpl truce_reset
  ldy campaign_island
  ldx spawn_human,y
  stx selected
@@ -421,6 +459,8 @@ cl_loop:
  bne cl_loop
  lda #$dc
  sta $07f8
+ lda #$dd
+ sta $07f9
  rts
 
 ; fixed titles and controls
@@ -903,7 +943,7 @@ key_x_attack:
  jmp draw_panel
 key_standard_attack:
  cmp #'X'
- lbne key_invalid
+ lbne key_extra
  lda #0
  sta heavy
  jsr player_attack
@@ -1006,57 +1046,8 @@ stage_invalid:
  jsr beep_no
  rts
 
-; Port 2 joystick, active-low. A joystick hold generates one event per press.
-; Directions = W/A/S/D. FIRE sets a base on owned land, otherwise attacks.
-read_joystick:
- lda $dc00
- and #31
- cmp #31
- bne joy_down
- sta joylast
- lda #0
- rts
-joy_down:
- cmp joylast
- bne joy_changed
- lda #0
- rts
-joy_changed:
- sta joylast
- lsr
- bcc joy_up
- lsr
- bcc joy_down_key
- lsr
- bcc joy_left
- lsr
- bcc joy_right
- lsr
- bcc joy_fire
- lda #0
- rts
-joy_up:
- lda #'W'
- rts
-joy_down_key:
- lda #'S'
- rts
-joy_left:
- lda #'A'
- rts
-joy_right:
- lda #'D'
- rts
-joy_fire:
- ldx selected
- lda owner,x
- cmp #1
- bne joy_fire_attack
- lda #13
- rts
-joy_fire_attack:
- lda #'X'
- rts
+; Port 2 joystick (sampled by the raster IRQ into joy_raw) is decoded by
+; read_joystick in joystick.asm: directions move, FIRE sets base/raids, FIRE+direction chords.
 
 ; only add workers if at least 3 idle population remain; max 12 per job.
 can_assign:
@@ -1677,7 +1668,7 @@ own_show:
  lda #21
  sta text_y
  jsr print2
- rts
+ jmp panel_extra             ; truce row, weapon name, source marker sprite
 
 ; Count territory ownership for HUD and victory/defeat logic.
 draw_score:
@@ -1904,6 +1895,7 @@ sim_research:
  sbc workleft
  sta research,x
  inc level,x
+ jsr rank_up_notice          ; invention message for the human player
  jmp sim_auto
 store_progress:
  sta research,x
@@ -2084,6 +2076,7 @@ ai_normal_rate:
 ai_do_turn:
  jsr ai_turn
 skip_ai:
+ jsr diplo_tick
  jsr panel_values
  jsr draw_score
  rts
@@ -2134,6 +2127,7 @@ player_attack:
  lda owner,x
  cmp #1
  beq attack_unavailable    ; use H for friendly transfer
+ jsr break_truce           ; attacking a truce partner voids the pact
  lda #1
  sta attacking
  jsr do_attack
@@ -2186,6 +2180,12 @@ ai_target_loop:
  lda owner,y
  cmp ai_faction
  lbeq ai_next_dst
+ cmp #1
+ bne ai_target_ok
+ ldx ai_faction
+ lda truce,x                 ; no attacks on the human while a truce holds
+ lbne ai_next_dst
+ai_target_ok:
  sty selected
  jsr adjacent
  lbcc ai_next_dst
@@ -2489,7 +2489,7 @@ attack_too_small:
 
 ; --------------------------------------------------------------------------
 ; Disk snapshot via KERNAL SAVE/LOAD, logical device 8 (1541 compatible).
-; Safe snapshot format ML64, version 3, byte count, state, XOR and sum.
+; Safe snapshot format ML64, version 4, byte count, state, XOR and sum.
 ; Data is staged at $C000 so a failed validation never modifies live world.
 ; LOAD uses the saved header address $C000 and verifies returned length.
 ; Hardware and real DOS behaviour must be tested in VICE/on a 1541.
@@ -2503,7 +2503,7 @@ prepare_snapshot:
  sta SAVE_BUFFER+2
  lda #'4'
  sta SAVE_BUFFER+3
- lda #3
+ lda #4
  sta SAVE_BUFFER+4
  lda #save_count
  sta SAVE_BUFFER+5
@@ -2530,29 +2530,55 @@ save_copy_loop:
  rts
 
 setup_disk_file:
+ jsr get_device
  lda #1
- ldx #8
+ ldx devnum
  ldy #0
- jsr $FFBA                      ; LOAD sec=0: force destination $C000
+ jsr $FFBA                      ; SETLFS sec=0: LOAD/VERIFY use X/Y, never the file header
  lda #load_filename_end-load_filename
  ldx #<load_filename
  ldy #>load_filename
- jsr $FFBD                      ; SETNAM
+ jsr $FFBD                      ; SETNAM "ML64SAVE"
  rts
 
 setup_save_file:
+ jsr get_device
  lda #1
- ldx #8
+ ldx devnum
  ldy #1
  jsr $FFBA
- lda #save_filename_end-save_filename
- ldx #<save_filename
- ldy #>save_filename
+ lda #load_filename_end-load_filename
+ ldx #<load_filename
+ ldy #>load_filename
  jsr $FFBD
  rts
 
+; Replace an old save the safe way: DOS SCRATCH on command channel 15, then a plain SAVE.
+; (The "@0:" save-and-replace shortcut is unreliable on some 1541 firmware.)
+scratch_save_file:
+ jsr get_device
+ lda #15
+ ldx devnum
+ ldy #15
+ jsr $FFBA
+ lda #scratch_name_end-scratch_name
+ ldx #<scratch_name
+ ldy #>scratch_name
+ jsr $FFBD
+ jsr $FFC0                      ; OPEN 15,dev,15,"S0:ML64SAVE"
+ lda #15
+ jsr $FFC3                      ; CLOSE 15
+ jsr $FFCC                      ; CLRCHN
+ rts
+
 save_game:
+ jsr disk_begin
+ jsr save_game_io
+ jmp disk_end
+
+save_game_io:
  jsr prepare_snapshot
+ jsr scratch_save_file
  jsr setup_save_file
  lda #<SAVE_BUFFER
  sta PTR
@@ -2562,7 +2588,18 @@ save_game:
  ldx #<(SAVE_BUFFER+8+save_count)
  ldy #>(SAVE_BUFFER+8+save_count)
  jsr $FFD8                      ; SAVE start=$C000, end exclusive
- bcs disk_error
+ lbcs disk_error
+ ; Read the file back with KERNAL VERIFY (LOAD with A=1) against the staged snapshot.
+ jsr setup_disk_file
+ lda #1
+ ldx #<SAVE_BUFFER
+ ldy #>SAVE_BUFFER
+ jsr $FFD5
+ lbcs disk_error
+ jsr $FFB7                      ; READST
+ and #$BF                       ; EOF ($40) is the normal outcome
+ lbne disk_error
+ cli
  lda #<msg_saved
  sta PTR
  lda #>msg_saved
@@ -2572,18 +2609,27 @@ save_game:
  rts
 
 restore_game:
+ jsr disk_begin
+ jsr restore_game_io
+ jmp disk_end
+
+restore_game_io:
  jsr setup_disk_file
  lda #0
  ldx #<SAVE_BUFFER
  ldy #>SAVE_BUFFER
  jsr $FFD5                      ; LOAD relocates to $C000 regardless of header
- bcs disk_error
+ lbcs disk_error
  cpx #<(SAVE_BUFFER+8+save_count)
- bne disk_error
+ lbne disk_error
  cpy #>(SAVE_BUFFER+8+save_count)
- bne disk_error
+ lbne disk_error
+ jsr $FFB7                      ; READST
+ and #$BF
+ lbne disk_error
+ cli
  jsr validate_snapshot
- bcc disk_error
+ lbcc disk_error
  ; Regenerate the immutable stage terrain and video palette first.
  lda SAVE_BUFFER+6+campaign_island-owner
  sta campaign_island
@@ -2622,6 +2668,7 @@ restore_frame:
  rts
 
 disk_error:
+ cli
  lda #<msg_disk_error
  sta PTR
  lda #>msg_disk_error
@@ -2644,7 +2691,7 @@ validate_snapshot:
  cmp #'4'
  lbne snapshot_bad
  lda SAVE_BUFFER+4
- cmp #3
+ cmp #4
  lbne snapshot_bad
  lda SAVE_BUFFER+5
  cmp #save_count
@@ -2682,6 +2729,16 @@ snapshot_verify_loop:
  lda SAVE_BUFFER+6+state-owner
  cmp #5
  lbcs snapshot_bad
+ ldx #4
+snapshot_truce:
+ lda SAVE_BUFFER+6+truce-owner,x
+ cmp #TRUCE_TICKS+1
+ lbcs snapshot_bad
+ lda SAVE_BUFFER+6+truce_cool-owner,x
+ cmp #TRUCE_COOL+1
+ lbcs snapshot_bad
+ dex
+ bpl snapshot_truce
  ldx #0
 snapshot_ranges:
  lda SAVE_BUFFER+6+owner-owner,x
@@ -2731,17 +2788,17 @@ snapshot_bad:
 
 load_filename: !text "ML64SAVE"
 load_filename_end:
-save_filename: !text "@0:ML64SAVE"
-save_filename_end:
-msg_saved: !text "GAME WRITTEN TO DISK 8 - O SAVE I LOAD",0
-msg_loaded: !text "GAME RESTORED FROM DISK 8",0
+scratch_name: !text "S0:ML64SAVE"
+scratch_name_end:
+msg_saved: !text "GAME SAVED AND VERIFIED - O SAVE I LOAD",0
+msg_loaded: !text "GAME RESTORED FROM DISK",0
 msg_disk_error: !text "DISK/SAVE ERROR - STATE UNCHANGED",0
 
 ; Original small-string UI (character codes match generated ASCII-indexed charset).
 title_msg:   !text "MEGA-LO-MANIA 64    ISLAND WARS",0
-help_a:      !text "WASD MOVE ENTER BASE X RAID T ASSAULT",0
-help_b:      !text "H MOVE Q ROLE M/R WORK J/K LESS B MINE",0
-help_c:      !text "V LAB G FACT P ARM F FORT O SAVE I LOAD",0
+help_a:      !text "WASD MOVE RET BASE X RAID T ASSAULT",0
+help_b:      !text "H SEND Q ROLE MRJK JOB E TRUCE U AUTO",0
+help_c:      !text "V LAB G FAC P ARM F FORT B MINE O/I DISK",0
 score_msg:   !text "LAND YOU:00 CPU:00   TICK:00",0
 epoch_msg:   !text "E00 I00",0
 hud_sector:  !text "SECTOR",0
@@ -2878,12 +2935,6 @@ island_terrain_26: !byte 3,3,4,4,3,3,5,5,5,4,5,1
 island_vein_26: !byte 56,61,51,63,41,68,49,86,50,80,83,82
 island_terrain_27: !byte 1,1,2,3,2,3,4,3,4,3,5,5
 island_vein_27: !byte 84,58,68,51,87,37,52,78,73,75,46,73
-; SID frequency tables (12-tone original motif). Voice 1 is reserved for SFX.
-melody_lo: !byte 26,108,80,108,136,80,60,80,26,108,80,136,161,136,108,80
-melody_hi: !byte 17,19,21,19,22,21,19,21,17,19,21,22,24,22,19,21
-bass_lo:   !byte 13,13,65,13,73,13,65,13,13,13,65,13,73,13,65,13
-bass_hi:   !byte 8,8,9,8,10,8,9,8,8,8,9,8,10,8,9,8
-
 row_lo:
 !byte <$0400,<$0428,<$0450,<$0478,<$04a0,<$04c8,<$04f0,<$0518,<$0540,<$0568,<$0590,<$05b8,<$05e0,<$0608,<$0630,<$0658,<$0680,<$06a8,<$06d0,<$06f8,<$0720,<$0748,<$0770,<$0798,<$07c0
 row_hi:
@@ -2904,6 +2955,8 @@ buildings: !fill 12,0             ; bit0 mine, bit1 laboratory, bit2 factory
 minegrade: !fill 12,0             ; mine extraction bonus, max 2
 policy:    !fill 12,0             ; player auto manufacture / fortification
 doctrine:  !fill 12,0             ; 0 industry, 1 attack, 2 defensive bonuses
+truce:     !fill 5,0              ; v4: ticks of truce left, indexed by faction id (2..4 used)
+truce_cool:!fill 5,0              ; v4: ticks until that faction negotiates again
 campaign_island: !byte 0        ; 0..27
 reserve:   !byte 12
 load_mode: !byte 0
@@ -2965,5 +3018,10 @@ save_count = cpu_count+1-owner
 
 * = $3700
 !bin "../assets/cursor_sprite.bin"
+* = $3740
+!bin "../assets/source_sprite.bin"
 * = $3800
 !bin "../assets/charset.bin"
+
+; ---- v4 engine modules, placed above the VIC bank-0 graphics ($4000..) ----
+!source "engine.asm"

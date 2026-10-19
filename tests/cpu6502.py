@@ -14,6 +14,7 @@ class CPU:
   buf=Path(prg).read_bytes();start=buf[0]+256*buf[1]
   self.m=bytearray(65536);self.m[start:start+len(buf)-2]=buf[2:];self.m[0xdc00]=255
   self.a=self.x=self.y=0;self.s=0xfd;self.p=0x24;self.pc=0x1000;self.steps=0;self.key=0;self.drive_files={};self.filename="";self.lfs=(1,8,1)
+  self.in_irq=False;self.joystick=0xff;self.raster_msb=0;self.io_screen=[];self.status=0;self.drive_device=8;self.write_protected=False;self.disk_log=[]
  def flag(self,f):return bool(self.p&f)
  def set(self,f,v):self.p=(self.p|f) if v else (self.p & (~f&255))
  def nz(self,v):self.set(Z,(v&255)==0);self.set(N,bool(v&128));return v&255
@@ -41,25 +42,54 @@ class CPU:
     self.lfs=(self.a,self.x,self.y);return
    if addr==0xffbd:  # SETNAM
     self.filename=bytes(self.m[(self.x|(self.y<<8)):(self.x|(self.y<<8))+self.a]).decode('ascii');return
+   if addr in (0xffc0,0xffd8,0xffd5):self.io_screen.append((self.m[0xd011]&0x10,self.m[0xd015],self.m[0xd011]&0x80))
+   if addr==0xffc0:  # OPEN: only the DOS command channel (15,dev,15) is modelled
+    if self.lfs[0]==15 and self.lfs[2]==15 and self.lfs[1]==self.drive_device:
+     name=self.filename
+     self.disk_log.append(('cmd',name))
+     if name.startswith('S0:') and not self.write_protected:self.drive_files.pop(name[3:],None)
+     self.set(C,False)
+    else:self.set(C,True)
+    return
+   if addr in (0xffc3,0xffcc):return   # CLOSE, CLRCHN
+   if addr==0xffb7:  # READST
+    self.a=self.nz(self.status);return
    if addr==0xffd8:  # SAVE: A=ZP pointer, X/Y=end exclusive
     zp=self.a;start=self.m[zp] | (self.m[(zp+1)&255]<<8);end=self.x|(self.y<<8)
-    if end<=start or self.lfs[1]!=8:
+    self.status=0
+    if end<=start or self.lfs[1]!=self.drive_device or self.filename.startswith('@'):
      self.set(C,True);return
-    name=self.filename.removeprefix('@0:')
-    self.drive_files[name]=bytes([start&255,start>>8])+bytes(self.m[start:end]);self.set(C,False);return
-   if addr==0xffd5:  # LOAD: file header address, end address in X/Y
+    self.disk_log.append(('save',self.filename))
+    # A write-protected disk reports its error on the DOS error channel only; SAVE itself looks fine.
+    if not self.write_protected:
+     if self.filename in self.drive_files:  # real DOS refuses to overwrite without scratch/@
+      self.set(C,False);return
+     self.drive_files[self.filename]=bytes([start&255,start>>8])+bytes(self.m[start:end])
+    self.set(C,False);return
+   if addr==0xffd5:  # LOAD (A=0) / VERIFY (A=1)
+    verify=self.a==1
     image=self.drive_files.get(self.filename)
-    if image is None or len(image)<2 or self.lfs[1]!=8:
+    if image is None or len(image)<2 or self.lfs[1]!=self.drive_device:
+     self.status=0x80 if self.lfs[1]!=self.drive_device else 0x42
      self.set(C,True);return
     start=(image[0]|image[1]<<8) if self.lfs[2] else (self.x|(self.y<<8))
     end=start+len(image)-2
     if end>65536:
      self.set(C,True);return
-    self.m[start:end]=image[2:];self.x=end&255;self.y=end>>8;self.set(C,False);return
+    if verify:
+     self.status=0x40 if bytes(self.m[start:end])==image[2:] else 0x50
+     self.set(C,False);return
+    self.m[start:end]=image[2:];self.x=end&255;self.y=end>>8;self.status=0x40;self.set(C,False);return
    ret=(self.pc-1)&65535;self.push(ret>>8);self.push(ret&255);self.pc=addr;return
   if name=='RTS':self.pc=((self.pop() |(self.pop()<<8))+1)&65535;return
   if name=='JMP':
    a=self.fetch16()
+   if mode=='abs' and a in (0xea31,0xea81):
+    if self.in_irq:  # KERNAL IRQ tail: pull Y,X,A then RTI
+     self.y=self.pop();self.x=self.pop();self.a=self.pop();self.p=self.pop()|U
+     self.pc=self.pop()|(self.pop()<<8);self.in_irq=False
+    else:self.pc=0x8000   # direct call of a handler from a test
+    return
    self.pc=a if mode=='abs' else (self.m[a] | (self.m[(a&0xff00)|((a+1)&255)]<<8))
    return
   if mode=='rel':
@@ -110,6 +140,8 @@ class CPU:
     if mode=='indy':addr=(addr+self.y)&65535
    else:raise AssertionError(f'unsupported mode {mode} at ${pc:04X}')
    v=self.m[addr]
+   if addr==0xdc00 and name in ('LDA','LDX','LDY'):v=self.joystick   # port 2 pins, not the written output latch
+   if addr==0xd011 and name in ('LDA','LDX','LDY'):v=(v&0x7f)|(self.raster_msb<<7)   # bit 7 reads the live raster MSB
   if name=='LDA':self.a=self.nz(v)
   elif name=='LDX':self.x=self.nz(v)
   elif name=='LDY':self.y=self.nz(v)
@@ -138,8 +170,46 @@ class CPU:
  def call(self,addr,max_ops=400000):
   # emulate external JSR from a safe dummy $8000 entry
   self.push(0x7f);self.push(0xff);self.pc=addr
-  count=0
+  count=0;s0=self.s+2
   while self.pc!=0x8000:
    self.step();count+=1
    if count>max_ops:raise AssertionError(f'runaway at ${self.pc:04X}: {count} instructions')
+  self.s=s0&255
   return count
+ def fire_irq(self):
+  """Emulate the 6510 + KERNAL IRQ entry ($FF48) for a raster interrupt."""
+  if self.p&I or self.in_irq:return False
+  self.push(self.pc>>8);self.push(self.pc&255);self.push(self.p&~B&255)
+  self.set(I,True)
+  self.push(self.a);self.push(self.x);self.push(self.y)
+  self.m[0xd019]=0x81
+  self.pc=self.m[0x314]|(self.m[0x315]<<8);self.in_irq=True
+  return True
+ def run_irq(self,max_ops=200000):
+  """Fire one raster IRQ and run it to its RTI. Returns the instruction count."""
+  pc,a,x,y,p=self.pc,self.a,self.x,self.y,self.p
+  if not self.fire_irq():raise AssertionError('interrupts masked')
+  n=0
+  while self.in_irq:
+   self.step();n+=1
+   if n>max_ops:raise AssertionError('IRQ runaway')
+  assert (self.pc,self.a,self.x,self.y)==(pc,a,x,y),'IRQ did not restore registers'
+  return n
+ def run_until(self,target,max_steps=3000000,irq_every=2500,on_pc=None):
+  """Free-run like a machine: raster IRQ every `irq_every` instructions while interrupts are on."""
+  n=0;since=0
+  while self.pc!=target:
+   if on_pc:on_pc(self)
+   self.step();n+=1;since+=1
+   if not self.in_irq and since>=irq_every and not self.p&I:
+    self.fire_irq();since=0
+   if n>max_steps:raise AssertionError(f'did not reach ${target:04X}; pc=${self.pc:04X}')
+  return n
+ def run_for(self,steps,irq_every=5700,on_pc=None):
+  """Free-run for a number of instructions with periodic raster IRQs (~1 frame = 5700 instr.)."""
+  since=0
+  for _ in range(steps):
+   if on_pc:on_pc(self)
+   self.step();since+=1
+   if not self.in_irq and since>=irq_every and not self.p&I:
+    self.fire_irq();since=0

@@ -4,6 +4,19 @@ from cpu6502 import CPU
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'tools'))
 
+def boot(cpu,sym,pal=True,max_steps=3000000):
+ """Run the real power-on path: BASIC SYS -> start -> title screen -> main_loop.
+ Raster IRQs fire like the VIC would; a key press dismisses the title after a few frames."""
+ cpu.m[0x02a6]=1 if pal else 0
+ cpu.pc=sym['start']
+ seen=[0]
+ def press(c):
+  if c.pc==sym['title_wait']:
+   seen[0]+=1
+   if seen[0]==12:c.key=ord(' ')
+ cpu.run_until(sym['main_loop'],max_steps=max_steps,on_pc=press)
+ return cpu
+
 def symbol_table():
  return {v:int(addr,16) for addr,v in (ln.split() for ln in (ROOT/'dist/symbols.txt').read_text().splitlines())}
 class StrategyTest(unittest.TestCase):
@@ -24,12 +37,7 @@ class StrategyTest(unittest.TestCase):
   assert len((ROOT/'assets/charset.bin').read_bytes())==2048
   assert len((ROOT/'assets/cursor_sprite.bin').read_bytes())==64
   assert self.cpu.m[0x07f8]==0xdc
-  hardware=CPU(ROOT/'dist/MegaLoMania64.prg')
-  hardware.pc=self.sym['start']
-  for _ in range(400000):
-   if hardware.pc==self.sym['main_loop']:break
-   hardware.step()
-  else:self.fail('start did not finish boot')
+  hardware=boot(CPU(ROOT/'dist/MegaLoMania64.prg'),self.sym)
   self.assertEqual(hardware.m[0xd018],0x1e)
   self.assertEqual(hardware.m[0xd016],0x18)
   self.assertEqual(hardware.m[0xd021],6)
@@ -37,9 +45,8 @@ class StrategyTest(unittest.TestCase):
  def test_d64_exact_chain(self):
   from make_d64 import verify_image
   image=ROOT/'dist/MegaLoMania64.d64'
-  if not image.exists():
-   from make_d64 import make_image
-   make_image(ROOT/'dist/MegaLoMania64.prg',image)
+  from make_d64 import make_image
+  make_image(ROOT/'dist/MegaLoMania64.prg',image)   # always rebuild: never validate a stale image
   original=(ROOT/'dist/MegaLoMania64.prg').read_bytes()
   self.assertEqual(verify_image(image,original),original)
  def test_initial_state_and_render(self):
@@ -139,9 +146,9 @@ class StrategyTest(unittest.TestCase):
   self.assertEqual(self.state('people',0),5)
   self.assertEqual(self.state('miners',0)+self.state('labs',0),0)
  def test_printable_messages_fit(self):
-  text=(ROOT/'src/main.asm').read_text()
+  text=''.join(f.read_text() for f in sorted((ROOT/'src').glob('*.asm')))
   for name,msg in re.findall(r'(?m)^(\w+):\s*!text "([^"]+)",0',text):
-   if name.startswith('msg_'):
+   if name.startswith(('msg_','help_','ttl_')):
     self.assertLessEqual(len(msg),40,(name,len(msg)))
  def test_mass_progress_no_overflow(self):
   self.put('labs',12,0);self.put('research',23,0)
@@ -219,14 +226,14 @@ class StrategyTest(unittest.TestCase):
   self.press('B')
   self.assertEqual(self.state('minegrade',1),1)
  def test_joystick_rising_edge(self):
-  self.cpu.m[0xdc00]=0xf7    # port2 RIGHT held
+  self.put('joy_raw',0xf7)    # port2 RIGHT held (sampled by the IRQ)
   self.call('read_keys')
   self.assertEqual(self.state('selected'),1)
   self.call('read_keys')
   self.assertEqual(self.state('selected'),1)
-  self.cpu.m[0xdc00]=0xff
+  self.put('joy_raw',0xff)
   self.call('read_keys')
-  self.cpu.m[0xdc00]=0xf7
+  self.put('joy_raw',0xf7)
   self.call('read_keys')
   self.assertEqual(self.state('selected'),2)
  def test_map_render_safe_memory_and_sprite(self):
@@ -238,18 +245,9 @@ class StrategyTest(unittest.TestCase):
    self.assertTrue(all(self.cpu.m[0xd800+i]<=15 for i in range(1000)))
  def test_pal_and_ntsc_scheduler(self):
   # $02A6 is the PAL/NTSC KERNAL flag and is only read at actual program boot
-  ntsc=CPU(ROOT/'dist/MegaLoMania64.prg')
-  ntsc.pc=self.sym['start']
-  for _ in range(450000):
-   if ntsc.pc==self.sym['main_loop']:break
-   ntsc.step()
+  ntsc=boot(CPU(ROOT/'dist/MegaLoMania64.prg'),self.sym,pal=False)
   self.assertEqual(ntsc.m[self.sym['frames_per_tick']],19)
-  pal=CPU(ROOT/'dist/MegaLoMania64.prg')
-  pal.m[0x02a6]=1
-  pal.pc=self.sym['start']
-  for _ in range(450000):
-   if pal.pc==self.sym['main_loop']:break
-   pal.step()
+  pal=boot(CPU(ROOT/'dist/MegaLoMania64.prg'),self.sym,pal=True)
   self.assertEqual(pal.m[self.sym['frames_per_tick']],16)
  def test_single_survivor_rebuilds_population(self):
   self.put('people',1,0)
@@ -369,14 +367,12 @@ class StrategyTest(unittest.TestCase):
   self.assertEqual(len(mask),30)
   self.assertTrue(0 in mask and 1 in mask)
   self.assertEqual(self.cpu.m[0xd018],0)  # until start executed
-  boot=CPU(ROOT/'dist/MegaLoMania64.prg');boot.pc=self.sym['start']
-  for _ in range(450000):
-   if boot.pc==self.sym['main_loop']:break
-   boot.step()
-  self.assertEqual(boot.m[0xd018],0x1e)
-  self.assertEqual(boot.m[0x07f8],0xdc)
+  booted=boot(CPU(ROOT/'dist/MegaLoMania64.prg'),self.sym)
+  self.assertEqual(booted.m[0xd018],0x1e)
+  self.assertEqual(booted.m[0x07f8],0xdc)
+  self.assertEqual(booted.m[0x07f9],0xdd)
   self.assertLess(self.sym['cpu_count'],0x3700)
-  self.assertTrue(any(boot.m[0x3800+6*8+k] for k in range(8))) # water glyph
+  self.assertTrue(any(booted.m[0x3800+6*8+k] for k in range(8))) # water glyph
 
  def test_heavy_assault_can_overcome_max_ai_fortification(self):
   def setup():
