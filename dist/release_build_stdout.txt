@@ -1,0 +1,54 @@
+PASS: /mnt/data/MegaLoMania64_v3/dist/MegaLoMania64.prg: $0801-$3FFF, 14337 bytes (incl load addr), 437 symbols
+Rendered memory-accurate reference: /mnt/data/MegaLoMania64_v3/dist/preview_initial.png
+Rendered memory-accurate reference: /mnt/data/MegaLoMania64_v3/dist/preview_expansion.png
+Rendered memory-accurate reference: /mnt/data/MegaLoMania64_v3/dist/preview_future.png
+D64 MegaLoMania64.d64: 57 PRG blocks, chain verified
+test_28_stage_end_to_end_victory (test_game.StrategyTest.test_28_stage_end_to_end_victory) ... ok
+test_adjacency_at_row_boundary (test_game.StrategyTest.test_adjacency_at_row_boundary) ... ok
+test_ai_adapts_workforce (test_game.StrategyTest.test_ai_adapts_workforce) ... ok
+test_ai_all_three_factions_act_without_stealing_selection (test_game.StrategyTest.test_ai_all_three_factions_act_without_stealing_selection) ... ok
+test_ai_source_restored_and_expansion (test_game.StrategyTest.test_ai_source_restored_and_expansion) ... ok
+test_ai_vs_ai_combat_and_winner_ownership (test_game.StrategyTest.test_ai_vs_ai_combat_and_winner_ownership) ... ok
+test_all_screen_plot_coordinates_are_in_bounds (test_game.StrategyTest.test_all_screen_plot_coordinates_are_in_bounds) ... ok
+test_automated_production_and_fortification (test_game.StrategyTest.test_automated_production_and_fortification) ... ok
+test_buildings_and_research_gating (test_game.StrategyTest.test_buildings_and_research_gating) ... ok
+test_camp_28_unique_maps_and_10_epochs (test_game.StrategyTest.test_camp_28_unique_maps_and_10_epochs) ... ok
+test_cannot_reinforce_enemy_or_nonadjacent (test_game.StrategyTest.test_cannot_reinforce_enemy_or_nonadjacent) ... ok
+test_capture_clears_automation_and_keeps_resource_vein (test_game.StrategyTest.test_capture_clears_automation_and_keeps_resource_vein) ... ok
+test_coastline_vic_and_cpu_bounds (test_game.StrategyTest.test_coastline_vic_and_cpu_bounds) ... ok
+test_d64_exact_chain (test_game.StrategyTest.test_d64_exact_chain) ... ok
+test_disk_load_corrupt_rejected_without_partial_mutation (test_game.StrategyTest.test_disk_load_corrupt_rejected_without_partial_mutation) ... ok
+test_doctrine_permission_and_wrap (test_game.StrategyTest.test_doctrine_permission_and_wrap) ... ok
+test_endgames (test_game.StrategyTest.test_endgames) ... ok
+test_four_rivals_have_distinct_spawn_and_render_colors (test_game.StrategyTest.test_four_rivals_have_distinct_spawn_and_render_colors) ... ok
+test_friendly_attack_protection_and_reinforcement (test_game.StrategyTest.test_friendly_attack_protection_and_reinforcement) ... ok
+test_graphics_era_towers_are_baked_in_charset (test_game.StrategyTest.test_graphics_era_towers_are_baked_in_charset) ... ok
+test_heavy_assault_can_overcome_max_ai_fortification (test_game.StrategyTest.test_heavy_assault_can_overcome_max_ai_fortification) ... ok
+test_industry_doctrine_gains_extra_mining (test_game.StrategyTest.test_industry_doctrine_gains_extra_mining) ... ok
+test_initial_state_and_render (test_game.StrategyTest.test_initial_state_and_render) ... ok
+test_joystick_rising_edge (test_game.StrategyTest.test_joystick_rising_edge) ... ok
+test_load_forced_c000_ignores_modified_prg_address (test_game.StrategyTest.test_load_forced_c000_ignores_modified_prg_address) ... ok
+test_long_running_sector_bounds (test_game.StrategyTest.test_long_running_sector_bounds) ... ok
+test_map_render_safe_memory_and_sprite (test_game.StrategyTest.test_map_render_safe_memory_and_sprite) ... ok
+test_mass_progress_no_overflow (test_game.StrategyTest.test_mass_progress_no_overflow) ... ok
+test_mine_research_weapons_fort (test_game.StrategyTest.test_mine_research_weapons_fort) ... ok
+test_missing_disk_file_does_not_mutate_campaign (test_game.StrategyTest.test_missing_disk_file_does_not_mutate_campaign) ... ok
+test_navigation_and_capture (test_game.StrategyTest.test_navigation_and_capture) ... ok
+test_no_enemy_job_sabotage (test_game.StrategyTest.test_no_enemy_job_sabotage) ... ok
+test_pal_and_ntsc_scheduler (test_game.StrategyTest.test_pal_and_ntsc_scheduler) ... ok
+test_pause_and_restart (test_game.StrategyTest.test_pause_and_restart) ... ok
+test_prg_memory_layout (test_game.StrategyTest.test_prg_memory_layout) ... ok
+test_printable_messages_fit (test_game.StrategyTest.test_printable_messages_fit) ... ok
+test_save_load_cross_epoch_and_clock (test_game.StrategyTest.test_save_load_cross_epoch_and_clock) ... ok
+test_save_load_roundtrip (test_game.StrategyTest.test_save_load_roundtrip) ... ok
+test_single_survivor_rebuilds_population (test_game.StrategyTest.test_single_survivor_rebuilds_population) ... ok
+test_small_outpost_can_recover (test_game.StrategyTest.test_small_outpost_can_recover) ... ok
+test_snapshot_range_validation_even_with_valid_checksums (test_game.StrategyTest.test_snapshot_range_validation_even_with_valid_checksums) ... ok
+test_stage_code_and_invalid_recovery (test_game.StrategyTest.test_stage_code_and_invalid_recovery) ... ok
+test_variable_research_cost (test_game.StrategyTest.test_variable_research_cost) ... ok
+
+----------------------------------------------------------------------
+Ran 43 tests in 9.450s
+
+OK
+SHA256 ea0a1338533c49b755f97d12245e9fff09d0e34a909e869b23cbb0a42413124e  MegaLoMania64.prg
