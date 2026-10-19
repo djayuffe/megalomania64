@@ -1,3 +1,5 @@
+test_ai_acts_every_16_ticks_before_epoch_5_and_every_8_after (test_engine.AiPacing.test_ai_acts_every_16_ticks_before_epoch_5_and_every_8_after) ... ok
+test_ai_wants_a_25_percent_margin_before_assaulting (test_engine.AiPacing.test_ai_wants_a_25_percent_margin_before_assaulting) ... ok
 test_develop_never_touches_enemy_or_free_land (test_engine.Develop.test_develop_never_touches_enemy_or_free_land) ... ok
 test_fortification_is_built_when_ore_allows (test_engine.Develop.test_fortification_is_built_when_ore_allows) ... ok
 test_priority_ladder (test_engine.Develop.test_priority_ladder) ... ok
@@ -60,6 +62,8 @@ test_fire_tap_is_context_sensitive_on_pause_victory_and_defeat (test_engine.Joys
 test_fire_tap_sets_source_on_own_land_and_raids_otherwise (test_engine.Joystick.test_fire_tap_sets_source_on_own_land_and_raids_otherwise) ... ok
 test_joystick_never_mutates_enemy_or_state_on_idle (test_engine.Joystick.test_joystick_never_mutates_enemy_or_state_on_idle) ... ok
 test_unmapped_chord_and_release_do_nothing (test_engine.Joystick.test_unmapped_chord_and_release_do_nothing) ... ok
+test_default_normal_and_keys_1_2_3_set_speed (test_engine.SpeedControl.test_default_normal_and_keys_1_2_3_set_speed) ... ok
+test_speed_digit_shown_in_header (test_engine.SpeedControl.test_speed_digit_shown_in_header) ... ok
 test_fire_button_dismisses_title (test_engine.Title.test_fire_button_dismisses_title) ... ok
 test_title_flushes_stale_keyboard_queue (test_engine.Title.test_title_flushes_stale_keyboard_queue) ... ok
 test_title_screen_draws_waits_and_hands_over_on_key (test_engine.Title.test_title_screen_draws_waits_and_hands_over_on_key) ... ok
@@ -111,11 +115,11 @@ test_assembly_is_reproducible (test_tools.Tools.test_assembly_is_reproducible) .
 test_basic_stub_and_entry (test_tools.Tools.test_basic_stub_and_entry) ... ok
 test_generated_tables_and_sprite_are_up_to_date (test_tools.Tools.test_generated_tables_and_sprite_are_up_to_date) ... ok
 test_music_tables_are_in_sid_range (test_tools.Tools.test_music_tables_are_in_sid_range) ... ok
-test_package_is_reproducible_and_complete (test_tools.Tools.test_package_is_reproducible_and_complete) ... MegaLoMania64_v4.0.0_Source.zip: 146386 bytes, sha256 877a86f0ce65ba020aa3bd49d40550bab90f0894fe3a06821bf0a8645c683df9
-MegaLoMania64_v4.0.0_Source.zip: 146386 bytes, sha256 877a86f0ce65ba020aa3bd49d40550bab90f0894fe3a06821bf0a8645c683df9
+test_package_is_reproducible_and_complete (test_tools.Tools.test_package_is_reproducible_and_complete) ... MegaLoMania64_v4.1.0_Source.zip: 150356 bytes, sha256 0ac4d144fb41664ddbec8f18b943a18f4bbc1e405ba95d1bd883d381de68dee9
+MegaLoMania64_v4.1.0_Source.zip: 150356 bytes, sha256 0ac4d144fb41664ddbec8f18b943a18f4bbc1e405ba95d1bd883d381de68dee9
 ok
 
 ----------------------------------------------------------------------
-Ran 114 tests in 30.554s
+Ran 118 tests in 32.673s
 
 OK

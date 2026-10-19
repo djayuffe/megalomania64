@@ -56,14 +56,7 @@ start:
  sta $d40b
  lda #$21
  sta $d412
- lda $02a6                  ; KERNAL: PAL=1, NTSC=0
- beq init_ntsc
- lda #16
- bne init_frames
-init_ntsc:
- lda #19
-init_frames:
- sta frames_per_tick
+ jsr set_speed                ; frames per tick from speed setting + PAL/NTSC
  lda #$00
  sta SID_GATE
  lda #$03
@@ -1672,6 +1665,7 @@ own_show:
 
 ; Count territory ownership for HUD and victory/defeat logic.
 draw_score:
+ jsr draw_speed
  lda #0
  sta you_count
  sta cpu_count
@@ -2066,12 +2060,12 @@ sim_next:
  cmp #5
  bcc ai_normal_rate
  lda ticks
- and #3
+ and #7
  bne skip_ai
  jmp ai_do_turn
 ai_normal_rate:
  lda ticks
- and #7
+ and #15
  bne skip_ai
 ai_do_turn:
  jsr ai_turn
@@ -2141,7 +2135,7 @@ attack_unavailable:
  jsr beep_no
  rts
 
-; AI advances one eligible army per 8 strategy ticks, prefers free sectors.
+; AI advances one eligible army per 16 strategy ticks (8 from epoch 5), prefers free sectors.
 ai_turn:
  lda selected
  sta saved_selection
@@ -2238,6 +2232,14 @@ ai_arms_small:
  adc ai_defense
  clc
  adc people,y
+ sta ai_defense
+ lsr
+ lsr
+ clc
+ adc ai_defense               ; the AI wants a 25% margin before it commits an assault
+ bcc ai_margin_ok
+ lda #255
+ai_margin_ok:
  cmp ai_power
  lbcs ai_next_dst
 ai_found:
@@ -2642,14 +2644,7 @@ load_apply_loop:
  cpx #save_count
  bne load_apply_loop
  ; The frame rate is hardware-specific, not part of cross-region progress.
- lda $02A6
- beq restore_ntsc
- lda #16
- bne restore_frame
-restore_ntsc:
- lda #19
-restore_frame:
- sta frames_per_tick
+ jsr set_speed
  lda #31
  sta joylast
  lda #0
@@ -2800,6 +2795,7 @@ help_a:      !text "WASD MOVE RET BASE X RAID T ASSAULT",0
 help_b:      !text "H SEND Q ROLE MRJK JOB E TRUCE U AUTO",0
 help_c:      !text "V LAB G FAC P ARM F FORT B MINE O/I DISK",0
 score_msg:   !text "LAND YOU:00 CPU:00   TICK:00",0
+spd_msg:     !text "SPEED 2",0
 epoch_msg:   !text "E00 I00",0
 hud_sector:  !text "SECTOR",0
 hud_owner:   !text "OWNER",0
@@ -2835,6 +2831,9 @@ hud_rival4:  !text "GOLD",0
 msg_start:   !text "CONQUER THE ISLAND. ENTER SETS BASE.",0
 msg_pause:   !text "PAUSED  -  SPACE TO CONTINUE",0
 msg_go:      !text "STRATEGY RUNNING",0
+msg_spd0:    !text "SPEED 1 - SLOW",0
+msg_spd1:    !text "SPEED 2 - NORMAL",0
+msg_spd2:    !text "SPEED 3 - FAST",0
 msg_source:  !text "ARMY SOURCE SET. CHOOSE ADJACENT TARGET.",0
 msg_reinforce: !text "REINFORCEMENTS ARRIVED IN SECTOR",0
 msg_rival:   !text "ENEMY CAPTURED TERRITORY!",0

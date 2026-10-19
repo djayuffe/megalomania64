@@ -100,6 +100,7 @@ class IrqEngine(GameCase):
         self.assertEqual(c.m[0x9d],0)                       # no KERNAL I/O messages over the map
     def test_main_loop_runs_one_tick_per_frames_per_tick_and_is_drift_free(self):
         c=boot(CPU(PRG),self.sym)
+        c.m[self.sym['frames_per_tick']]=16                  # pin the fast speed: the test counts 16-frame ticks
         count=[0]
         def watch(cpu):
             if cpu.pc==self.sym['simulate']:count[0]+=1
@@ -109,8 +110,9 @@ class IrqEngine(GameCase):
         self.assertEqual(frames,160)                         # 10 ticks of 16 frames elapsed
         self.assertEqual(count[0],10)                        # exactly one simulate per 16 vblanks
     def test_slow_frames_keep_the_remainder(self):
-        # 14 frames banked + 5 elapsed (a slow iteration) = 19: tick now, carry 3 frames over.
+        # 14 frames banked + 5 elapsed (a slow iteration) = 19 vs 16 per tick: tick now, carry 3 frames over.
         c=boot(CPU(PRG),self.sym)
+        c.m[self.sym['frames_per_tick']]=16
         v=c.m[self.sym['vblank']]
         c.m[self.sym['frames']]=14
         c.m[self.sym['lastvb']]=(v-4)&255
@@ -160,11 +162,11 @@ class Title(GameCase):
             if c.pc==self.sym['title_wait']:
                 n[0]+=1
                 if n[0]==6:
-                    self.assertEqual(self.screen(5,12,16),'MEGA-LO-MANIA 64')
-                    self.assertEqual(self.screen(19,9,21),'PRESS FIRE OR ANY KEY')
+                    self.assertEqual(self.screen(11,12,16),'MEGA-LO-MANIA 64')
+                    self.assertEqual(self.screen(21,9,21),'PRESS FIRE OR ANY KEY')
                     self.assertEqual(self.state('title_active'),1)
                     self.assertEqual(self.cpu.m[0xd015],0)
-                    self.assertNotEqual(self.cpu.m[0xd800+5*40+12],self.cpu.m[0xd800+5*40+13])  # colour cycling
+                    self.assertNotEqual(self.cpu.m[0xd800+11*40+12],self.cpu.m[0xd800+11*40+13])  # colour cycling
                 if n[0]==9:c.key=ord('X')
         self.cpu.run_until(0x8000,on_pc=key,irq_every=1500)
         self.assertEqual(self.state('title_active'),0)
@@ -585,3 +587,44 @@ class Fuzz(GameCase):
                     self.cpu.run_irq()
                 self.invariants()
 if __name__=='__main__':unittest.main()
+
+
+class SpeedControl(GameCase):
+    def test_default_normal_and_keys_1_2_3_set_speed(self):
+        self.cpu.m[0x2a6]=1                                   # PAL
+        self.call('set_speed')
+        self.assertEqual(self.state('speed'),1)
+        self.assertEqual(self.state('frames_per_tick'),24)
+        for key,fpt,spd in ((ord('1'),40,0),(ord('3'),16,2),(ord('2'),24,1)):
+            self.press(key)
+            self.assertEqual(self.state('frames_per_tick'),fpt)
+            self.assertEqual(self.state('speed'),spd)
+            self.assertEqual(self.screen(0,39,1),str(spd+1))
+    def test_speed_digit_shown_in_header(self):
+        self.cpu.m[0x2a6]=1
+        self.press(ord('3'))
+        self.assertEqual(self.screen(0,33,7),'SPEED 3')
+
+
+class AiPacing(GameCase):
+    def ai_runs(self,epoch,ticks):
+        self.put('epoch',epoch);self.put('ticks',ticks-1);self.put('ai_faction',2)
+        self.call('simulate')
+        return self.state('ai_faction')!=2
+    def test_ai_acts_every_16_ticks_before_epoch_5_and_every_8_after(self):
+        self.assertFalse(self.ai_runs(0,8))
+        self.assertTrue(self.ai_runs(0,16))
+        self.assertFalse(self.ai_runs(4,24))
+        self.assertFalse(self.ai_runs(5,4))
+        self.assertTrue(self.ai_runs(5,8))
+    def test_ai_wants_a_25_percent_margin_before_assaulting(self):
+        # CPU sector 11: 40 people, no weapons, tech 0 -> assault power 45 (3/4 troops, +50%).
+        # Human sector 10 defends with `defence` people. 40 used to be attacked (40 < 45); now 40+25% = 50 >= 45 holds.
+        for defence,attacked in ((40,False),(36,False),(35,True)):
+            for s in range(12):
+                for name in ('owner','people','weapons','fort','level'):self.put(name,0,s)
+            self.put('owner',2,11);self.put('people',40,11);self.put('owner',2,7)   # own neighbour: skipped
+            self.put('owner',1,10);self.put('people',defence,10)
+            self.put('ai_faction',1);self.put('ai_cursor',10)
+            self.call('ai_turn')
+            self.assertEqual(self.state('owner',10)==2,attacked,msg=defence)

@@ -26,6 +26,7 @@ Monter `dist/MegaLoMania64.d64` på en 1541-kompatibel stasjon, eller autostart 
 | **U** | **Utvikle valgt egen sektor automatisk** |
 | O / I | Lagre / laste `ML64SAVE` på oppstartsstasjonen (standard 8) |
 | SPACE | Pause |
+| 1 2 3 | Hastighet: sakte / normal / rask |
 | C / N | Neste øy etter seier / ny kampanje |
 | L + 01..28 | Start en øy fra starten (ikke ekte savegame) |
 
@@ -62,7 +63,7 @@ Forskning krever 24, 32, 40, 48 og 56 poeng. Industri på nivå 2+ gir +2 malm p
 
 ## Tiltro
 
-Regler, IRQ-logikk, joystick, diplomati, disk-shim og D64-struktur er testet med 114 opcode-tester i en 6502-modell. **VICE, SID, ekte joystick, rasterstolpenes utseende og den faktiske 1541-lagringen er ikke maskinvaretestet** (ingen emulator var tilgjengelig i byggemiljøet). Bruk `docs/HARDWARE_TEST_PLAN.md`, og lagre kun på en **kopi** av disketten til dette er gjort.
+Regler, IRQ-logikk, joystick, diplomati, disk-shim og D64-struktur er testet med 116 opcode-tester i en 6502-modell. **Kjørt i VICE 3.7.1 (PAL og NTSC, virtuell diskenhet):** oppstart, tittelbilde, kart, taster, angrep og lagring/innlasting. **Ikke testet:** SID-lyd, ekte joystick, maskinvarenivå 1541 og ekte C64C. Bruk `docs/HARDWARE_TEST_PLAN.md`, og lagre kun på en **kopi** av disketten til dette er gjort.
 
 ## Bygg
 

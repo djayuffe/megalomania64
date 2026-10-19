@@ -1,4 +1,6 @@
-# C64C/VICE hardware acceptance test plan (NOT yet executed)
+# C64C/VICE hardware acceptance test plan
+
+Status: a subset (boot, title, map, keys, assault, `O`/`I` on a virtual device, PAL and NTSC) was run in VICE 3.7.1 headless for v4.1 — see `docs/QA_REPORT.md`. Everything else below, and all real-hardware items, is **not yet executed**.
 
 ## Environment
 

@@ -246,9 +246,9 @@ class StrategyTest(unittest.TestCase):
  def test_pal_and_ntsc_scheduler(self):
   # $02A6 is the PAL/NTSC KERNAL flag and is only read at actual program boot
   ntsc=boot(CPU(ROOT/'dist/MegaLoMania64.prg'),self.sym,pal=False)
-  self.assertEqual(ntsc.m[self.sym['frames_per_tick']],19)
+  self.assertEqual(ntsc.m[self.sym['frames_per_tick']],29)
   pal=boot(CPU(ROOT/'dist/MegaLoMania64.prg'),self.sym,pal=True)
-  self.assertEqual(pal.m[self.sym['frames_per_tick']],16)
+  self.assertEqual(pal.m[self.sym['frames_per_tick']],24)
  def test_single_survivor_rebuilds_population(self):
   self.put('people',1,0)
   self.put('miners',0,0)
@@ -493,7 +493,7 @@ class StrategyTest(unittest.TestCase):
   self.press('I')
   self.assertEqual(self.state('campaign_island'),27)
   self.assertEqual(self.state('epoch'),9)
-  self.assertEqual(self.state('frames_per_tick'),19)
+  self.assertEqual(self.state('frames_per_tick'),29)
   self.assertEqual(self.state('ore',self.state('selected')),42)
 
 

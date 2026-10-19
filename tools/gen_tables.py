@@ -42,7 +42,7 @@ out.append('music_variant: !byte 0,0,0,0,1,1,1,2,2,2   ; epoch 0..9 -> tune')
 BARS=[6,14,3,1,3,14,6,0, 0,6,14,3,1,3,14,6]
 BARS=[2,10,7,1,7,10,2,9, 9,2,10,7,1,7,10,2]
 out.append('bar_color: !byte '+','.join(map(str,BARS)))
-wave=[86+round(14*math.sin(2*math.pi*i/32)) for i in range(32)]
+wave=[63+round(8*math.sin(2*math.pi*i/32)) for i in range(32)]
 out.append('bar_wave: !byte '+','.join(map(str,wave)))
 (ROOT/'src/tables.asm').write_text('\n'.join(out)+'\n')
 print('wrote src/tables.asm')

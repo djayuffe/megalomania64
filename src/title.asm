@@ -46,7 +46,7 @@ ts_color:
  and #7
  tay
  lda title_pal,y
- sta COL+5*40+12,x
+ sta COL+11*40+12,x
  dex
  bpl ts_color
  jsr KGETIN
@@ -64,13 +64,13 @@ title_done:
  rts
 
 title_tx: !byte 12,4,2,5,5,9,1
-title_ty: !byte 5,7,10,12,15,19,22
+title_ty: !byte 11,13,15,17,19,21,23
 title_ti: !byte 1,3,5,7,4,7,3         ; colours 0-7 only: 8-15 would switch the glyphs to multicolour
 title_tl: !byte <ttl_0,<ttl_1,<ttl_2,<ttl_3,<ttl_4,<ttl_5,<ttl_6
 title_th: !byte >ttl_0,>ttl_1,>ttl_2,>ttl_3,>ttl_4,>ttl_5,>ttl_6
 title_pal: !byte 2,4,7,1,7,3,5,4
 ttl_0: !text "MEGA-LO-MANIA 64",0
-ttl_1: !text "ISLAND WARS  -  C64C EDITION 4.0",0
+ttl_1: !text "ISLAND WARS  -  C64C EDITION 4.1",0
 ttl_2: !text "28 ISLANDS - 10 EPOCHS - 4 FACTIONS",0
 ttl_3: !text "BUILD  RESEARCH  ARM  CONQUER",0
 ttl_4: !text "TRUCES  INVENTIONS  DISK SAVES",0

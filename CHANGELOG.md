@@ -1,5 +1,16 @@
 # Endringslogg
 
+## v4.1.0 (19. oktober 2026)
+
+Første utgivelse kontrollert i ekte emulator (VICE 3.7.1 x64sc, PAL og NTSC, virtuell diskenhet).
+
+- **Tittelbilde:** rasterstolpene lå oppå undertekstene og gjorde dem uleselige (oppdaget i VICE). Stolpene går nå i eget bånd øverst (linje 55–118); teksten er flyttet til rad 11–23.
+- **Hastighet:** taster `1`/`2`/`3` (sakte/normal/rask) med visning `SPEED n` øverst til høyre. Standard er nå normal (24 bilder PAL / 29 NTSC ≈ 0,48 s per tikk; før 0,32 s).
+- **AI-balanse:** AI flytter hver 16. tikk (hver 8. fra epoke 5; før 8/4) og angriper bare med 25 % margin over forsvaret. Skriptede spillere i modellen overlever og kan vinne; uten tiltak ble selv en fornuftig spiller utslettet innen ca. 250 tikk.
+- **Verktøy:** `tools/vice_smoke.sh` (headless VICE-oppstart, skjermbilder i `dist/vice/`).
+- **Tester:** 116 (nye: hastighetstaster, AI-takt, AI-margin). Eksisterende tester justert for ny standardhastighet og ny tittel-layout.
+- **Fortsatt ikke verifisert:** SID-lyd, ekte joystick, maskinvarenivå 1541, ekte C64C, menneskelig balansetest.
+
 ## v4.0.0 (19. oktober 2026)
 
 **Motor**
