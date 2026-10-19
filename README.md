@@ -1,10 +1,22 @@
-# Mega-Lo-Mania 64 — Island Wars, C64C Edition 4.1.0
+# Mega-Lo-Mania 64 — Island Wars, C64C Edition 4.2.0
 
 **Unofficial, independently programmed, fan-inspired real-time strategy game for an unexpanded Commodore 64 / C64C.** Native NMOS 6502/6510 machine code, 64 KB RAM, VIC-II character/sprite graphics, 3-voice SID, raster-interrupt engine. Everything — assembler, build, disk-image writer, 6502 test model — is in this repository and runs with plain Python 3.
 
 > Not a 1:1 port or licensed copy of the commercial *Mega-Lo-Mania*. It is a complete, playable strategy game of the same flavour. See [Honest status](#honest-status).
 
-## What is new in 4.1
+## What is new in 4.2
+
+| Area | Status |
+|---|---|
+| **Intro picture**: full-screen 160x200 multicolour bitmap (sunset, volcano, castle, ships, gold logo) in VIC bank 1 with the raster bars running behind the logo and a colour-cycling PRESS FIRE | **new** |
+| **Sound effects** (13, table-driven with priority and pitch sweeps): select, error, attack, capture, sector lost, invention, truce, build, disk, cursor tick, repulsed, victory, defeat | **new** |
+| **Music**: pulse lead with PWM + sawtooth bass, notes re-gated per step; new **victory** and **defeat** tunes | **new** |
+| **Effects**: border flashes (capture, loss, invention, win), screen shake on assault, pulsing cursor and source-marker colours, a different frame colour per epoch | **new** |
+| **HUD colour**: faction-coloured owner row, coloured score line, sidebar and help rows (hires colours only) | **new** |
+| Bug found by the new tests: `set_border` clobbered Y inside `load_island` (every island got the same terrain) | fixed before release |
+| Bug found in VICE: HUD colours 8-15 turned glyphs into multicolour garbage | fixed before release |
+
+## What was new in 4.1
 
 First release checked in a **real emulator** (VICE 3.7.1 x64sc) as well as in the 6502 model.
 
@@ -32,7 +44,7 @@ First release checked in a **real emulator** (VICE 3.7.1 x64sc) as well as in th
 | Four SID tunes (ancient / medieval / industrial / title), chosen by epoch | **new** |
 | **Safer disk save**: DOS `S0:` scratch + plain `SAVE`, then a KERNAL **VERIFY** read-back and status check; device follows the drive you booted from; screen and sprites blanked around serial I/O; snapshot v4 (includes truces) | **new** |
 | Fixes: KERNAL cursor blink could XOR screen RAM; KERNAL "SAVING/SEARCHING" messages suppressed; stale keystrokes flushed at title | **new** |
-| 116 automated tests on a 6502 model, mutation-checked | see below |
+| 135 automated tests on a 6502 model, mutation-checked | see below |
 
 ## Run it
 
@@ -99,7 +111,7 @@ Sidebar rows: sector number, owner, **PACT** (truce ticks left with the selected
 Python 3.10+, no third-party packages for assembling and testing:
 
 ```bash
-python3 tools/build.py --test              # assemble, D64, 116 tests
+python3 tools/build.py --test              # assemble, D64, 135 tests
 python3 tools/build.py --test --preview --package   # + PNG previews (needs Pillow) + release ZIP
 make test
 ```
@@ -121,15 +133,16 @@ src/engine.asm      v4 engine modules (origin $4000), includes:
   engine_data.asm   volatile engine state, disk blanking, get_device
 assets/             charset (2 KB), cursor sprite, source-marker sprite
 tools/              assembler, build, D64 writer, table/sprite generators, previews, packager
-tests/              6502 model + 116 tests (engine, game rules, tools)
+tests/              6502 model + 135 tests (engine, game rules, tools)
 docs/               architecture, memory map, design, save format, QA, hardware test plan
 dist/               built PRG, D64, symbols, checksums, previews, release ZIP
 ```
 
 ## Honest status
 
-* **Verified here:** assembly, byte-for-byte D64 chain, reproducible builds, and 116 tests that execute the real shipped opcodes in a 6502 model with raster-IRQ firing, a KERNAL disk shim (OPEN/CLOSE/SAVE/LOAD/VERIFY/READST/SETLFS/SETNAM) and port-2 joystick pins. The suite was mutation-checked: 13 deliberate bugs (AI ignoring truces, no IRQ acknowledge, no disk scratch, raster-MSB leak, …) are all caught.
+* **Verified here:** assembly, byte-for-byte D64 chain, reproducible builds, and 135 tests that execute the real shipped opcodes in a 6502 model with raster-IRQ firing, a KERNAL disk shim (OPEN/CLOSE/SAVE/LOAD/VERIFY/READST/SETLFS/SETNAM) and port-2 joystick pins. The suite was mutation-checked: 19 deliberate bugs (AI ignoring truces, no IRQ acknowledge, no disk scratch, raster-MSB leak, …) are all caught.
 * **Verified in VICE 3.7.1 x64sc (headless, PAL and NTSC):** the D64 autostarts; title screen with raster bars and colour cycling renders (screenshots in `dist/vice/`); the map, HUD, cursor and army-source sprites render; keyboard input (move, base, assault, build, speed keys, new game) works; an assault captures territory; `O` writes `ML64SAVE` to the D64 (one block, read back with `c1541`) and `I` restores it. Disk access used VICE's *virtual device* (KERNAL traps), **not** hardware-level 1541 emulation.
-* **NOT verified:** SID sound (nothing was listened to), real joystick feel (the joystick path is only model-tested), hardware-level 1541 / SD2IEC / Ultimate serial timing, a real C64C, raster-bar stability on real silicon, and balance against a human player over all 28 islands. Run [`docs/HARDWARE_TEST_PLAN.md`](docs/HARDWARE_TEST_PLAN.md) on real hardware and save only to a **copy** of a disk until then.
+* **Sound checked in VICE by recording:** the title tune's notes (98, 392 and 587 Hz = G2, G4, D5) show up in a WAV captured from VICE's SID. Nobody has listened to the SFX or judged the mix.
+* **NOT verified:** the sound effects' loudness/feel, real joystick feel (the joystick path is only model-tested), hardware-level 1541 / SD2IEC / Ultimate serial timing, a real C64C, raster-bar stability on real silicon, and balance against a human player over all 28 islands. Run [`docs/HARDWARE_TEST_PLAN.md`](docs/HARDWARE_TEST_PLAN.md) on real hardware and save only to a **copy** of a disk until then.
 * The raster bars are deliberately simple (not cycle-stable): expect slight edge jitter, title screen only.
 * Not a 1:1 recreation: no speech, original maps, original invention tree or multiplayer.

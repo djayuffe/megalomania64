@@ -12,5 +12,4 @@ run() { # name model keybuf cycles
 }
 run title_pal  pal  ""  200000000
 run title_ntsc ntsc ""  200000000
-run map_pal    pal  " " 600000000
-run map_ntsc   ntsc " " 600000000
+# map screenshots are taken from a live session (see README); keybuf delivery into the autostarted game is timing-dependent

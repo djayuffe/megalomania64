@@ -51,7 +51,11 @@ ru_digit:
  lda #>msgbuf
  sta PTR+1
  jsr message
- jsr beep_ok
+ lda #SFX_INVENT
+ jsr sfx_play
+ lda #7
+ ldx #14
+ jsr fx_flash          ; gold border pulse for a new invention
 ru_done:
  ldx simidx
  rts
@@ -129,6 +133,7 @@ pe_name:
 
 ; Sprite 1 marks the army source sector (right of the cursor frame).
 draw_source_marker:
+ jsr colorize_ui
  ldx source
  lda sector_x,x
  asl

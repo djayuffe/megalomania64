@@ -6,7 +6,7 @@
 
 1. acknowledge `$D019`; bump `vblank`;
 2. write `$DC00 = $FF` (no keyboard column selected) and sample port 2 into `joy_raw`;
-3. `sound_tick` — SFX gate timer and the 2-voice music sequencer (tune by epoch; tune 3 on the title);
+3. `sound_tick` — SFX sweep/gate timer and the 2-voice music sequencer (tune by epoch; 3 on the title; 4 victory, 5 defeat via `music_over`); then `fx_tick` — border flash, screen shake, sprite colour pulse;
 4. if the title is up, arm the raster-bar stack; then `JMP $EA31` — the KERNAL keeps the jiffy clock and keyboard buffer alive.
 
 `main_loop` sleeps in `wait_frame` until `vblank` changes, adds the elapsed frames (clamped to 8 after long disk I/O) to `frames`, and when `frames ≥ frames_per_tick` (16 PAL / 19 NTSC) subtracts the tick length **keeping the remainder**, then runs `simulate`. A slow frame therefore never loses time.
@@ -30,3 +30,15 @@ See `SAVE_FORMAT.md`. KERNAL serial I/O runs with the display and sprites off (`
 ## Verification boundary
 
 `tests/cpu6502.py` executes the shipped opcodes with: raster IRQ entry/RTI (`fire_irq`, `run_irq`, `run_for`), KERNAL `GETIN`, `SETLFS/SETNAM/OPEN/CLOSE/CLRCHN/SAVE/LOAD/VERIFY/READST`, port-2 pins, the live raster MSB in `$D011`, a write-protected disk, device numbers. It does **not** emulate VIC-II timing, badlines, sprite DMA, SID, CIA timers, IEC bit timing or 1541 DOS. A pass means the logic is right, not that the hardware agrees.
+
+## Sound (v4.2)
+
+`sfx_play` (A = id) drives SID voice 1 from nine parallel tables (`sfx_fhi/flo/sweep/wave/ad/sr/pw/len/prio`): start pitch, signed per-frame pitch sweep on the high byte, waveform, envelope, length and priority. A running effect is only replaced by one of equal or higher priority; the gate is dropped and raised again to retrigger the envelope. `beep_ok`/`beep_no` remain as wrappers. Voices 2/3 are the tracker: pulse lead with a pulse-width wobble and a sawtooth bass; every step releases both notes and re-gates them two frames later so repeated notes articulate. Six tunes of 16 steps (`tools/gen_tables.py`).
+
+## Effects and HUD colour (v4.2)
+
+`fx_flash` (A colour, X frames) alternates the border with the epoch colour (`border_tab`); `fx_shake_start` jitters `$D016` scroll while keeping the MCM and 40-column bits. `colorize_ui` recolours rows/segments of colour RAM after every score and panel redraw; HUD text may only use colours 0–7 (8–15 select multicolour glyphs and garble text — a regression test enforces it).
+
+## Intro picture
+
+`tools/make_intro.py` builds a 160x200 multicolour bitmap (committed under `assets/`). Background `%00` is black, so the raster-bar stack (which repaints `$D020/$D021`) shows through behind the logo. Row 22 (PRESS FIRE) is `%11`-only, so it colour-cycles through colour RAM.

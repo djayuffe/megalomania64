@@ -62,7 +62,8 @@ pt_accept:
  lda #>msg_truce_ok
  sta PTR+1
  jsr message
- jmp beep_ok
+ lda #SFX_TRUCE
+ jmp sfx_play
 pt_refuse:
  ldy pt_faction
  lda #TRUCE_COOL

@@ -19,6 +19,13 @@ muts=[
  ('src/develop.asm',' lda ore,x\n cmp #6\n bcc dv_factory\n jmp build_lab',' lda ore,x\n cmp #6\n bcc dv_factory\n jmp build_factory','develop order'),
  ('src/main.asm',' lda #1\n sta $cc',' lda #0\n sta $cc','cursor blink on'),
  ('src/main.asm','elapsed_ok:\n clc\n adc frames\n sta frames\n cmp frames_per_tick\n bcc main_loop\n sec\n sbc frames_per_tick        ; keep remainder: drift-free tick clock\n sta frames','elapsed_ok:\n clc\n adc frames\n sta frames\n cmp frames_per_tick\n bcc main_loop\n lda #0\n sta frames','tick drift'),
+
+ ('src/sound.asm',' lda sfx_prio,x\n cmp sfx_cur_prio\n bcc sp_skip',' lda sfx_prio,x\n cmp sfx_cur_prio\n bcs sp_skip','sfx priority inverted'),
+ ('src/sound.asm',' lda #$41\n sta $d40b                   ; gate on: attack again',' lda #$40\n sta $d40b','music never re-gated'),
+ ('src/fx.asm',' lda #$18\n sta $d016                   ; centred again',' nop','shake never recentres'),
+ ('src/hud.asm','hud_rowcol: !byte 0, 0, 0, 3, 0, 1, 7,','hud_rowcol: !byte 0, 0, 0, 3, 0, 1, 14,','hud multicolour text'),
+ ('src/hud.asm',' pha\n tya\n pha\n ldy epoch',' ldy epoch','set_border clobbers Y'),
+ ('src/title.asm',' lda #$78\n sta $d018                   ; screen RAM $5C00, bitmap $6000',' lda #$38\n sta $d018','intro wrong bitmap base'),
 ]
 survived=0
 for f,old,new,name in muts:

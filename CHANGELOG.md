@@ -1,5 +1,16 @@
 # Endringslogg
 
+## v4.2.0 (19. oktober 2026)
+
+- **Introbilde:** 160x200 flerfarge bitmap (solnedgang, vulkan, slott, skip, logo) i VIC-bank 1 (`$4000–$7FFF`). Rasterstolpene går bak logoen (svart bakgrunn), og PRESS FIRE farge-syklerer via fargeminnet. Bildet genereres av `tools/make_intro.py`.
+- **Lydeffekter:** 13 tabelldrevne effekter på SID-stemme 1 (prioritet, tonehøyde-sveip, gate-retrigging): valg, feil, angrep, erobring, tapt sektor, oppfinnelse, våpenhvile, bygg, disk, markørtikk, avvist, seier, nederlag.
+- **Musikk:** pulsstemme med PWM + sagtann-bass, noter gates på nytt per steg; to nye melodier (seier, nederlag) via `music_over`.
+- **Effekter:** kantblink (erobring, tap, oppfinnelse, seier), skjermskaking ved angrep, pulserende markør- og kildefarger, egen rammefarge per epoke.
+- **HUD-farger:** fraksjonsfarget eier-rad, farget poenglinje, sidefelt og hjelpelinjer (kun hires-farger 0–7).
+- **Feil funnet av nye tester/VICE og rettet før utgivelse:** `set_border` ødela Y i `load_island`; HUD-farger 8–15 ga flerfargetegn.
+- **Verktøy/tester:** 135 tester (nye: lyd, effekter, HUD, introdata). Byggesjekk: motorkoden må holde seg under `$5800`.
+- **Verifisert i VICE:** introbildet på PAL og NTSC; lydopptak fra VICE viser titteltonene (98/392/587 Hz). **Ikke** lyttet til effektene.
+
 ## v4.1.0 (19. oktober 2026)
 
 Første utgivelse kontrollert i ekte emulator (VICE 3.7.1 x64sc, PAL og NTSC, virtuell diskenhet).

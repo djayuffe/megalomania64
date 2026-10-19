@@ -62,12 +62,29 @@ test_fire_tap_is_context_sensitive_on_pause_victory_and_defeat (test_engine.Joys
 test_fire_tap_sets_source_on_own_land_and_raids_otherwise (test_engine.Joystick.test_fire_tap_sets_source_on_own_land_and_raids_otherwise) ... ok
 test_joystick_never_mutates_enemy_or_state_on_idle (test_engine.Joystick.test_joystick_never_mutates_enemy_or_state_on_idle) ... ok
 test_unmapped_chord_and_release_do_nothing (test_engine.Joystick.test_unmapped_chord_and_release_do_nothing) ... ok
+test_border_flash_alternates_and_returns_to_epoch_colour (test_engine.SoundFx.test_border_flash_alternates_and_returns_to_epoch_colour) ... ok
+test_border_per_epoch_table_and_load_island_sets_it (test_engine.SoundFx.test_border_per_epoch_table_and_load_island_sets_it) ... ok
+test_cursor_move_ticks (test_engine.SoundFx.test_cursor_move_ticks) ... ok
+test_fx_is_off_on_the_title (test_engine.SoundFx.test_fx_is_off_on_the_title) ... ok
+test_hud_colours (test_engine.SoundFx.test_hud_colours) ... ok
+test_hud_text_uses_hires_colours_only (test_engine.SoundFx.test_hud_text_uses_hires_colours_only) ... ok
+test_human_losing_a_sector_alerts (test_engine.SoundFx.test_human_losing_a_sector_alerts) ... ok
+test_lower_priority_never_cuts_a_higher_one_but_equal_or_higher_does (test_engine.SoundFx.test_lower_priority_never_cuts_a_higher_one_but_equal_or_higher_does) ... ok
+test_music_regates_notes_and_has_victory_and_defeat_tunes (test_engine.SoundFx.test_music_regates_notes_and_has_victory_and_defeat_tunes) ... ok
+test_player_attack_makes_noise_and_shake_capture_flashes_green (test_engine.SoundFx.test_player_attack_makes_noise_and_shake_capture_flashes_green) ... ok
+test_pulse_width_wobbles (test_engine.SoundFx.test_pulse_width_wobbles) ... ok
+test_screen_shake_jitters_scroll_then_recentres (test_engine.SoundFx.test_screen_shake_jitters_scroll_then_recentres) ... ok
+test_sfx_programs_voice1_and_sweeps_then_releases (test_engine.SoundFx.test_sfx_programs_voice1_and_sweeps_then_releases) ... ok
+test_sfx_tables_are_aligned (test_engine.SoundFx.test_sfx_tables_are_aligned) ... ok
+test_sprite_colours_pulse (test_engine.SoundFx.test_sprite_colours_pulse) ... ok
+test_win_and_loss_switch_tune_sound_and_flash (test_engine.SoundFx.test_win_and_loss_switch_tune_sound_and_flash) ... ok
 test_default_normal_and_keys_1_2_3_set_speed (test_engine.SpeedControl.test_default_normal_and_keys_1_2_3_set_speed) ... ok
 test_speed_digit_shown_in_header (test_engine.SpeedControl.test_speed_digit_shown_in_header) ... ok
 test_fire_button_dismisses_title (test_engine.Title.test_fire_button_dismisses_title) ... ok
+test_intro_assets_are_consistent_and_in_vic_bank_1 (test_engine.Title.test_intro_assets_are_consistent_and_in_vic_bank_1) ... ok
 test_title_flushes_stale_keyboard_queue (test_engine.Title.test_title_flushes_stale_keyboard_queue) ... ok
-test_title_screen_draws_waits_and_hands_over_on_key (test_engine.Title.test_title_screen_draws_waits_and_hands_over_on_key) ... ok
-test_title_text_uses_hires_colours_only (test_engine.Title.test_title_text_uses_hires_colours_only) ... ok
+test_title_palette_is_hires_safe (test_engine.Title.test_title_palette_is_hires_safe) ... ok
+test_title_screen_shows_bitmap_intro_and_hands_over_on_key (test_engine.Title.test_title_screen_shows_bitmap_intro_and_hands_over_on_key) ... ok
 test_28_stage_end_to_end_victory (test_game.StrategyTest.test_28_stage_end_to_end_victory) ... ok
 test_adjacency_at_row_boundary (test_game.StrategyTest.test_adjacency_at_row_boundary) ... ok
 test_ai_adapts_workforce (test_game.StrategyTest.test_ai_adapts_workforce) ... ok
@@ -115,11 +132,11 @@ test_assembly_is_reproducible (test_tools.Tools.test_assembly_is_reproducible) .
 test_basic_stub_and_entry (test_tools.Tools.test_basic_stub_and_entry) ... ok
 test_generated_tables_and_sprite_are_up_to_date (test_tools.Tools.test_generated_tables_and_sprite_are_up_to_date) ... ok
 test_music_tables_are_in_sid_range (test_tools.Tools.test_music_tables_are_in_sid_range) ... ok
-test_package_is_reproducible_and_complete (test_tools.Tools.test_package_is_reproducible_and_complete) ... MegaLoMania64_v4.1.0_Source.zip: 150356 bytes, sha256 0ac4d144fb41664ddbec8f18b943a18f4bbc1e405ba95d1bd883d381de68dee9
-MegaLoMania64_v4.1.0_Source.zip: 150356 bytes, sha256 0ac4d144fb41664ddbec8f18b943a18f4bbc1e405ba95d1bd883d381de68dee9
+test_package_is_reproducible_and_complete (test_tools.Tools.test_package_is_reproducible_and_complete) ... MegaLoMania64_v4.2.0_Source.zip: 188133 bytes, sha256 38e360aabcf9f2cd2c87755b188ecbd0106700d17d2ebe0968bbb6a1471487a6
+MegaLoMania64_v4.2.0_Source.zip: 188133 bytes, sha256 38e360aabcf9f2cd2c87755b188ecbd0106700d17d2ebe0968bbb6a1471487a6
 ok
 
 ----------------------------------------------------------------------
-Ran 118 tests in 32.673s
+Ran 135 tests in 55.640s
 
 OK

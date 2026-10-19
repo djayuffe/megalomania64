@@ -51,6 +51,7 @@ irq_handler:
  and #31
  sta joy_raw
  jsr sound_tick              ; SFX gate timer + music sequencer
+ jsr fx_tick                 ; border flash, screen shake, sprite colour pulse
  lda title_active
  beq irq_not_ours
  lda vblank                  ; title: arm the wobbling raster-bar stack
@@ -81,7 +82,11 @@ irq_bar:
  jmp $ea81
 irq_bar_last:
  lda #6
- sta $d020                   ; back to the game's blue frame
+ ldy title_bmp
+ beq ib_frame
+ lda #0                      ; intro picture: black frame and background
+ib_frame:
+ sta $d020                   ; back to the resting frame colour
  sta $d021
  lda #IRQ_LINE
  sta $d012

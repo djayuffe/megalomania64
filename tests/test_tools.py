@@ -25,7 +25,7 @@ class Tools(unittest.TestCase):
         self.assertEqual(symbols()['start'],0x1000)
     def test_music_tables_are_in_sid_range(self):
         build();s=symbols();c=CPU(PRG)
-        lo=c.m[s['melody_lo']:s['melody_lo']+64];hi=c.m[s['melody_hi']:s['melody_hi']+64]
+        lo=c.m[s['melody_lo']:s['melody_lo']+96];hi=c.m[s['melody_hi']:s['melody_hi']+96]
         for i in range(64):
             freq=lo[i]+256*hi[i]
             self.assertTrue(500<freq<20000,(i,freq))     # ~30 Hz..~1.2 kHz: audible, nothing degenerate

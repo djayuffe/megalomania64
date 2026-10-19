@@ -33,7 +33,18 @@ def preview(out,scenario='start'):
   for _ in range(12):cpu.call(syms['simulate'])
  m=cpu.m;px=Image.new('RGB',(320,200),PALETTE[m[0xd021]&15]);pixels=px.load()
  bg=PALETTE[m[0xd021]&15];mc1=PALETTE[m[0xd022]&15];mc2=PALETTE[m[0xd023]&15]
- for r in range(25):
+ bitmap=bool(m[0xd011]&0x20)
+ if bitmap:                      # multicolour bitmap in VIC bank 1 (intro picture)
+  base=0x4000+((m[0xd018]>>3)&1)*0x2000;scr=0x4000+((m[0xd018]>>4)&15)*0x400
+  for r in range(25):
+   for c in range(40):
+    idx=r*40+c;a=m[scr+idx];col=[bg,PALETTE[a>>4],PALETTE[a&15],PALETTE[m[0xd800+idx]&15]]
+    for y in range(8):
+     data=m[base+idx*8+y]
+     for bx in range(4):
+      v=(data>>(6-2*bx))&3
+      pixels[c*8+bx*2,r*8+y]=col[v];pixels[c*8+bx*2+1,r*8+y]=col[v]
+ for r in range(0 if bitmap else 25):
   for c in range(40):
    idx=r*40+c;code=m[0x400+idx];color=m[0xd800+idx]&15
    multi=bool((m[0xd016]&16) and (color&8))

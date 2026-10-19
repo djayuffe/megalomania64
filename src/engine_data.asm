@@ -11,6 +11,19 @@ joycount:     !byte 0
 irq_stage:    !byte 0         ; 0 = frame IRQ, 1.. = title raster bars
 irq_line:     !byte 0
 title_active: !byte 0
+music_over:   !byte 0         ; tune index (4 victory, 5 defeat) overriding the epoch tune, 0 = none
+sfx_f:        !byte 0
+sfx_sw:       !byte 0
+sfx_w:        !byte 0
+sfx_cur_prio: !byte 0
+cu_len:       !byte 0
+cu_col:       !byte 0
+cu_x:         !byte 0
+border_col:   !byte 6
+fx_timer:     !byte 0
+fx_col:       !byte 0
+shake_timer:  !byte 0
+title_bmp:    !byte 0         ; 1 while the multicolour intro bitmap is shown
 titleidx:     !byte 0
 titleph:      !byte 0
 devnum:       !byte 8         ; device used for SAVE/LOAD (see get_device)

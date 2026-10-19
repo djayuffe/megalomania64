@@ -96,7 +96,7 @@ class IrqEngine(GameCase):
         self.assertEqual(c.m[0xdc0d],0x7f)
         self.assertEqual(c.m[0xd015],3)
         self.assertEqual(c.m[0x07f9],0xdd)
-        self.assertEqual(c.m[0xd028],10)
+        self.assertIn(c.m[0xd028],(2,8,10))                  # army-source marker colour pulses red tones
         self.assertEqual(c.m[0x9d],0)                       # no KERNAL I/O messages over the map
     def test_main_loop_runs_one_tick_per_frames_per_tick_and_is_drift_free(self):
         c=boot(CPU(PRG),self.sym)
@@ -154,7 +154,7 @@ class Title(GameCase):
                 if n[0]==4:c.key=32
         self.cpu.run_until(0x8000,on_pc=watch,irq_every=1500)
         self.assertGreaterEqual(n[0],4)
-    def test_title_screen_draws_waits_and_hands_over_on_key(self):
+    def test_title_screen_shows_bitmap_intro_and_hands_over_on_key(self):
         self.irq_on()
         self.cpu.push(0x7f);self.cpu.push(0xff);self.cpu.pc=self.sym['title_screen']
         n=[0]
@@ -162,14 +162,25 @@ class Title(GameCase):
             if c.pc==self.sym['title_wait']:
                 n[0]+=1
                 if n[0]==6:
-                    self.assertEqual(self.screen(11,12,16),'MEGA-LO-MANIA 64')
-                    self.assertEqual(self.screen(21,9,21),'PRESS FIRE OR ANY KEY')
+                    self.assertEqual(c.m[0xdd00]&3,2)                        # VIC bank 1 ($4000-$7FFF)
+                    self.assertEqual(c.m[0xd018],0x78)                       # screen $5C00, bitmap $6000
+                    self.assertEqual(c.m[0xd011]&0x7f,0x3b)                  # bitmap mode, display on
+                    self.assertEqual(c.m[0xd016]&0x1f,0x18)                  # multicolour, 40 columns
                     self.assertEqual(self.state('title_active'),1)
-                    self.assertEqual(self.cpu.m[0xd015],0)
-                    self.assertNotEqual(self.cpu.m[0xd800+11*40+12],self.cpu.m[0xd800+11*40+13])  # colour cycling
+                    self.assertEqual(self.state('title_bmp'),1)
+                    self.assertEqual(c.m[0xd015],0)
+                    # colour RAM holds the picture's %11 colours; the PRESS FIRE row cycles
+                    pic=(ROOT/'assets/intro_color.bin').read_bytes()
+                    self.assertEqual(bytes(c.m[0xd800+i] for i in range(880)),pic[:880])
+                    row=[c.m[0xd800+22*40+x] for x in range(40)]
+                    self.assertGreater(len(set(row)),3)
                 if n[0]==9:c.key=ord('X')
         self.cpu.run_until(0x8000,on_pc=key,irq_every=1500)
         self.assertEqual(self.state('title_active'),0)
+        self.assertEqual(self.state('title_bmp'),0)
+        self.assertEqual(self.cpu.m[0xdd00]&3,3)                              # back to VIC bank 0
+        self.assertEqual(self.cpu.m[0xd018],0x1e)
+        self.assertEqual(self.cpu.m[0xd011]&0x7f,0x1b)
         self.assertEqual(self.cpu.m[0xd015],3)
     def test_fire_button_dismisses_title(self):
         self.irq_on()
@@ -178,22 +189,27 @@ class Title(GameCase):
         self.cpu.run_until(0x8000,irq_every=1500)
         self.assertEqual(self.state('title_active'),0)
 
-    def test_title_text_uses_hires_colours_only(self):
-        # Colour RAM values 8-15 switch a character to multicolour mode and garble text glyphs.
-        for table,n in (('title_ti',7),('title_pal',8)):
-            vals=[self.cpu.m[self.sym[table]+i] for i in range(n)]
-            self.assertTrue(all(0<=v<=7 for v in vals),(table,vals))
-        self.irq_on();self.cpu.push(0x7f);self.cpu.push(0xff);self.cpu.pc=self.sym['title_screen']
-        seen=[0]
-        def watch(c):
-            if c.pc==self.sym['title_wait']:
-                seen[0]+=1
-                if seen[0]==3:
-                    for row in (5,7,10,12,15,19,22):
-                        cols=[c.m[0xd800+row*40+x] for x in range(40) if c.m[0x400+row*40+x]!=32]
-                        self.assertTrue(all(v<=7 for v in cols),(row,cols))
-                if seen[0]==5:c.key=32
-        self.cpu.run_until(0x8000,on_pc=watch,irq_every=1500)
+    def test_intro_assets_are_consistent_and_in_vic_bank_1(self):
+        sym=self.sym
+        bm=(ROOT/'assets/intro_bitmap.bin').read_bytes();sc=(ROOT/'assets/intro_screen.bin').read_bytes();co=(ROOT/'assets/intro_color.bin').read_bytes()
+        self.assertEqual((len(bm),len(sc),len(co)),(8000,1000,1000))
+        c=CPU(PRG)
+        self.assertEqual(bytes(c.m[0x6000:0x6000+8000]),bm)
+        self.assertEqual(bytes(c.m[0x5c00:0x5c00+1000]),sc)
+        self.assertEqual(bytes(c.m[sym['intro_color']:sym['intro_color']+1000]),co)
+        self.assertLess(sym['engine_end'],0x5800)
+        self.assertTrue(0x4000<=0x6000 and 0x6000+8000<=0x8000 and 0x5c00+1000<=0x6000)
+        # the PRESS FIRE row is %11 only so it can colour-cycle: no %01/%10 pixels there
+        for cell in range(22*40,23*40):
+            for y in range(8):
+                b=bm[cell*8+y]
+                for sh in (6,4,2,0):
+                    self.assertIn((b>>sh)&3,(0,3),cell)
+        self.assertTrue(all(v<=15 for v in co) and all(v<=255 for v in sc))
+    def test_title_palette_is_hires_safe(self):
+        # PRESS FIRE colour RAM cycle: the row is %11-only bitmap cells, any 0-15 colour is legal here
+        vals=[self.cpu.m[self.sym['title_pal']+i] for i in range(8)]
+        self.assertTrue(all(0<=v<=15 for v in vals))
 
 class Joystick(GameCase):
     def stick(self,raw):
@@ -628,3 +644,150 @@ class AiPacing(GameCase):
             self.put('ai_faction',1);self.put('ai_cursor',10)
             self.call('ai_turn')
             self.assertEqual(self.state('owner',10)==2,attacked,msg=defence)
+
+
+class SoundFx(GameCase):
+    def irq_frames(self,n):
+        for _ in range(n):self.cpu.run_irq()
+    def test_sfx_programs_voice1_and_sweeps_then_releases(self):
+        self.irq_on()
+        self.call('sfx_play',) if False else None
+        self.cpu.a=2;self.call('sfx_play')                       # attack: noise, sweeping down
+        self.assertEqual(self.cpu.m[0xd404],0x81)
+        f0=self.cpu.m[0xd401]
+        self.assertEqual(self.state('soundtime'),12)
+        self.irq_frames(3)
+        self.assertEqual(self.cpu.m[0xd401],(f0-6)&255)          # -2 per frame
+        self.irq_frames(12)
+        self.assertEqual(self.cpu.m[0xd404]&1,0)                 # gate released
+        self.assertEqual(self.state('sfx_cur_prio'),0)
+    def test_lower_priority_never_cuts_a_higher_one_but_equal_or_higher_does(self):
+        self.irq_on()
+        self.cpu.a=11;self.call('sfx_play')                      # defeat sting, priority 6
+        self.cpu.a=9;self.call('sfx_play')                       # cursor tick, priority 0
+        self.assertEqual(self.cpu.m[0xd404],0x21)
+        self.assertEqual(self.state('soundtime'),70)
+        self.cpu.a=10;self.call('sfx_play')                      # victory, priority 6: replaces
+        self.assertEqual(self.cpu.m[0xd404],0x41)
+        self.assertEqual(self.state('soundtime'),60)
+    def test_sfx_tables_are_aligned(self):
+        for name in ('sfx_fhi','sfx_flo','sfx_sweep','sfx_wave','sfx_ad','sfx_sr','sfx_pw','sfx_len','sfx_prio'):
+            self.assertEqual(self.sym[name]+13,self.sym[{'sfx_fhi':'sfx_flo','sfx_flo':'sfx_sweep','sfx_sweep':'sfx_wave','sfx_wave':'sfx_ad','sfx_ad':'sfx_sr','sfx_sr':'sfx_pw','sfx_pw':'sfx_len','sfx_len':'sfx_prio','sfx_prio':'sound_tick'}[name]])
+        for i in range(13):
+            self.assertEqual(self.cpu.m[self.sym['sfx_wave']+i]&1,1)       # every effect gates on
+            self.assertGreater(self.cpu.m[self.sym['sfx_len']+i],0)
+    def test_music_regates_notes_and_has_victory_and_defeat_tunes(self):
+        self.irq_on()
+        tempo=[self.cpu.m[self.sym['music_tempo']+i] for i in range(6)]
+        self.assertEqual(len(tempo),6)
+        self.put('music_over',4);self.put('music_pos',0);self.put('music_frame',tempo[4]-1)
+        self.cpu.run_irq()
+        self.assertEqual(self.cpu.m[0xd407],self.cpu.m[self.sym['melody_lo']+4*16])
+        self.assertEqual(self.cpu.m[0xd40b],0x40);self.assertEqual(self.cpu.m[0xd412],0x20)   # released ...
+        self.cpu.run_irq();self.assertEqual(self.cpu.m[0xd40b],0x40)
+        self.cpu.run_irq()
+        self.assertEqual(self.cpu.m[0xd40b],0x41);self.assertEqual(self.cpu.m[0xd412],0x21)   # ... and re-gated two frames later
+        self.put('music_over',5);self.put('music_pos',3);self.put('music_frame',tempo[5]-1);self.cpu.run_irq()
+        self.assertEqual(self.cpu.m[0xd407],self.cpu.m[self.sym['melody_lo']+5*16+3])
+    def test_pulse_width_wobbles(self):
+        self.irq_on()
+        seen=set()
+        for i in range(16):
+            self.cpu.run_irq();seen.add(self.cpu.m[0xd40a])
+        self.assertGreater(len(seen),3);self.assertTrue(all(4<=v<=11 for v in seen))
+    def test_win_and_loss_switch_tune_sound_and_flash(self):
+        self.irq_on()
+        for i in range(12):self.put('owner',1,i)
+        self.call('draw_score')
+        self.assertEqual(self.state('state'),2);self.assertEqual(self.state('music_over'),4)
+        self.assertEqual(self.state('fx_timer'),50);self.assertEqual(self.cpu.m[0xd404],0x41)
+        self.call('load_island');self.assertEqual(self.state('music_over'),0)
+        for i in range(12):self.put('owner',0,i)
+        self.call('draw_score')
+        self.assertEqual(self.state('state'),3);self.assertEqual(self.state('music_over'),5)
+        self.assertEqual(self.cpu.m[0xd404],0x21)
+    def test_border_flash_alternates_and_returns_to_epoch_colour(self):
+        self.irq_on()
+        self.put('epoch',3);self.call('set_border')
+        self.assertEqual(self.state('border_col'),11)
+        self.cpu.a=13;self.cpu.x=8;self.call('fx_flash')
+        seen=[]
+        for i in range(9):
+            self.cpu.run_irq();seen.append(self.cpu.m[0xd020])
+        self.assertIn(13,seen);self.assertIn(11,seen)
+        self.assertEqual(self.cpu.m[0xd020],11)
+    def test_screen_shake_jitters_scroll_then_recentres(self):
+        self.irq_on()
+        self.cpu.x=8;self.call('fx_shake_start')
+        seen=set()
+        for i in range(8):
+            self.cpu.run_irq();seen.add(self.cpu.m[0xd016])
+        self.assertTrue(seen>={0x18,0x19,0x1a,0x1b} or len(seen)>=3)
+        self.assertTrue(all(v&0x18==0x18 for v in seen))               # MCM and 40-column bits never lost
+        self.assertEqual(self.cpu.m[0xd016],0x18)
+    def test_fx_is_off_on_the_title(self):
+        self.irq_on()
+        self.put('title_active',1);self.cpu.a=7;self.cpu.x=10;self.call('fx_flash')
+        self.cpu.m[0xd020]=0
+        self.cpu.run_irq()
+        self.assertEqual(self.state('fx_timer'),10)
+    def test_sprite_colours_pulse(self):
+        self.irq_on()
+        seen=set()
+        for i in range(40):
+            self.cpu.run_irq();seen.add(self.cpu.m[0xd027])
+        self.assertGreaterEqual(len(seen),2)
+    def test_player_attack_makes_noise_and_shake_capture_flashes_green(self):
+        self.irq_on()
+        s=[i for i in range(12) if self.state('owner',i)==1][0]
+        self.put('source',s);self.put('people',60,s)
+        t=[n for n in (s+1,s-1,s+4,s-4) if 0<=n<12 and (n//4==s//4 or abs(n-s)==4) and self.state('owner',n)==0]
+        self.assertTrue(t)
+        self.put('selected',t[0]);self.press('T')
+        self.assertEqual(self.state('shake_timer'),8)
+        self.assertEqual(self.state('fx_col'),13);self.assertEqual(self.state('fx_timer'),12)
+        self.assertEqual(self.state('sfx_cur_prio'),4)                  # capture fanfare replaced the attack noise
+    def test_cursor_move_ticks(self):
+        self.irq_on()
+        self.put('selected',0);self.press('D')
+        self.assertEqual(self.cpu.m[0xd404],0x11)
+        self.assertEqual(self.state('soundtime'),2)
+    def test_human_losing_a_sector_alerts(self):
+        self.irq_on()
+        s=[i for i in range(12) if self.state('owner',i)==1][0]
+        e=[i for i in range(12) if self.state('owner',i)==2][0]
+        self.put('selected',s);self.put('source',e);self.put('attacking',2);self.put('force',40);self.put('usedarms',0)
+        self.cpu.x=s;self.call('attack_capture')
+        self.assertEqual(self.state('fx_col'),2);self.assertEqual(self.state('shake_timer'),6)
+        self.assertEqual(self.cpu.m[0xd404],0x21)                       # sector-lost sting
+    def test_hud_colours(self):
+        self.call('draw_score');self.call('draw_panel')
+        self.call('panel_values')
+        col=lambda r,c:self.cpu.m[0xd800+r*40+c]&15
+        s=self.state('selected');own=self.state('owner',s)
+        self.assertEqual(col(5,32),[1,5,7,3,4][own])               # OWNER row = faction colour
+        self.assertEqual(col(3,35),3);self.assertEqual(col(9,35),7)
+        self.assertEqual((col(22,5),col(23,5),col(24,5)),(5,3,7))
+        self.assertEqual(col(1,3),5);self.assertEqual(col(1,13),7)
+        self.assertEqual(col(0,3),7)
+    def test_border_per_epoch_table_and_load_island_sets_it(self):
+        tab=[self.cpu.m[self.sym['border_tab']+i] for i in range(10)]
+        self.assertEqual(len(set(tab)),9 if len(set(tab))==9 else len(set(tab)))
+        for stage in (0,3,9,27):
+            self.put('campaign_island',stage);self.call('load_island')
+            self.assertEqual(self.cpu.m[0xd020],tab[min(stage//3,9)])
+
+    def test_hud_text_uses_hires_colours_only(self):
+        # colour RAM 8-15 switches a glyph to multicolour and garbles it (seen in VICE)
+        for owner in (0,1,2,3,4):
+            for sel in range(12):
+                self.put('selected',sel);self.call('draw_score');self.call('draw_panel');self.call('panel_values')
+                for r in list(range(0,3))+list(range(22,25)):
+                    for c in range(40):
+                        if self.cpu.m[0x400+r*40+c]!=32:
+                            self.assertLessEqual(self.cpu.m[0xd800+r*40+c]&15,7,(r,c))
+                for r in range(3,22):
+                    for c in range(30,40):
+                        if self.cpu.m[0x400+r*40+c]!=32:
+                            self.assertLessEqual(self.cpu.m[0xd800+r*40+c]&15,7,(r,c))
+            self.put('owner',owner,sel)

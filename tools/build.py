@@ -25,10 +25,12 @@ def main():
  p.add_argument('--package',action='store_true',help='also write the release ZIP and checksums')
  a=p.parse_args()
  (ROOT/'dist').mkdir(exist_ok=True)
- if a.regen_gfx:subprocess.run([sys.executable,str(ROOT/'tools/make_gfx.py')],cwd=ROOT,check=True)
+ if a.regen_gfx:
+  subprocess.run([sys.executable,str(ROOT/'tools/make_gfx.py')],cwd=ROOT,check=True)
+  subprocess.run([sys.executable,str(ROOT/'tools/make_intro.py')],cwd=ROOT,check=True)
  subprocess.run([sys.executable,str(ROOT/'tools/make_sprites.py')],cwd=ROOT,check=True,stdout=subprocess.DEVNULL)
  subprocess.run([sys.executable,str(ROOT/'tools/gen_tables.py')],cwd=ROOT,check=True,stdout=subprocess.DEVNULL)
- for name,expected in (('charset.bin',2048),('cursor_sprite.bin',64),('source_sprite.bin',64)):
+ for name,expected in (('charset.bin',2048),('cursor_sprite.bin',64),('source_sprite.bin',64),('intro_bitmap.bin',8000),('intro_screen.bin',1000),('intro_color.bin',1000)):
   f=ROOT/'assets'/name
   if not f.is_file() or f.stat().st_size!=expected:raise SystemExit(f'Asset missing/invalid: {f}')
  output=ROOT/'dist/MegaLoMania64.prg'
@@ -40,6 +42,7 @@ def main():
  table=(ROOT/'dist/symbols.txt').read_text()
  code_end=symbol(table,'cpu_count');last_data=symbol(table,'checksum_sum')+1
  if not (0x1000 < code_end < last_data < 0x3700):raise SystemExit('FATAL: program code/state overlaps reserved sprite RAM')
+ if symbol(table,'engine_end')>=0x5800:raise SystemExit('FATAL: engine code overlaps the intro picture data at $5800')
  prg=output.read_bytes();top=prg[0]+256*prg[1]+len(prg)-3
  if top>=0xC000:raise SystemExit(f'FATAL: program ends at ${top:04X}, overlaps the $C000 save buffer')
  print(f'PRG ${prg[0]+256*prg[1]:04X}-${top:04X}, {len(prg)} bytes; free below save buffer: {0xC000-top-1} bytes')

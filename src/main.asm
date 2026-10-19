@@ -105,81 +105,6 @@ elapsed_ok:
  jsr simulate
  jmp main_loop
 
-sound_tick:
- lda soundtime
- beq sound_end
- dec soundtime
- bne sound_end
- lda #$20
- sta SID_GATE
-sound_end:
- jsr music_tick
- rts
-
-; Two-voice tracker, run from the raster IRQ. Voice 1 is reserved for UI/war SFX.
-; Four tunes of 16 steps (ancient, medieval, industrial, title) see music_data.asm.
-music_tick:
- ldy title_active
- beq music_game
- ldy #3
- bne music_have
-music_game:
- ldy epoch
- lda music_variant,y
- tay
-music_have:
- inc music_frame
- lda music_frame
- cmp music_tempo,y
- bcc music_return
- lda #0
- sta music_frame
- tya
- asl
- asl
- asl
- asl
- ora music_pos
- tax
- lda melody_lo,x
- sta $d407
- lda melody_hi,x
- sta $d408
- lda bass_lo,x
- sta $d40e
- lda bass_hi,x
- sta $d40f
- inc music_pos
- lda music_pos
- and #15
- sta music_pos
-music_return:
- rts
-beep_ok:
- lda #$18
- sta $d401
- lda #$30
- sta $d400
- lda #$20
- sta SID_GATE
- lda #$21
- sta SID_GATE
- lda #$06
- sta soundtime
- rts
-beep_no:
- lda #$07
- sta $d401
- lda #$80
- sta $d400
- lda #$20
- sta SID_GATE
- lda #$21
- sta SID_GATE
- lda #$09
- sta soundtime
- rts
-
 new_game:
  lda #0
  sta campaign_island
@@ -197,6 +122,9 @@ load_island:
  sta state
  sta load_mode
  sta soundtime
+ sta music_over
+ sta fx_timer
+ sta shake_timer
  sta selected
  sta source
  sta music_frame
@@ -209,6 +137,7 @@ load_island:
  ldy campaign_island
  lda epoch_by_island,y
  sta epoch
+ jsr set_border
  lda world_terrain_lo,y
  sta PTR
  lda world_terrain_hi,y
@@ -943,6 +872,8 @@ key_standard_attack:
  jmp draw_panel
 moved:
  jsr draw_cursor
+ lda #SFX_TICK
+ jsr sfx_play
  jmp draw_panel
 key_invalid:
  jsr beep_no
@@ -1743,12 +1674,41 @@ not_cpu_count:
  lda #1
  sta text_y
  jsr print2
+ jsr colorize_ui
  lda you_count
  beq game_lost
  cmp #12
  beq game_won
  rts
+win_fanfare:
+ lda music_over
+ cmp #4
+ beq wf_done
+ lda #4
+ sta music_over              ; victory tune
+ lda #0
+ sta music_pos
+ lda #SFX_WIN
+ jsr sfx_play
+ lda #13
+ ldx #50
+ jsr fx_flash
+wf_done:
+ rts
 game_lost:
+ lda state
+ cmp #3
+ beq gl_set
+ lda #5
+ sta music_over              ; defeat tune
+ lda #0
+ sta music_pos
+ lda #SFX_LOSE
+ jsr sfx_play
+ lda #2
+ ldx #40
+ jsr fx_flash
+gl_set:
  lda #3
  sta state
  lda #<msg_loss
@@ -1758,6 +1718,7 @@ game_lost:
  jsr message
  rts
 game_won:
+ jsr win_fanfare
  lda campaign_island
  cmp #27
  beq game_final_won
@@ -2124,6 +2085,10 @@ player_attack:
  jsr break_truce           ; attacking a truce partner voids the pact
  lda #1
  sta attacking
+ lda #SFX_ATTACK
+ jsr sfx_play
+ ldx #8
+ jsr fx_shake_start
  jsr do_attack
  rts
 attack_unavailable:
@@ -2405,7 +2370,8 @@ siege_no_arms:
  lda #>msg_failed
  sta PTR+1
  jsr message
- jsr beep_no
+ lda #SFX_REPULSE
+ jsr sfx_play
  jmp attack_redraw
 attack_cpu_failed:
  lda #<msg_enemy_fail
@@ -2416,6 +2382,21 @@ attack_cpu_failed:
  jmp attack_redraw
 attack_capture:
  ; capture sector and set up productive garrison
+ lda owner,x
+ cmp #1
+ bne ac_fresh
+ lda attacking
+ cmp #2
+ bcc ac_fresh                  ; own attack
+ lda #SFX_LOST                 ; the human just lost a sector
+ jsr sfx_play
+ lda #2
+ ldx #16
+ jsr fx_flash
+ ldx #6
+ jsr fx_shake_start
+ac_fresh:
+ ldx selected
  lda attacking
  sta owner,x
  lda force
@@ -2454,7 +2435,11 @@ cap_no_tech:
  lda #>msg_captured
  sta PTR+1
  jsr message
- jsr beep_ok
+ lda #SFX_CAPTURE
+ jsr sfx_play
+ lda #13
+ ldx #12
+ jsr fx_flash
  jmp attack_redraw
 capture_enemy_message:
  lda #<msg_rival
@@ -2607,8 +2592,8 @@ save_game_io:
  lda #>msg_saved
  sta PTR+1
  jsr message
- jsr beep_ok
- rts
+ lda #SFX_DISK
+ jmp sfx_play
 
 restore_game:
  jsr disk_begin
@@ -2659,8 +2644,8 @@ load_apply_loop:
  lda #>msg_loaded
  sta PTR+1
  jsr message
- jsr beep_ok
- rts
+ lda #SFX_DISK
+ jmp sfx_play
 
 disk_error:
  cli

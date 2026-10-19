@@ -1,4 +1,4 @@
-# Mega-Lo-Mania 64 v4.0 — norsk spillmanual
+# Mega-Lo-Mania 64 v4.2 — norsk spillmanual
 
 Uoffisielt, selvstendig utviklet strategispill inspirert av Mega-Lo-Mania for **Commodore 64 / C64C uten minneutvidelse**. Ekte 6510-maskinkode, VIC-II tegnsett og sprites, SID, rasterinterrupt-motor og fire konkurrerende fraksjoner.
 
@@ -63,7 +63,7 @@ Forskning krever 24, 32, 40, 48 og 56 poeng. Industri på nivå 2+ gir +2 malm p
 
 ## Tiltro
 
-Regler, IRQ-logikk, joystick, diplomati, disk-shim og D64-struktur er testet med 116 opcode-tester i en 6502-modell. **Kjørt i VICE 3.7.1 (PAL og NTSC, virtuell diskenhet):** oppstart, tittelbilde, kart, taster, angrep og lagring/innlasting. **Ikke testet:** SID-lyd, ekte joystick, maskinvarenivå 1541 og ekte C64C. Bruk `docs/HARDWARE_TEST_PLAN.md`, og lagre kun på en **kopi** av disketten til dette er gjort.
+Regler, IRQ-logikk, joystick, diplomati, disk-shim og D64-struktur er testet med 135 opcode-tester i en 6502-modell. **Kjørt i VICE 3.7.1 (PAL og NTSC, virtuell diskenhet):** oppstart, tittelbilde, kart, taster, angrep og lagring/innlasting. **Ikke testet:** SID-lyd, ekte joystick, maskinvarenivå 1541 og ekte C64C. Bruk `docs/HARDWARE_TEST_PLAN.md`, og lagre kun på en **kopi** av disketten til dette er gjort.
 
 ## Bygg
 
