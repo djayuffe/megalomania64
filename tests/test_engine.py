@@ -791,3 +791,89 @@ class SoundFx(GameCase):
                         if self.cpu.m[0x400+r*40+c]!=32:
                             self.assertLessEqual(self.cpu.m[0xd800+r*40+c]&15,7,(r,c))
             self.put('owner',owner,sel)
+
+
+class OriginalArt(GameCase):
+    """Sprites down-converted from the original 1991 sheets: marching army + conquest icon."""
+    def tile(self,n):
+        sx=self.cpu.m[self.sym['sector_x']+n];sy=self.cpu.m[self.sym['sector_y']+n]
+        return sx*8+32,sy*8+58
+    def march(self,src,dst,who=1):
+        self.put('source',src);self.put('selected',dst);self.put('attacking',who)
+        self.cpu.a=0x55;self.cpu.x=7;self.cpu.y=9
+        self.call('march_start')
+        self.assertEqual((self.cpu.a,self.cpu.x,self.cpu.y),(0x55,7,9))      # registers preserved
+    def test_epoch_frames_are_copied_into_vic_bank_0(self):
+        army=self.sym['orig_army'];bld=self.sym['orig_build']
+        for e in range(10):
+            self.put('epoch',e);self.cpu.a=1;self.cpu.x=2;self.cpu.y=3;self.call('orig_load_epoch')
+            self.assertEqual((self.cpu.a,self.cpu.x,self.cpu.y),(1,2,3))
+            self.assertEqual(bytes(self.cpu.m[0x3200:0x3300]),bytes(self.cpu.m[army+e*256:army+e*256+256]))
+            self.assertEqual(bytes(self.cpu.m[0x3300:0x3340]),bytes(self.cpu.m[bld+e*64:bld+e*64+64]))
+    def test_set_border_loads_the_epoch_sprites(self):
+        self.put('epoch',6);self.call('set_border')
+        self.assertEqual(bytes(self.cpu.m[0x3300:0x3340]),bytes(self.cpu.m[self.sym['orig_build']+6*64:][:64]))
+    def test_every_converted_frame_is_a_valid_multicolour_sprite(self):
+        a=self.sym['orig_army'];b=self.sym['orig_build']
+        for n in range(40):
+            self.assertEqual(self.cpu.m[a+n*64+63],0)
+            self.assertTrue(any(self.cpu.m[a+n*64:a+n*64+63]))
+        for n in range(10):
+            self.assertEqual(self.cpu.m[b+n*64+63],0)
+            self.assertGreater(sum(1 for v in self.cpu.m[b+n*64:b+n*64+63] if v),20)
+    def test_march_walks_from_source_to_target_in_32_frames_all_directions(self):
+        for src,dst in ((0,3),(3,0),(0,11),(11,0),(4,5),(7,4),(2,10)):
+            self.call('orig_init')
+            self.march(src,dst)
+            (x0,y0),(x1,y1)=self.tile(src),self.tile(dst)
+            self.assertEqual((self.cpu.m[0xd004],self.cpu.m[0xd005]),(x0,y0))
+            self.assertTrue(self.cpu.m[0xd015]&4)
+            frames=set();lo_x,hi_x=sorted((x0,x1));lo_y,hi_y=sorted((y0,y1))
+            for i in range(31):
+                self.call('orig_tick');frames.add(self.cpu.m[0x7fa])
+                px,py=self.cpu.m[0xd004],self.cpu.m[0xd005]
+                self.assertTrue(lo_x<=px<=hi_x and lo_y<=py<=hi_y,(src,dst,i,px,py))   # never sweeps through the 8-bit wrap
+            self.assertTrue(self.cpu.m[0xd015]&4)                       # still walking on the last-but-one frame
+            self.call('orig_tick')
+            self.assertEqual((self.cpu.m[0xd004],self.cpu.m[0xd005]),(x1,y1),(src,dst))
+            self.assertFalse(self.cpu.m[0xd015]&4)
+            self.assertEqual(frames,{0xc8,0xc9,0xca,0xcb})              # four-frame walk cycle
+    def test_march_uses_the_attackers_colour(self):
+        for who in (1,2,3,4):
+            self.march(0,1,who);self.assertEqual(self.cpu.m[0xd029],[1,5,7,3,4][who])
+    def test_capture_icon_waits_for_the_army_then_blinks_out(self):
+        self.call('orig_init')
+        self.march(0,1,2)
+        self.put('selected',1);self.put('attacking',2);self.call('march_capture')
+        for i in range(31):
+            self.call('orig_tick');self.assertFalse(self.cpu.m[0xd015]&8)    # army still on its way
+        self.call('orig_tick')
+        self.assertTrue(self.cpu.m[0xd015]&8)
+        x,y=self.tile(1)
+        self.assertEqual((self.cpu.m[0xd006],self.cpu.m[0xd007]),(x+26,y+14))
+        self.assertEqual(self.cpu.m[0xd02a],7)
+        shown=[]
+        for i in range(70):
+            self.call('orig_tick');shown.append(bool(self.cpu.m[0xd015]&8))
+        self.assertTrue(all(shown[:40]));self.assertIn(False,shown[40:64]);self.assertFalse(shown[-1])
+    def test_capture_without_a_march_shows_the_icon_at_once(self):
+        self.call('orig_init');self.put('selected',5);self.put('attacking',1);self.call('march_capture')
+        self.call('orig_tick');self.assertTrue(self.cpu.m[0xd015]&8)
+    def test_attacks_start_the_march_and_captures_raise_the_icon(self):
+        self.irq_on()
+        s=[i for i in range(12) if self.state('owner',i)==1][0]
+        self.put('source',s);self.put('people',60,s)
+        t=[n for n in (s+1,s-1,s+4,s-4) if 0<=n<12 and (n//4==s//4 or abs(n-s)==4) and self.state('owner',n)==0]
+        self.put('selected',t[0]);self.press('T')
+        self.assertEqual(self.state('march_t'),32)
+        self.assertTrue(self.cpu.m[0xd015]&4);self.assertEqual(self.state('cap_pending'),1)
+        for i in range(34):self.cpu.run_irq()
+        self.assertFalse(self.cpu.m[0xd015]&4);self.assertTrue(self.cpu.m[0xd015]&8)
+    def test_new_island_clears_sprites_and_sets_registers(self):
+        self.put('march_t',9);self.cpu.m[0xd015]|=12
+        self.call('load_island')
+        self.assertEqual(self.cpu.m[0xd015]&12,0);self.assertEqual(self.state('march_t'),0)
+        self.assertEqual(self.cpu.m[0xd01c],0x0c);self.assertEqual(self.cpu.m[0xd01d],4)
+        self.assertEqual((self.cpu.m[0xd025],self.cpu.m[0xd026]),(0,15))
+    def test_sprite_ram_does_not_collide_with_game_code(self):
+        self.assertLess(self.sym['checksum_sum'],0x3200)

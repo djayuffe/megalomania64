@@ -52,5 +52,12 @@ wave=[63+round(8*math.sin(2*math.pi*i/32)) for i in range(32)]
 out.append('bar_wave: !byte '+','.join(map(str,wave)))
 out.append('crow_lo: !byte '+','.join(str((0xD800+r*40)&255) for r in range(25)))
 out.append('crow_hi: !byte '+','.join(str((0xD800+r*40)>>8) for r in range(25)))
+# original island names (from MEGA.EXE via tools/orig_convert.py): 26 A-Z names, then the two finale stages
+import json
+_t=json.loads((ROOT/'assets/orig/orig_text.json').read_text())
+_names=_t['islands']+[_t['finale'],'THE MOTHER']
+assert len(_names)==28 and all(len(n)<=11 for n in _names)
+out.append('island_names:')
+for n in _names:out.append(' !text "'+n.ljust(11)+'",0')
 (ROOT/'src/tables.asm').write_text('\n'.join(out)+'\n')
 print('wrote src/tables.asm')

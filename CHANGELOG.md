@@ -1,5 +1,19 @@
 # Endringslogg
 
+## v4.3.0 (19. oktober 2026)
+
+Originaldata (PC-utgaven fra 1991, via reverse-engineering-pakke v11) pakket ut og nedkonvertert til C64. Se `docs/ORIGINAL_DATA.md`.
+
+- **Introbilde = originalens galakse** (`MTARFLD.LBM`) omsamplet til 160x200 flerfarge bitmap (svart/blå/lyseblå/cyan/hvit, dither, maks. 3 farger per celle) under logoen.
+- **Marsjerende hær:** angrep sender en original soldat (`ARMIES.LBM`, én rad per epoke, 4 gangbilder, flerfarge-sprite 2 i dobbel størrelse) fra kilde- til målsektor på 32 bilder i angriperens farge.
+- **Erobringsikon:** erobret sektor viser en original bygning (`BUILDS.LBM`, sprite 3) i eierens farge når hæren er framme, deretter blinker den ut.
+- **Originale øynavn** fra `MEGA.EXE`: ALOHA … ZAPPA, MEGALOMANIA, THE MOTHER.
+- **Verktøy:** `tools/orig_import.py` (ILBM-leser, EXE-tekst), `tools/orig_convert.py --orig <mappe>`. Originalfilene ligger ikke i repoet (`original/` er ignorert).
+- **Minne:** spriterammen `$3200–$33FF` (byggesjekk: kode/tilstand må holde seg under `$3200`, 91 byte margin), spritedata for alle epoker i `$7F40–$8BBF`, kopieres til bank 0 ved epokeskifte.
+- **Tester:** 149 (14 nye: marsj i alle retninger, ikon-timing, epoke-kopiering, ILBM-leser, øynavn), 23 mutanter (4 nye).
+- **Ikke gjenvunnet:** de 54 proprietære `.DAT`-filene (kart, teknologitre, balanse, tale, musikk). Radvalget soldat/bygning per epoke er dette prosjektets valg.
+- **Verifisert i VICE:** introbilde, marsjerende hær og erobringsikon (skjermbilder). **Ikke** på ekte maskinvare.
+
 ## v4.2.0 (19. oktober 2026)
 
 - **Introbilde:** 160x200 flerfarge bitmap (solnedgang, vulkan, slott, skip, logo) i VIC-bank 1 (`$4000–$7FFF`). Rasterstolpene går bak logoen (svart bakgrunn), og PRESS FIRE farge-syklerer via fargeminnet. Bildet genereres av `tools/make_intro.py`.

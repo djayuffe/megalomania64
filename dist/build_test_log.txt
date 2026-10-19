@@ -62,6 +62,16 @@ test_fire_tap_is_context_sensitive_on_pause_victory_and_defeat (test_engine.Joys
 test_fire_tap_sets_source_on_own_land_and_raids_otherwise (test_engine.Joystick.test_fire_tap_sets_source_on_own_land_and_raids_otherwise) ... ok
 test_joystick_never_mutates_enemy_or_state_on_idle (test_engine.Joystick.test_joystick_never_mutates_enemy_or_state_on_idle) ... ok
 test_unmapped_chord_and_release_do_nothing (test_engine.Joystick.test_unmapped_chord_and_release_do_nothing) ... ok
+test_attacks_start_the_march_and_captures_raise_the_icon (test_engine.OriginalArt.test_attacks_start_the_march_and_captures_raise_the_icon) ... ok
+test_capture_icon_waits_for_the_army_then_blinks_out (test_engine.OriginalArt.test_capture_icon_waits_for_the_army_then_blinks_out) ... ok
+test_capture_without_a_march_shows_the_icon_at_once (test_engine.OriginalArt.test_capture_without_a_march_shows_the_icon_at_once) ... ok
+test_epoch_frames_are_copied_into_vic_bank_0 (test_engine.OriginalArt.test_epoch_frames_are_copied_into_vic_bank_0) ... ok
+test_every_converted_frame_is_a_valid_multicolour_sprite (test_engine.OriginalArt.test_every_converted_frame_is_a_valid_multicolour_sprite) ... ok
+test_march_uses_the_attackers_colour (test_engine.OriginalArt.test_march_uses_the_attackers_colour) ... ok
+test_march_walks_from_source_to_target_in_32_frames_all_directions (test_engine.OriginalArt.test_march_walks_from_source_to_target_in_32_frames_all_directions) ... ok
+test_new_island_clears_sprites_and_sets_registers (test_engine.OriginalArt.test_new_island_clears_sprites_and_sets_registers) ... ok
+test_set_border_loads_the_epoch_sprites (test_engine.OriginalArt.test_set_border_loads_the_epoch_sprites) ... ok
+test_sprite_ram_does_not_collide_with_game_code (test_engine.OriginalArt.test_sprite_ram_does_not_collide_with_game_code) ... ok
 test_border_flash_alternates_and_returns_to_epoch_colour (test_engine.SoundFx.test_border_flash_alternates_and_returns_to_epoch_colour) ... ok
 test_border_per_epoch_table_and_load_island_sets_it (test_engine.SoundFx.test_border_per_epoch_table_and_load_island_sets_it) ... ok
 test_cursor_move_ticks (test_engine.SoundFx.test_cursor_move_ticks) ... ok
@@ -128,15 +138,19 @@ test_small_outpost_can_recover (test_game.StrategyTest.test_small_outpost_can_re
 test_snapshot_range_validation_even_with_valid_checksums (test_game.StrategyTest.test_snapshot_range_validation_even_with_valid_checksums) ... ok
 test_stage_code_and_invalid_recovery (test_game.StrategyTest.test_stage_code_and_invalid_recovery) ... ok
 test_variable_research_cost (test_game.StrategyTest.test_variable_research_cost) ... ok
+test_converted_assets_are_well_formed (test_tools.OriginalData.test_converted_assets_are_well_formed) ... ok
+test_ilbm_reader_decodes_planar_byterun1 (test_tools.OriginalData.test_ilbm_reader_decodes_planar_byterun1) ... ok
+test_ilbm_reader_rejects_other_files (test_tools.OriginalData.test_ilbm_reader_rejects_other_files) ... ok
+test_island_names_are_shown_on_the_map_screen (test_tools.OriginalData.test_island_names_are_shown_on_the_map_screen) ... ok
 test_assembly_is_reproducible (test_tools.Tools.test_assembly_is_reproducible) ... ok
 test_basic_stub_and_entry (test_tools.Tools.test_basic_stub_and_entry) ... ok
 test_generated_tables_and_sprite_are_up_to_date (test_tools.Tools.test_generated_tables_and_sprite_are_up_to_date) ... ok
 test_music_tables_are_in_sid_range (test_tools.Tools.test_music_tables_are_in_sid_range) ... ok
-test_package_is_reproducible_and_complete (test_tools.Tools.test_package_is_reproducible_and_complete) ... MegaLoMania64_v4.2.0_Source.zip: 188133 bytes, sha256 38e360aabcf9f2cd2c87755b188ecbd0106700d17d2ebe0968bbb6a1471487a6
-MegaLoMania64_v4.2.0_Source.zip: 188133 bytes, sha256 38e360aabcf9f2cd2c87755b188ecbd0106700d17d2ebe0968bbb6a1471487a6
+test_package_is_reproducible_and_complete (test_tools.Tools.test_package_is_reproducible_and_complete) ... MegaLoMania64_v4.3.0_Source.zip: 224527 bytes, sha256 867fedf85522b678968f19dad610078ad7749ce25656805a3d2bd4af678d42f6
+MegaLoMania64_v4.3.0_Source.zip: 224527 bytes, sha256 867fedf85522b678968f19dad610078ad7749ce25656805a3d2bd4af678d42f6
 ok
 
 ----------------------------------------------------------------------
-Ran 135 tests in 55.640s
+Ran 149 tests in 53.590s
 
 OK

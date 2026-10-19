@@ -15,6 +15,7 @@ fx_shake_start:
 fx_tick:
  lda title_active
  bne fx_done
+ jsr orig_tick               ; marching army + conquest building icon
  lda fx_timer
  beq fx_shake
  dec fx_timer

@@ -30,3 +30,32 @@ bar_color: !byte 2,10,7,1,7,10,2,9,9,2,10,7,1,7,10,2
 bar_wave: !byte 63,65,66,67,69,70,70,71,71,71,70,70,69,67,66,65,63,61,60,59,57,56,56,55,55,55,56,56,57,59,60,61
 crow_lo: !byte 0,40,80,120,160,200,240,24,64,104,144,184,224,8,48,88,128,168,208,248,32,72,112,152,192
 crow_hi: !byte 216,216,216,216,216,216,216,217,217,217,217,217,217,218,218,218,218,218,218,218,219,219,219,219,219
+island_names:
+ !text "ALOHA      ",0
+ !text "BAZOOKA    ",0
+ !text "CILLA      ",0
+ !text "DRACULA    ",0
+ !text "ETCETRA    ",0
+ !text "FORMICA    ",0
+ !text "GAZZA      ",0
+ !text "HERNIA     ",0
+ !text "IBIZA      ",0
+ !text "JUNTA      ",0
+ !text "KARMA      ",0
+ !text "LADA       ",0
+ !text "MASCARA    ",0
+ !text "NAUSEA     ",0
+ !text "OCARINA    ",0
+ !text "PYJAMA     ",0
+ !text "QUOTA      ",0
+ !text "RUMBABA    ",0
+ !text "SINATRA    ",0
+ !text "TAPIOCA    ",0
+ !text "UTOPIA     ",0
+ !text "VESPA      ",0
+ !text "WONKA      ",0
+ !text "XTRA       ",0
+ !text "YOGA       ",0
+ !text "ZAPPA      ",0
+ !text "MEGALOMANIA",0
+ !text "THE MOTHER ",0

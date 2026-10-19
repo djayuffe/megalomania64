@@ -1,10 +1,25 @@
-# Mega-Lo-Mania 64 — Island Wars, C64C Edition 4.2.0
+# Mega-Lo-Mania 64 — Island Wars, C64C Edition 4.3.0
 
 **Unofficial, independently programmed, fan-inspired real-time strategy game for an unexpanded Commodore 64 / C64C.** Native NMOS 6502/6510 machine code, 64 KB RAM, VIC-II character/sprite graphics, 3-voice SID, raster-interrupt engine. Everything — assembler, build, disk-image writer, 6502 test model — is in this repository and runs with plain Python 3.
 
 > Not a 1:1 port or licensed copy of the commercial *Mega-Lo-Mania*. It is a complete, playable strategy game of the same flavour. See [Honest status](#honest-status).
 
-## What is new in 4.2
+## What is new in 4.3 — original game data, down-converted
+
+The original 1991 data files (PC *Mega-Lo-Mania*, from the reverse-engineering package v11) were unpacked and converted for the C64. See [`docs/ORIGINAL_DATA.md`](docs/ORIGINAL_DATA.md) for exactly what was used, what could not be, and the licence note.
+
+| Area | Status |
+|---|---|
+| **Intro picture = the original galaxy** (`MTARFLD.LBM`, 320x256, 16 colours) re-sampled to a 160x200 C64 multicolour bitmap (black / blue / light blue / cyan / white ramp, ordered dither, per-cell 3-colour constraint) under the logo | **new** |
+| **Marching army**: attacks now send the original-art soldier (`ARMIES.LBM` walk frames, one strip per epoch, 4-frame cycle, 2x2 expanded multicolour sprite 2) from the source to the target sector in 32 frames, in the attacker's colour | **new** |
+| **Conquest icon**: a captured sector shows an original-art building (`BUILDS.LBM`, multicolour sprite 3) in the new owner's colour once the army arrives, then blinks out | **new** |
+| **Original island names** (`MEGA.EXE`): ALOHA, BAZOOKA, CILLA … ZAPPA, then MEGALOMANIA and THE MOTHER, shown on the HUD instead of the generic title | **new** |
+| `tools/orig_import.py` (ILBM reader + EXE text tables) and `tools/orig_convert.py --orig <dir>`; the original files are **not** in this repository | **new** |
+| 149 tests (14 new), 23 mutants | updated |
+
+Not recovered by anyone yet (so **not** used): the 54 proprietary `.DAT` files — original maps, tech tree, balance numbers, speech and music. Gameplay is still this port's own.
+
+## What was new in 4.2
 
 | Area | Status |
 |---|---|
@@ -140,9 +155,10 @@ dist/               built PRG, D64, symbols, checksums, previews, release ZIP
 
 ## Honest status
 
-* **Verified here:** assembly, byte-for-byte D64 chain, reproducible builds, and 135 tests that execute the real shipped opcodes in a 6502 model with raster-IRQ firing, a KERNAL disk shim (OPEN/CLOSE/SAVE/LOAD/VERIFY/READST/SETLFS/SETNAM) and port-2 joystick pins. The suite was mutation-checked: 19 deliberate bugs (AI ignoring truces, no IRQ acknowledge, no disk scratch, raster-MSB leak, …) are all caught.
+* **Verified here:** assembly, byte-for-byte D64 chain, reproducible builds, and 149 tests that execute the real shipped opcodes in a 6502 model with raster-IRQ firing, a KERNAL disk shim (OPEN/CLOSE/SAVE/LOAD/VERIFY/READST/SETLFS/SETNAM) and port-2 joystick pins. The suite was mutation-checked: 23 deliberate bugs (AI ignoring truces, no IRQ acknowledge, no disk scratch, raster-MSB leak, …) are all caught.
 * **Verified in VICE 3.7.1 x64sc (headless, PAL and NTSC):** the D64 autostarts; title screen with raster bars and colour cycling renders (screenshots in `dist/vice/`); the map, HUD, cursor and army-source sprites render; keyboard input (move, base, assault, build, speed keys, new game) works; an assault captures territory; `O` writes `ML64SAVE` to the D64 (one block, read back with `c1541`) and `I` restores it. Disk access used VICE's *virtual device* (KERNAL traps), **not** hardware-level 1541 emulation.
 * **Sound checked in VICE by recording:** the title tune's notes (98, 392 and 587 Hz = G2, G4, D5) show up in a WAV captured from VICE's SID. Nobody has listened to the SFX or judged the mix.
 * **NOT verified:** the sound effects' loudness/feel, real joystick feel (the joystick path is only model-tested), hardware-level 1541 / SD2IEC / Ultimate serial timing, a real C64C, raster-bar stability on real silicon, and balance against a human player over all 28 islands. Run [`docs/HARDWARE_TEST_PLAN.md`](docs/HARDWARE_TEST_PLAN.md) on real hardware and save only to a **copy** of a disk until then.
 * The raster bars are deliberately simple (not cycle-stable): expect slight edge jitter, title screen only.
-* Not a 1:1 recreation: no speech, original maps, original invention tree or multiplayer.
+* Not a 1:1 recreation: the original *graphics* and island names are used (down-converted), but there are no original maps, invention tree, speech or multiplayer — the proprietary `.DAT` files are undecoded. The sheet-row-to-epoch assignment of the soldier and building sprites is this port's choice.
+* New in 4.3 and only checked in VICE by screenshot: the marching army and conquest icon (real-time positions, colours). Not judged on real hardware.

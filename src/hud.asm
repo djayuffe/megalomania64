@@ -78,7 +78,8 @@ cu_next:
  pla
  rts
 
-set_border:                    ; per-epoch frame colour (preserves A, X, Y)
+set_border:                    ; per-epoch frame colour + epoch sprites (preserves A, X, Y)
+ jsr orig_load_epoch
  pha
  tya
  pha

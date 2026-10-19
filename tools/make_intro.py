@@ -164,6 +164,19 @@ ship(112, 156, 1, 2)
 ship(138, 170, 15, 7)
 ship(100, 138, 1, 4)
 
+# ---- original galaxy backdrop (down-converted by tools/orig_convert.py) ---------------
+GAL = ROOT / 'assets/orig/galaxy_c64.png'
+if GAL.exists():
+    gp = Image.open(GAL).load()
+    for y in range(TEXT_ROW * 8):
+        for x in range(W):
+            img[y][x] = gp[x, y] if y >= 58 else 0
+    for (sx, sy) in [(5,50),(19,44),(34,52),(52,46),(70,51),(91,45),(108,50),(124,44),(143,51),(154,47),(12,36),(88,38),(133,36)]:
+        put(sx, sy, 3 if (sx + sy) & 1 else 14)
+    GAL_USED = True
+else:
+    GAL_USED = False
+
 # ---- logo -----------------------------------------------------------------------
 font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 34)
 def text_mask(text, size_font, width_hires=320, height=44):
@@ -184,7 +197,7 @@ def paint_logo(text, y0, f, big=True):
         for x in range(W):
             if on(x, y):
                 edge = not (on(x - 1, y) and on(x + 1, y) and on(x, y - 1) and on(x, y + 1))
-                c = ((1 if y < 8 else (7 if y < 16 else 10)) if big else (3 if y < 12 else 14)) if not edge else (2 if big else 6)
+                c = ((1 if y < 8 else (7 if y < 16 else 10)) if big else (1 if y < 12 else 3)) if not edge else (2 if big else 14)
                 put(x, y0 + y, c)
 f1 = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 27)
 paint_logo('MEGA-LO-MANIA', 0, f1)
@@ -192,7 +205,7 @@ f2 = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 
 paint_logo('ISLAND WARS 64', 32, f2, big=False)
 # gold rule under the logo
 for x in range(10, 150):
-    put(x, 58, 7 if x & 1 else 8)
+    put(x, 56 if GAL_USED else 58, 7 if x & 1 else 8)
 
 # ---- text band (rows 22-24) -----------------------------------------------------
 charset = (ROOT / 'assets/charset.bin').read_bytes()
@@ -210,7 +223,7 @@ def centre(text):
     return (W - len(text) * 8) // 2
 glyph_text('PRESS FIRE OR KEY', centre('PRESS FIRE OR KEY'), TEXT_ROW * 8, 1)
 glyph_text('UNOFFICIAL FAN GAME', centre('UNOFFICIAL FAN GAME'), (TEXT_ROW + 1) * 8, 12)
-glyph_text('C64C EDITION V4.2', centre('C64C EDITION V4.2'), (TEXT_ROW + 2) * 8, 11)
+glyph_text('C64C EDITION V4.3', centre('C64C EDITION V4.3'), (TEXT_ROW + 2) * 8, 11)
 
 # ---- convert to multicolour bitmap -----------------------------------------------
 def dist(a, b):

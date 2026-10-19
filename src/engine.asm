@@ -17,6 +17,7 @@ CHORD_FRAMES = 4             ; stable frames before a FIRE+direction chord fires
 !source "hud.asm"
 !source "diplomacy.asm"
 !source "inventions.asm"
+!source "orig.asm"
 !source "develop.asm"
 !source "tables.asm"
 !source "engine_data.asm"
@@ -31,3 +32,8 @@ intro_color:
 !bin "../assets/intro_screen.bin"
 * = $6000
 !bin "../assets/intro_bitmap.bin"
+; Original-art sprite frames (tools/orig_convert.py), copied into bank 0 per epoch.
+orig_army:
+!bin "../assets/orig/army_frames.bin"
+orig_build:
+!bin "../assets/orig/build_icons.bin"

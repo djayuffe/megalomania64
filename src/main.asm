@@ -69,6 +69,7 @@ start:
  sta $07f8                   ; cursor sprite at $3700
  lda #$dd
  sta $07f9                   ; source marker sprite at $3740
+ jsr orig_init                ; sprites 2/3: original-art army + building icon
  lda #1
  sta $cc                     ; KERNAL cursor blink off: it XORs screen RAM otherwise
  lda #0
@@ -116,6 +117,7 @@ new_game:
 ; 28 unique game maps; island 0..26 in 9 three-island epochs, final island 27.
 ; Each stage reads original deterministic per-island terrain/mineral tables.
 load_island:
+ jsr orig_init
  lda #0
  sta frames
  sta ticks
@@ -420,6 +422,7 @@ sea_col:
  lda #>title_msg
  sta PTR+1
  jsr print_text
+ jsr print_island_name         ; original island name (ALOHA, BAZOOKA, ... ZAPPA)
  lda #22
  sta text_y
  lda #0
@@ -2275,6 +2278,7 @@ use_all_weapons:
  sec
  sbc usedarms
  sta weapons,x
+ jsr march_start             ; original-art army walks to the target
  ; offense = troops + weapons + (technology * 4)
  lda level,x
  asl
@@ -2396,6 +2400,7 @@ attack_capture:
  ldx #6
  jsr fx_shake_start
 ac_fresh:
+ jsr march_capture          ; building icon appears once the army arrives
  ldx selected
  lda attacking
  sta owner,x
@@ -2775,7 +2780,7 @@ msg_loaded: !text "GAME RESTORED FROM DISK",0
 msg_disk_error: !text "DISK/SAVE ERROR - STATE UNCHANGED",0
 
 ; Original small-string UI (character codes match generated ASCII-indexed charset).
-title_msg:   !text "MEGA-LO-MANIA 64    ISLAND WARS",0
+title_msg:   !text "MEGA-LO-MANIA 64    ",0
 help_a:      !text "WASD MOVE RET BASE X RAID T ASSAULT",0
 help_b:      !text "H SEND Q ROLE MRJK JOB E TRUCE U AUTO",0
 help_c:      !text "V LAB G FAC P ARM F FORT B MINE O/I DISK",0

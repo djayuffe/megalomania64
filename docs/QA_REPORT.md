@@ -1,10 +1,10 @@
-# QA-rapport — v4.2.0
+# QA-rapport — v4.3.0
 
 ## Valideringsstatus (kjørt i byggemiljøet)
 
-1. To-pass assembler bygger PRG `$0801–$491F` uten overlapp; build feiler hvis kode/tilstand når `$3700` eller PRG når `$C000`.
-2. **135 automatiserte tester** (`dist/build_test_log.txt`): 43 arvede regeltester + IRQ-motor, rasterstolper, tittelbilde, joystick-akkorder, diplomati (inkl. 16-bit styrke, AI respekterer våpenhvile, brudd, utløp, lagring), oppfinnelser, `U`-stigen, disk (scratch, verify, skrivebeskyttet disk, enhetsnummer, v3-avvisning, READST-feil, skjerm av/på), minnekart, tilfeldig tastaturtest (fire frø × 260 hendelser) med invarianter, og bygg-/pakketester (reproduserbar PRG og ZIP).
-3. **Mutasjonssjekk** (`tools/mutation_check.py`): 19 bevisste feil — AI ignorerer våpenhvile, angrep beholder våpenhvile, skjermen blir på under disk, rasterlinje-MSB lekker, snudd styrkesammenligning, 8-bits styrke, manglende IRQ-kvittering, ignorert READST, manglende scratch, ødelagt X etter rangoppgradering, feil `U`-rekkefølge, markørblink på, tikk-drift — alle fanget av testene.
+1. To-pass assembler bygger PRG `$0801–$491F` uten overlapp; build feiler hvis kode/tilstand når `$3200` (spriterammen for originalsprites) eller PRG når `$C000`.
+2. **149 automatiserte tester** (`dist/build_test_log.txt`): 43 arvede regeltester + IRQ-motor, rasterstolper, tittelbilde, joystick-akkorder, diplomati (inkl. 16-bit styrke, AI respekterer våpenhvile, brudd, utløp, lagring), oppfinnelser, `U`-stigen, disk (scratch, verify, skrivebeskyttet disk, enhetsnummer, v3-avvisning, READST-feil, skjerm av/på), minnekart, tilfeldig tastaturtest (fire frø × 260 hendelser) med invarianter, og bygg-/pakketester (reproduserbar PRG og ZIP).
+3. **Mutasjonssjekk** (`tools/mutation_check.py`): 23 bevisste feil — AI ignorerer våpenhvile, angrep beholder våpenhvile, skjermen blir på under disk, rasterlinje-MSB lekker, snudd styrkesammenligning, 8-bits styrke, manglende IRQ-kvittering, ignorert READST, manglende scratch, ødelagt X etter rangoppgradering, feil `U`-rekkefølge, markørblink på, tikk-drift, marsj mister fortegn, ikon før hæren er framme, bygningsikon feil epoke, hærsprite skjules aldri — alle fanget av testene.
 4. D64-katalog, BAM og sektorkjede valideres mot PRG (bygges alltid på nytt i testen).
 5. PNG-forhåndsvisninger i `dist/preview_*.png` rendres fra modellert C64-skjermminne; ekte VICE-bilder ligger i `dist/vice/`. Forhåndsvisningen fanget en feil testene ikke så (tittelfarger 8–15 → flerfargetegn).
 

@@ -1,4 +1,4 @@
-# Mega-Lo-Mania 64 v4.2 — norsk spillmanual
+# Mega-Lo-Mania 64 v4.3 — norsk spillmanual
 
 Uoffisielt, selvstendig utviklet strategispill inspirert av Mega-Lo-Mania for **Commodore 64 / C64C uten minneutvidelse**. Ekte 6510-maskinkode, VIC-II tegnsett og sprites, SID, rasterinterrupt-motor og fire konkurrerende fraksjoner.
 
