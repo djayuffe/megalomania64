@@ -1,5 +1,17 @@
 # Endringslogg
 
+## v5 audio/colour follow-up (20 October 2026)
+
+- All four MOD parts retained using a shared-voice SID arpeggio; 16-level dynamics,
+  correct ProTracker slide priority, decaying percussion, separate title/game banks, and complete SID
+  state restoration after effects. Streamed intro holds now have music.
+- Optional full-length original effect bank, exact crossing into hidden I/O RAM,
+  8580 digi DC boost, and effects followed by queued spoken reactions.
+- Perceptual per-cell palette optimization, neutral greys, and multicolour story
+  artwork with hires lettering. Serial reads occur between split-mode story holds.
+- Hidden RAM under I/O is represented separately in the CPU model and verified
+  against VICE RAM captures. Original rules and scrolling are still unfinished.
+
 ## v5.0.0-dev (20. oktober 2026, lokalt arbeid)
 
 - Ny, avgrenset LZHUF-dekoder; alle 101 DOS-ressurser behandlet. 85 IFF-filer

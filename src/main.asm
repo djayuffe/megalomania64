@@ -19,6 +19,14 @@ TRUCE_COOL = 60              ; cool-down before a faction talks again
 * = $0801
 !byte $0B,$08,$0A,$00,$9E,$34,$30,$39,$36,$00,$00,$00   ; 10 SYS4096
 
+* = $0900
+!source "music.asm"
+!source "effects.asm"
+
+* = $0C40
+!source "sample.asm"
+sample_code_end:
+
 * = $1000
 start:
  sei
@@ -75,13 +83,15 @@ start:
  lda #0
  sta $9d                     ; KERNAL messages off (no "SAVING"/"SEARCHING" over the map)
  jsr irq_install             ; raster IRQ engine (ends with CLI)
- jsr intro_sequence
- php
+ jsr effects_load
+ lda #0
  jsr music_load
- plp
+ jsr intro_sequence
  bcs streamed_skip_title
  jsr title_screen
 streamed_skip_title:
+ lda #1
+ jsr music_load
  jsr new_game
  jsr speech_load
  lda #1

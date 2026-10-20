@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Adapt recovered four-channel MOD note timing to three SID voices.
+"""Arrange all four recovered MOD channels for SID, retaining quantized dynamics.
 
-Preserves note onsets, speed changes, pattern breaks, and fade-to-silence times.
-Channel 0 is omitted; sample timbres and continuous volume slides are approximated
-by SID waveforms and note gates. This is a score adaptation, not Paula emulation.
+Channels 0/1 share SID voice 1 as a 50 Hz alternating arpeggio; channels 2/3
+have dedicated oscillators. This remains a SID arrangement, not Paula emulation.
 """
 import argparse
 from fractions import Fraction
@@ -12,17 +11,16 @@ import math
 from pathlib import Path
 from recover_amiga import module_info
 
-# PCM instrument -> SID oscillator; the choice of waveform is a port arrangement.
-WAVES = {1:3, 2:3, 3:2, 4:2, 5:1, 6:2, 7:0, 8:0, 10:1, 11:2, 12:1, 13:1}
+WAVES = {1:3,2:3,3:2,4:2,5:1,6:2,7:0,8:0,10:1,11:2,12:3,13:3}
 
 
 def score(data):
     info=module_info(data);order=list(data[952:952+info['orders']])
-    samples=info['samples'];instrument=[0]*4;volume=[0]*4;active=[False]*4
+    samples=info['samples'];instrument=[0]*4;volume=[0]*4;active=[False]*4;previous=[None]*4
     speed,tempo=6,125;clock=Fraction(0);events={};position,row=0,0;seen=set()
     while position<len(order):
-        if (position,row) in seen:raise ValueError('unsupported looping pattern control')
-        seen.add((position,row));commands=[];notes=[0]*3;next_row=None
+        if (position,row,speed,tempo) in seen:raise ValueError('unsupported looping pattern control')
+        seen.add((position,row,speed,tempo));commands=[];notes=[0]*4;next_row=None
         for channel in range(4):
             at=1084+order[position]*1024+row*16+channel*4
             a,b,c,d=data[at:at+4];period=((a&15)<<8)|b;sample=(a&0xf0)|(c>>4);fx=c&15
@@ -38,60 +36,63 @@ def score(data):
             if fx not in (0,0xa,0xc,0xd,0xf) or (fx==0 and d):
                 raise ValueError(f'unsupported MOD effect {fx:x}{d:02x}')
             commands.append((fx,d))
-            if channel and period:
-                midi=36+round(12*math.log2(856/period))
+            if period:
+                fine=samples[instrument[channel]-1]['finetune'] if instrument[channel] else 0
+                fine=fine if fine<8 else fine-16
+                midi=36+round(12*math.log2(856/period)+fine/8)
                 note=midi-24+1
-                if not 1<=note<=63:raise ValueError('SID note index outside bank')
-                notes[channel-1]=(WAVES.get(instrument[channel],2)<<6)|note
+                if not 1<=note<=62:raise ValueError('SID note index outside bank')
+                notes[channel]=(WAVES.get(instrument[channel],2)<<6)|note
                 active[channel]=True
         for tick in range(speed):
-            changed=notes[:] if tick==0 else [0]*3
+            changed={}
             for channel,(fx,param) in enumerate(commands):
                 if tick and fx==0xa:
-                    volume[channel]=max(0,min(64,volume[channel]+(param>>4)-(param&15)))
-                if channel and active[channel] and volume[channel]==0:
-                    changed[channel-1]=255;active[channel]=False
-            if any(changed):
-                target=events.setdefault(round(clock),[0]*3)
-                for i,value in enumerate(changed):
-                    if value:target[i]=value
+                    # ProTracker gives the upper nibble priority, not up minus down.
+                    delta=(param>>4) if param>>4 else -(param&15)
+                    volume[channel]=max(0,min(64,volume[channel]+delta))
+                amp=round(volume[channel]*15/64) if active[channel] else 0
+                note=notes[channel] if tick==0 else 0
+                if note or amp!=previous[channel]:changed[channel]=(note,amp);previous[channel]=amp
+            if changed:events.setdefault(round(clock),{}).update(changed)
             clock+=Fraction(125,tempo)
         if next_row is not None:position+=1;row=next_row
         else:
             row+=1
             if row==64:position+=1;row=0
-    end=max(round(clock),max(events,default=0)+1);events[end]=[255]*3
-    if 0 not in events:events[0]=[255]*3
+    end=max(round(clock),max(events,default=0)+1);events[end]={c:(255,0)for c in range(4)}
+    if 0 not in events:events[0]={c:(255,0)for c in range(4)}
     ordered=sorted(events.items());stream=bytearray()
-    for i,(at,notes) in enumerate(ordered):
+    for i,(at,changes) in enumerate(ordered):
         duration=ordered[i+1][0]-at if i+1<len(ordered) else 1
         while duration>255:
-            stream.extend([255,*notes]);notes=[0]*3;duration-=255
-        stream.extend([duration,*notes])
-    stream.extend(bytes(4))
+            emit(stream,255,changes);changes={};duration-=255
+        emit(stream,duration,changes)
+    stream.append(0)
     return bytes(stream),dict(title=info['title'],events=len(ordered),frames=end,seconds=end/50,
-                              omitted_channel=0,limitations=['Paula sample timbres','continuous volume fades','sample finetune'])
+        channels=4,shared_sid_voice=[0,1],limitations=['SID timbres replace samples','4-bit sustain dynamics','finetune rounded to semitones'])
+
+
+def emit(stream,duration,changes):
+    stream.extend((duration,sum(1<<c for c in changes)))
+    for channel in range(4):
+        if channel in changes:stream.extend(changes[channel])
 
 
 def build(amiga,out):
-    out.mkdir(parents=True,exist_ok=True)
-    scores=[];metadata=[]
-    for name in ['choose3','war14']:
-        stream,info=score((amiga/(name+'.mod')).read_bytes());scores.append(stream);metadata.append(info)
-    # Bank layout: PAL/NTSC note tables, then two absolute stream pointers.
-    bank=bytearray()
-    for clock in [985248,1022727]:
-        for note in range(64):
-            frequency=0 if note==0 else 440*2**(((note-1+24)-69)/12)
-            bank.extend(round(frequency*2**24/clock).to_bytes(2,'little'))
-    cursor=0xc504
-    for stream in scores:bank.extend(cursor.to_bytes(2,'little'));cursor+=len(stream)
-    for stream in scores:bank.extend(stream)
-    if len(bank)>0xc00:raise ValueError(f'SID score bank too large: {len(bank)} > 3072')
-    file=b'MLM1'+len(bank).to_bytes(2,'little')+bank
-    (out/'MUSIC.bin').write_bytes(file)
-    (out/'music.json').write_text(json.dumps(dict(bytes=len(bank),tunes=metadata),indent=2)+'\n')
-    print(f'SID scores: {len(bank)} resident bytes',metadata)
+    out.mkdir(parents=True,exist_ok=True);metadata=[]
+    for name,file in [('choose3','MUSIC'),('war14','MUSICG')]:
+        stream,info=score((amiga/(name+'.mod')).read_bytes());bank=bytearray()
+        for clock in [985248,1022727]:
+            for note in range(64):
+                frequency=0 if note==0 else 440*2**(((note-1+24)-69)/12)
+                bank.extend(round(frequency*2**24/clock).to_bytes(2,'little'))
+        bank.extend(stream)
+        if len(bank)>0x1000:raise ValueError(f'SID score bank too large: {len(bank)} > 4096')
+        (out/(file+'.bin')).write_bytes(b'MLM2'+len(bank).to_bytes(2,'little')+bank)
+        metadata.append(dict(file=file,bytes=len(bank),**info))
+    (out/'music.json').write_text(json.dumps(dict(tunes=metadata),indent=2)+'\n')
+    print('Four-channel SID arrangements:',metadata)
 
 
 if __name__=='__main__':

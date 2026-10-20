@@ -1,3 +1,11 @@
+Lyd/farger, 20. oktober 2026: alle fire MOD-stemmer er med i SID-arrangementet,
+med volumendringer og korrekt gjenoppretting etter effekter. Den lokale fulldisken
+har komplette originale effekter, 8580-digiforsterkning og tale etter effektene.
+Historiebildene bruker flerfarget grafikk med hires-tekst og nøytrale gråtoner.
+`sh tools/run_vice.sh` velger den lokale fulldisken hvis den finnes, ellers
+standarddisken, og starter som C64C med lyd. Originale spillregler og eksakt
+scrolling er fortsatt ikke ferdig rekonstruert.
+
 # v5 under rekonstruksjon
 
 DOS-ressursene er nå LZHUF-dekodet. Full disk kan bygges lokalt med 20 originale

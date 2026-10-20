@@ -64,5 +64,10 @@ out.append('smp_off_lo: !byte '+','.join(f'<(smp_data+{e["offset"]})' for e in _
 out.append('smp_off_hi: !byte '+','.join(f'>(smp_data+{e["offset"]})' for e in _smp))
 out.append('smp_len_lo: !byte '+','.join(str(e['nibbles']&255) for e in _smp))
 out.append('smp_len_hi: !byte '+','.join(str(e['nibbles']>>8) for e in _smp))
+for part,op in [('lo','<'),('hi','>')]:
+ out.append('fx_off_'+part+': !byte '+','.join(op+('(%s)'%('smp_data+'+str(e.get('full_offset',e['offset']))) if e.get('full_offset',e['offset'])<9000 else str(0xd400+e.get('full_offset',e['offset'])-9000)) for e in _smp))
+for part,shift in [('lo',0),('hi',8)]:
+ out.append('fx_len_'+part+': !byte '+','.join(str((e.get('full_nibbles',e['nibbles'])>>shift)&255) for e in _smp))
+
 (ROOT/'src/tables.asm').write_text('\n'.join(out)+'\n')
 print('wrote src/tables.asm')

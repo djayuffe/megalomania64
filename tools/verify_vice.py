@@ -6,6 +6,7 @@ switched off. Saves screenshots, RAM dumps and a monitor transcript outside dist
 Requires a graphical session (on Linux run under xvfb-run).
 """
 import argparse
+import os
 import re
 import shutil
 import socket
@@ -18,7 +19,7 @@ from scene_format import unpack
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def verify(emulator, disk, out, model="pal"):
+def verify(emulator, disk, out, model="pal", audio=False, sid_model="6581"):
     out = out.resolve(); out.mkdir(parents=True, exist_ok=True)
     syms = {n: int(a, 16) for a, n in (line.split() for line in (ROOT / 'dist/symbols.txt').read_text().splitlines())}
     with socket.socket() as probe:
@@ -26,6 +27,9 @@ def verify(emulator, disk, out, model="pal"):
     args = [emulator, '-default', '-model', model, '+sound', '-warp', '-drive8truedrive', '+virtualdev8',
             '-autostart', str(disk.resolve()), '-remotemonitor', '-remotemonitoraddress', f'ip4://127.0.0.1:{port}',
             '-initbreak', str(syms['ic_displayed']), '-limitcycles', '1500000000']
+    if audio:
+        args[args.index('+sound')] = '-sound'
+        args += ['-soundoutput','1','-soundwarpmode','1','-sidmodel',{'6581':'0','8580':'1'}[sid_model]]
     with (out / 'vice.log').open('w') as log, (out / 'monitor.txt').open('wb') as transcript:
         process = subprocess.Popen(args, stdout=log, stderr=subprocess.STDOUT)
         connection = None
@@ -54,7 +58,11 @@ def verify(emulator, disk, out, model="pal"):
 
             def cmd(command, timeout=180):
                 transcript.write(('\nCOMMAND '+command+'\n').encode()); transcript.flush()
-                connection.sendall((command+'\n').encode()); return response(timeout)
+                connection.sendall((command+'\n').encode())
+                result=response(timeout)
+                if b'ERROR --' in result or b'Unknown resource' in result or b'Unknown command' in result:
+                    raise RuntimeError(f'VICE rejected {command}: {result.decode("latin1")}')
+                return result
 
             def screenshot(name):
                 cmd('step $4e20')  # allow the VIC to finish at least one frame
@@ -68,7 +76,9 @@ def verify(emulator, disk, out, model="pal"):
                 if len(data) != end-start+1: raise RuntimeError(f'monitor parse: {reply!r}')
                 return bytes(data)
 
-            response(); cmd('delete'); cmd('resourceset "WarpMode" "1"'); screenshot('01_original_credit.png')
+            response(); cmd('delete'); cmd('warp on'); screenshot('01_original_credit.png')
+            if audio and memory(syms['sid_8580'],syms['sid_8580'])!=bytes([int(sid_model=='8580')]):
+                raise AssertionError('SID revision detection selected the wrong digi gain')
             print('VICE: first original credit displayed', flush=True)
             cmd(f'break {syms["ic_displayed"]:04x}')
             cmd('ignore 1 $0e')
@@ -90,8 +100,24 @@ def verify(emulator, disk, out, model="pal"):
             cmd('bank cpu')
             cmd(f'until {syms["original_music_tick"]:04x}')  # wait for the parade/sample hold to end
             screenshot('03_native_title.png')
-            if memory(syms['mu_mode'],syms['mu_mode'])!=b'\x01':
+            if memory(syms['mu_mode'],syms['mu_mode'])!=b'\x00':
                 raise AssertionError('title did not select choose3 score')
+            def record(name, frames):
+                if not audio:return
+                cmd('warp off')
+                cmd(f'resourceset "SoundRecordDeviceArg" "{out / (name+".wav")}"')
+                cmd('resourceset "SoundRecordDeviceName" "wav"')
+                # Loop a frame-synchronized stub without involving the game loop.
+                registers=cmd('registers').decode('latin1')
+                saved=int(re.search(r'\.;([0-9a-fA-F]{4})',registers).group(1),16)
+                wait=syms['wait_frame']
+                cmd(f'> 0240 a2 {frames:02x} 20 {wait&255:02x} {wait>>8:02x} ca d0 fa 4c 48 02')
+                cmd('registers pc=0240');cmd('until 0248')
+                cmd(f'resourceset "SoundRecordDeviceArg" "{os.devnull}"')
+                cmd('warp on')
+                cmd(f'registers pc={saved:04x}')
+            cmd(f'until {syms["title_wait"]:04x}')
+            record('title_music',250)
             print('VICE: original SID score bank loaded; title arrangement running',flush=True)
             print('VICE: all twenty scenes loaded; embedded title restored', flush=True)
             cmd('> 0277 20'); cmd('> 00c6 01')
@@ -111,8 +137,22 @@ def verify(emulator, disk, out, model="pal"):
             if memory(syms['sp_ready'], syms['sp_ready']) != b'\x01':
                 raise AssertionError('resident speech bank did not load')
             screenshot('05_game.png')
-            if memory(syms['mu_mode'],syms['mu_mode'])!=b'\x00':
+            if memory(syms['mu_mode'],syms['mu_mode'])!=b'\x01':
                 raise AssertionError('game did not select war14 score')
+            game_music=read_files(disk)['MUSICG'][6:]
+            cmd('bank ram')
+            cmd(f'bsave "{out / "game_music_bank.bin"}" 0 c400 {0xc400+len(game_music)-1:04x}')
+            if (out/'game_music_bank.bin').read_bytes()!=game_music:
+                raise AssertionError('game score RAM beneath I/O differs from disk')
+            effects=read_files(disk)['EFFECTS']
+            primary,offset=unpack(effects,9000,4);tail,offset=unpack(effects,3072,offset)
+            cmd(f'bsave "{out / "effects_primary.bin"}" 0 {syms["smp_data"]:04x} {syms["smp_end"]-1:04x}')
+            cmd(f'bsave "{out / "effects_tail.bin"}" 0 d400 dfff')
+            if (out/'effects_primary.bin').read_bytes()!=primary or (out/'effects_tail.bin').read_bytes()!=tail:
+                raise AssertionError('full effect RAM differs from disk')
+            cmd('bank cpu')
+            cmd(f'until {syms["main_loop"]:04x}')
+            record('game_music',250)
             cmd('bank ram')
             cmd(f'bsave "{out / "speech_low.bin"}" 0 4c80 7fff')
             cmd(f'bsave "{out / "speech_high.bin"}" 0 e000 fff9')
@@ -138,9 +178,32 @@ def verify(emulator, disk, out, model="pal"):
                 if memory(syms['smp_rd']+1,syms['smp_rd']+2)!=end.to_bytes(2,'little'):
                     raise AssertionError('voice pointer did not reach its exact end')
                 cmd('delete');cmd('until 0205')
+            if audio:
+                for name,routine,clip in [('effect_orchestra','sample_play',9),('original_speech','speech_play',0)]:
+                    entry=syms[routine]
+                    cmd(f'> 0250 a9 {clip:02x} 20 {entry&255:02x} {entry>>8:02x} 4c 55 02')
+                    cmd('registers pc=0250');cmd('until 0255')
+                    record(name,120)
+                    if memory(syms['smp_left'],syms['smp_left']+1)!=b'\x00\x00':
+                        raise AssertionError(f'{name}: timed playback did not finish')
             print('VICE: voice bank matches RAM; low-RAM and KERNAL-shadow clips completed', flush=True)
             connection.sendall(b'quit\n')
             process.wait(timeout=20)
+            if audio:
+                import array,json,math,wave
+                metrics={}
+                for name in ['title_music','game_music','effect_orchestra','original_speech']:
+                    with wave.open(str(out/(name+'.wav'))) as wav:
+                        if wav.getsampwidth()!=2 or wav.getnchannels()!=1:
+                            raise AssertionError('expected mono 16-bit PCM audio')
+                        rate=wav.getframerate();samples=array.array('h',wav.readframes(wav.getnframes()))
+                    if len(samples)<rate:raise AssertionError('audio recorder produced fewer than one second of PCM')
+                    rms=math.sqrt(sum(v*v for v in samples)/len(samples))
+                    if rms<10:raise AssertionError(f'{name}: silent audio capture')
+                    metrics[name]=dict(seconds=len(samples)/rate,rms=rms,peak=max(map(abs,samples)),
+                        clipped_fraction=sum(abs(v)>=32767 for v in samples)/len(samples))
+                (out/'audio_metrics.json').write_text(json.dumps(metrics,indent=2)+'\n')
+                print(f'VICE: non-silent PCM verified on {sid_model}: '+str(metrics),flush=True)
         finally:
             if connection: connection.close()
             if process.poll() is None:
@@ -155,6 +218,8 @@ if __name__ == '__main__':
     p.add_argument('--disk', required=True, type=Path)
     p.add_argument('--out', required=True, type=Path)
     p.add_argument('--model',choices=['pal','ntsc'],default='pal')
+    p.add_argument('--audio',action='store_true',help='capture title/game music, a full effect and speech as WAV')
+    p.add_argument('--sid-model',choices=['6581','8580'],default='6581')
     a = p.parse_args()
     if not a.emulator: p.error('VICE x64sc is required')
-    verify(a.emulator, a.disk, a.out, a.model)
+    verify(a.emulator, a.disk, a.out, a.model, a.audio, a.sid_model)

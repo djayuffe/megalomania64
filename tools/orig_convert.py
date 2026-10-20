@@ -84,7 +84,7 @@ def sample_nibbles(orig, fid, seconds, gain):
     source = orig / 'amiga_8svx' / f'original_{fid}_8SVX.iff'
     if not source.is_file():source = orig / f'{int(fid,16):06x}_8SVX.iff'
     rate, name, pcm = load_8svx(source)
-    n_out = int(seconds * SMP_RATE)
+    n_out = int((len(pcm) / rate if seconds is None else seconds) * SMP_RATE)
     step = rate / SMP_RATE
     mean = sum(pcm) / len(pcm)
     out = []
@@ -252,11 +252,23 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--orig', default=str(ROOT / 'original'))
     ap.add_argument('--samples-only', action='store_true', help='rebuild effects from recovered Amiga IFFs without changing art')
+    ap.add_argument('--effects-out', type=Path, help='write optional full-length original effect bank outside source checkout')
     a = ap.parse_args()
     orig = Path(a.orig)
     OUT.mkdir(parents=True, exist_ok=True)
     if a.samples_only:
         blob,index=samples(orig)
+        if a.effects_out:
+            from scene_format import pack as rle_pack
+            full=bytearray()
+            for entry,(_,fid,_,gain) in zip(index,SAMPLES):
+                _,nib=sample_nibbles(orig,fid,None,gain)
+                entry['full_offset']=len(full);entry['full_nibbles']=len(nib)
+                full.extend((nib[i]<<4)|nib[i+1] for i in range(0,len(nib),2))
+            if len(full)>9000+3072:raise ValueError('full effect bank exceeds resident RAM')
+            full.extend(bytes(9000+3072-len(full)))
+            a.effects_out.mkdir(parents=True,exist_ok=True)
+            (a.effects_out/'EFFECTS.bin').write_bytes(b'MLF1'+rle_pack(full[:9000])+rle_pack(full[9000:]))
         (OUT/'samples.bin').write_bytes(blob)
         (OUT/'samples.json').write_text(json.dumps({'rate':SMP_RATE,'samples':index},indent=1))
         print('samples:',len(index),len(blob),'bytes');return

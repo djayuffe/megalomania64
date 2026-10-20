@@ -1,16 +1,19 @@
-# v5.0.0-dev validation — 20 October 2026
+# v5.0.0-dev audio/colour validation — 20 October 2026
 
-- Final build: `$0801–$BF27`, 46889 PRG bytes including load address, 216 bytes below `$C000`.
-- **211 automated tests passed**; full output in `dist/build_test_log.txt`.
-- **9 focused streaming/music mutation checks passed** (`tools/mutation_streaming.py`). The historical 45-mutant v4 suite was not rerun for this build.
-- VICE 3.9 x64sc, PAL and NTSC, true 1541 drive emulation with virtual-device traps disabled: all 20 streamed scenes reached the restored native title; the original-score bank matched disk bytes; island-card sprites and resident speech matched their disk payloads; both a low-RAM voice and a voice crossing into RAM under KERNAL finished at their exact expected addresses.
-- NTSC sprite DMA exposed nested sample NMI reentry and a final-counter underflow. A reentry guard fixes this; a model regression injects the nested interrupt at the final sample. Both final VICE runs include this fix.
-- Local VICE evidence: `../recovery/vice/pal_guarded` and `../recovery/vice/ntsc_guarded`. These contain screenshots, monitor transcripts and RAM captures. `dist/validation_v5.json` records artifact hashes and scope.
-- The distributed default D64 exercises the optional-content fallback. Original-derived scene, speech, music and island files are generated locally by the documented recovery commands into a separate full D64; they are not embedded in the public source archive.
+- Final PRG: `$0801–$BEE9`, 46827 bytes including load address; 278 bytes below `$C000`.
+- **228 automated tests passed** (`dist/build_test_log.txt`). This includes the four-part sequencer, voice-one effect ownership/recovery, volume changes, decaying percussion, full effect RAM crossing, partial-file fallback, SID detection/DC boost cleanup, nested NMI while I/O is banked out, neutral grey mapping and mixed story raster/serial ordering.
+- **16 focused mutation checks passed** (`tools/mutation_streaming.py`). The historical v4 45-mutant suite was not rerun; these counts are not added together.
+- Final VICE 3.9 x64sc runs: **PAL/8580 and NTSC/6581**, true 1541 drive emulation, virtual-device traps disabled. Both traverse all 20 original picture scenes, verify title/game score bytes, island-card sprites, full effect banks and resident speech against the full disk, and complete low-RAM and KERNAL-shadow voice clips at exact expected pointers.
+- SID revision detection selects the expected one-DC-source 6581 / three-source 8580 digi gain. Timed full-orchestra and original-speech playback completes on both models.
+- Four normal-speed mono 16-bit WAV captures per model contain non-silent PCM: title music, game music, full orchestra effect and original speech. **No 16-bit digital clipping** was measured. Detailed duration, RMS and peak values are in `dist/validation_v5.json`; signal-level verification is not a human listening test.
+- Final evidence is local in `../recovery/vice/av_pal_8580_percussion` and `../recovery/vice/av_ntsc_6581_percussion`: screenshots, RAM dumps, monitor transcript, WAV files and `audio_metrics.json`. Earlier recorder attempts produced empty files and are excluded from the final evidence bundle.
+- A fresh assembly matches the final PRG byte-for-byte. The standard fallback disk remains self-contained. The normal build and non-image regression tests also run without optional Pillow/NumPy; colour conversion tests require those libraries and CI installs them.
 
-Remaining limits: original game rules and exact scrolling/timing have not been reconstructed; SID music is a three-voice arrangement with approximate timbres and one omitted MOD channel. The final VICE runs disable audio and establish execution/memory behavior, not listening quality. No physical C64, real drive, SID listening or human campaign playtest is claimed. This is a development build.
+VICE exposed that KERNAL serial reads can delay raster splits. Story panels now hold without background serial reads and blank while their successor loads; screenshots confirm readable hires text below multicolour art. A static EXE probe also establishes the SUNRISE→MUNRISE filename rewrite and the actual six-bit sunrise palette copy.
 
-The v4 report below is historical and describes its own older build and emulator coverage.
+Original game rules/terrain/balance and exact original scrolling/timing remain unfinished. Music retains all four parts through a three-oscillator SID arrangement, with quantized dynamics and different timbres. No physical C64/drive, human listening judgment or complete campaign playtest is claimed.
+
+The following v4 report is historical.
 
 ---
 

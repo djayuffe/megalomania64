@@ -1,3 +1,13 @@
+test_grey_text_does_not_turn_brown (test_av_fixes.ColourConversion) ... ok
+test_hires_pair_preserves_small_bright_letters (test_av_fixes.ColourConversion) ... ok
+test_multicolour_uses_all_four_pixel_codes_and_correct_register_nibbles (test_av_fixes.ColourConversion) ... ok
+test_a_full_clip_crosses_the_two_regions_and_finishes_at_its_exact_end (test_av_fixes.FullEffects) ... ok
+test_capture_keeps_explosion_before_the_spoken_reaction (test_av_fixes.FullEffects) ... ok
+test_complete_bank_loads_without_touching_sid_registers (test_av_fixes.FullEffects) ... ok
+test_missing_extension_keeps_the_builtin_effects (test_av_fixes.FullEffects) ... ok
+test_mixed_story_irq_keeps_text_hires_and_counts_one_frame (test_av_fixes.FullEffects) ... ok
+test_story_display_holds_without_serial_reads_and_clears_split_on_exit (test_av_fixes.FullEffects) ... ok
+test_truncated_optional_bank_disables_partial_samples_and_uses_sid_fallback (test_av_fixes.FullEffects) ... ok
 test_ai_acts_every_16_ticks_before_epoch_5_and_every_8_after (test_engine.AiPacing) ... ok
 test_ai_wants_a_25_percent_margin_before_assaulting (test_engine.AiPacing) ... ok
 test_develop_never_touches_enemy_or_free_land (test_engine.Develop) ... ok
@@ -156,9 +166,11 @@ test_event_samples_and_silent_events (test_intro.SampleEvents) ... ok
 test_lower_priority_sample_does_not_cut_a_higher_one (test_intro.SampleEvents) ... ok
 test_sequencer_waits_while_a_sample_plays (test_intro.SampleEvents) ... ok
 test_sid_effect_replaced_by_sample_and_blocked_while_it_plays (test_intro.SampleEvents) ... ok
+test_8580_detection_boosts_three_dc_sources_and_stop_removes_every_test_bit (test_intro.SamplePlayer) ... ok
 test_boot_installs_the_nmi_vector_and_idle_volume (test_intro.SamplePlayer) ... ok
 test_every_sample_streams_its_nibbles_high_first_to_the_sid_volume (test_intro.SamplePlayer) ... ok
 test_nested_nmi_cannot_underflow_the_last_sample_counter (test_intro.SamplePlayer) ... ok
+test_nested_nmi_during_banked_read_acknowledges_the_real_cia (test_intro.SamplePlayer) ... ok
 test_new_sample_replaces_the_running_one (test_intro.SamplePlayer) ... ok
 test_nmi_entry_steps_the_player_and_keeps_registers (test_intro.SamplePlayer) ... ok
 test_nmi_without_cia_flag_is_ignored (test_intro.SamplePlayer) ... ok
@@ -172,13 +184,18 @@ test_module_parser_checks_size_and_instruments (test_music.AmigaFormats) ... ok
 test_score_preserves_speed_change_and_pattern_break (test_music.AmigaFormats) ... ok
 test_score_rejects_unsupported_commands (test_music.AmigaFormats) ... ok
 test_bad_length_or_pointer_cannot_enable_the_bank (test_music.OriginalScore) ... ok
+test_intro_colour_shadow_does_not_overwrite_the_title_score (test_music.OriginalScore) ... ok
+test_music_can_cross_into_ram_under_io_and_restores_the_port (test_music.OriginalScore) ... ok
+test_new_notes_during_an_effect_are_kept_and_restore_all_registers (test_music.OriginalScore) ... ok
 test_ntsc_uses_its_frequency_table_and_fifty_hz_timebase (test_music.OriginalScore) ... ok
+test_percussion_has_a_decaying_envelope_instead_of_sustained_noise (test_music.OriginalScore) ... ok
 test_score_bank_loads_and_control_data_has_no_sprite_overlap (test_music.OriginalScore) ... ok
-test_skip_carry_survives_loading_music_before_game_start (test_music.OriginalScore) ... ok
-test_title_and_game_use_their_own_original_score (test_music.OriginalScore) ... ok
+test_skip_reaches_game_with_game_music_loaded (test_music.OriginalScore) ... ok
+test_title_and_game_load_their_own_score_and_render_all_four_channels (test_music.OriginalScore) ... ok
 test_tonal_effect_keeps_voice_one_until_it_finishes (test_music.OriginalScore) ... ok
 test_truncated_bank_and_runtime_overrun_disable_playback (test_music.OriginalScore) ... ok
 test_voice_digi_pauses_the_original_score (test_music.OriginalScore) ... ok
+test_volume_only_events_keep_the_note_and_change_sustain (test_music.OriginalScore) ... ok
 test_d64_rejects_duplicate_names_and_full_disk (test_streaming.Codecs) ... ok
 test_lzhuf_common_iff_prefix_fixture (test_streaming.Codecs) ... ok
 test_lzhuf_literals_and_tree_reconstruction (test_streaming.Codecs) ... ok
@@ -211,8 +228,8 @@ test_music_tables_are_in_sid_range (test_tools.Tools) ... ok
 test_package_is_reproducible_and_complete (test_tools.Tools) ... ok
 
 ----------------------------------------------------------------------
-Ran 211 tests in 146.871s
+Ran 228 tests in 162.355s
 
 OK
-MegaLoMania64_v5.0.0-dev_Source.zip: 314235 bytes, sha256 e91ecd3c6405a8ff3fd2bd7b2b368ad9ed0308efb938ba0aa6853d1c4ee11dae
-MegaLoMania64_v5.0.0-dev_Source.zip: 314235 bytes, sha256 e91ecd3c6405a8ff3fd2bd7b2b368ad9ed0308efb938ba0aa6853d1c4ee11dae
+MegaLoMania64_v5.0.0-dev_Source.zip: 330226 bytes, sha256 d66e12638db625de486e1557b168c41802fdf30780db1fa512646c4bbde2c817
+MegaLoMania64_v5.0.0-dev_Source.zip: 330226 bytes, sha256 d66e12638db625de486e1557b168c41802fdf30780db1fa512646c4bbde2c817

@@ -188,6 +188,16 @@ speech_event:
 sp_event_go:
  lda sfx_prio,x
  sta smp_prio
+ lda sfx_smp,x
+ cmp #$ff
+ beq sp_event_voice
+ jsr sfx_sample              ; retain explosion/grunt/fanfare before the spoken reaction
+ bcc sp_event_voice
+ lda sp_wanted
+ sta sp_queue
+ sec
+ rts
+sp_event_voice:
  txa
  pha
  lda sp_wanted

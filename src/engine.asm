@@ -40,8 +40,6 @@ intro_color:
 !source "loader.asm"
 !source "intro.asm"
 !source "sound.asm"
-!source "music.asm"
-!source "sample.asm"
 !source "speech.asm"
 !source "level.asm"
 !source "fx.asm"
@@ -57,4 +55,6 @@ engine_end:
 ; Original Amiga effects as packed 4-bit samples (tools/orig_convert.py)
 smp_data:
 !bin "../assets/orig/samples.bin"
+smp_payload_end:
+!fill 9000-(smp_payload_end-smp_data),0
 smp_end:

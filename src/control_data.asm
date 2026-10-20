@@ -7,6 +7,7 @@ ld_eof: !byte 0
 ld_error: !byte 0
 ld_status: !byte 0
 ld_value: !byte 0
+ld_write: !byte 0
 ld_rx: !byte 0
 ld_ry: !byte 0
 ld_count: !byte 0
@@ -17,10 +18,10 @@ ic_signature: !text "MLI1"
 ic_name: !text "SCENE01"
 ic_title: !text "TITLE"
 ic_dest_lo: !byte $00,$00,$00,$00,$00,$00
-ic_dest_hi: !byte $60,$5c,$c4,$e0,$cc,$c8
+ic_dest_hi: !byte $60,$5c,$54,$e0,$cc,$c0
 ic_size_lo: !byte $40,$e8,$e8
 ic_size_hi: !byte $1f,$03,$03
-ic_color_hi: !byte $c4,$c8
+ic_color_hi: !byte $54,$c0
 ic_vic: !byte 2,0
 ic_d018: !byte $78,$38
 ic_active: !byte 0
@@ -31,6 +32,7 @@ ic_index: !byte 0
 ic_bank: !byte 0
 ic_segment: !byte 0
 ic_mode: !byte 0
+ic_visible_mode: !byte 0
 ic_bg: !byte 0
 ic_time: !word 0
 ic_hold: !word 0
@@ -66,5 +68,10 @@ lc_colors: !fill 3,0
 lc_ok: !byte 0
 cards_on: !byte 0
 
+fx_ready: !byte 0
+fx_valid: !byte 1
+fx_magic: !text "MLF1"
+fx_name: !text "EFFECTS"
+sid_8580: !byte 0
 nmi_busy: !byte 0
 control_data_end:

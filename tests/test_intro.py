@@ -59,8 +59,8 @@ class SamplePlayer(GameCase):
         for r in (0xd406,0xd40d,0xd414):self.cpu.m[r]=0x55
         for r in (0xd404,0xd40b,0xd412):self.cpu.m[r]=0x41                          # all three voices sounding
         self.play(3)
-        self.assertEqual((self.cpu.m[0xd406],self.cpu.m[0xd40d],self.cpu.m[0xd414]),(0,0,0))      # sustain 0, fast release
-        self.assertEqual((self.cpu.m[0xd404]&1,self.cpu.m[0xd40b]&1,self.cpu.m[0xd412]&1),(0,0,0)) # gates off
+        self.assertEqual((self.cpu.m[0xd406],self.cpu.m[0xd40d],self.cpu.m[0xd414]),(0,0,0xf0))      # sustain 0, fast release
+        self.assertEqual((self.cpu.m[0xd404]&1,self.cpu.m[0xd40b]&1,self.cpu.m[0xd412]),(0,0,0x49)) # gates off
         self.call('sample_stop')
         self.assertEqual((self.cpu.m[0xd406],self.cpu.m[0xd40d],self.cpu.m[0xd414]),(0xa5,0xa6,0xa6))
         self.assertEqual(self.cpu.m[0xd418],0x0f)
@@ -70,6 +70,17 @@ class SamplePlayer(GameCase):
         self.call('sample_stop')
         self.assertEqual((self.cpu.a,self.cpu.x,self.cpu.y),(0x42,0x17,0x99))
         self.assertEqual(self.state('smp_left'),0)
+
+    def test_8580_detection_boosts_three_dc_sources_and_stop_removes_every_test_bit(self):
+        self.cpu.m[0xd41b]=0x80;self.call('sample_init')
+        self.assertEqual(self.state('sid_8580'),1)
+        self.play(1)
+        self.assertEqual([self.cpu.m[a] for a in (0xd404,0xd40b,0xd412)],[0x49]*3)
+        self.assertEqual([self.cpu.m[a] for a in (0xd406,0xd40d,0xd414)],[0xf0]*3)
+        self.call('sample_stop')
+        self.assertEqual([self.cpu.m[a]&9 for a in (0xd404,0xd40b,0xd412)],[0]*3)
+        self.cpu.m[0xd41b]=0x3f;self.call('sample_init')
+        self.assertEqual(self.state('sid_8580'),0)
 
     def test_new_sample_replaces_the_running_one(self):
         self.play(4);self.call('sample_step');self.call('sample_step')
@@ -119,6 +130,15 @@ class SamplePlayer(GameCase):
         self.assertEqual(self.state('smp_left')|(self.state('smp_left',1)<<8),0)
         self.assertEqual(self.state('nmi_busy'),0)
         self.assertEqual(c.m[0xdd0e],0)
+
+    def test_nested_nmi_during_banked_read_acknowledges_the_real_cia(self):
+        self.play(1);self.cpu.m[1]=0x34;self.put('nmi_busy',1)
+        self.cpu.ram_io[0xd0d]=0;before=self.cpu.cia2_reads
+        left=self.state('smp_left')|(self.state('smp_left',1)<<8)
+        self.nmi(True)
+        self.assertGreater(self.cpu.cia2_reads,before)
+        self.assertEqual(self.cpu.m[1],0x34)
+        self.assertEqual(self.state('smp_left')|(self.state('smp_left',1)<<8),left)
 
     def test_nmi_entry_steps_the_player_and_keeps_registers(self):
         self.play(1)

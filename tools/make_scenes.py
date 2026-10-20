@@ -33,33 +33,8 @@ def frame(im, credits):
 
 
 def hires(im):
-    # Preserve 320-pixel lettering; select the two most common mapped colours per VIC cell.
-    nearest = {}
-    indices = []
-    for rgb in im.getdata():
-        if rgb not in nearest:
-            nearest[rgb] = min(range(16), key=lambda i: sum((rgb[k] - C64[i][k]) ** 2 for k in range(3)))
-        indices.append(nearest[rgb])
-    bitmap, screen = bytearray(), bytearray()
-    preview = Image.new('RGB', (320, 200))
-    for cy in range(25):
-        for cx in range(40):
-            cell = [indices[(cy * 8 + y) * 320 + cx * 8 + x] for y in range(8) for x in range(8)]
-            colors = [c for c, _ in Counter(cell).most_common(2)]
-            if len(colors) == 1:
-                colors.append(colors[0])
-            bg, fg = colors
-            screen.append((fg << 4) | bg)
-            mapped = {c: int(sum((C64[c][k] - C64[fg][k]) ** 2 for k in range(3)) <
-                             sum((C64[c][k] - C64[bg][k]) ** 2 for k in range(3))) for c in set(cell)}
-            for y in range(8):
-                value = 0
-                for x in range(8):
-                    bit = mapped[cell[y * 8 + x]]
-                    value = (value << 1) | bit
-                    preview.putpixel((cx * 8 + x, cy * 8 + y), C64[fg if bit else bg])
-                bitmap.append(value)
-    return bytes(bitmap), bytes(screen), bytes(1000), preview
+    from vic_bitmap import convert
+    return convert(im)
 
 
 def build(decoded, dos, out):
@@ -79,14 +54,16 @@ def build(decoded, dos, out):
             im.paste(logo, (0, 12), logo.convert('L').point(lambda x: 255 if x else 0))
         else:
             im = frame(image(decoded / name), i <= 15)
-        bitmap, screen, color, preview = hires(im)
+        from vic_bitmap import convert, mixed_story
+        multicolor = 2 if 16 <= i <= 19 else int(i == 20)
+        bitmap, screen, color, preview = mixed_story(im) if multicolor == 2 else convert(im, multicolor=bool(multicolor))
         frames = 180 if i <= 15 else 360
-        data = encode(bitmap, screen, color, frames=frames)
+        data = encode(bitmap, screen, color, multicolor=multicolor, frames=frames)
         decode(data)
         file = f'SCENE{i:02d}'
         (out / (file + '.bin')).write_bytes(data)
         preview.save(out / (file + '.png'))
-        manifest.append(dict(file=file, source=name, bytes=len(data), frames_pal=frames))
+        manifest.append(dict(file=file, source=name, bytes=len(data), frames_pal=frames, multicolor=multicolor))
     # Restore the embedded v4 title after the streamed banks have been used.
     data = encode((ROOT / 'assets/intro_bitmap.bin').read_bytes(),
                   (ROOT / 'assets/intro_screen.bin').read_bytes(),

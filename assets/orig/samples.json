@@ -7,7 +7,9 @@
    "carve": "00cda00",
    "offset": 0,
    "nibbles": 900,
-   "rate": 5000
+   "rate": 5000,
+   "full_offset": 0,
+   "full_nibbles": 882
   },
   {
    "key": "throw",
@@ -15,7 +17,9 @@
    "carve": "00c6e00",
    "offset": 450,
    "nibbles": 950,
-   "rate": 5000
+   "rate": 5000,
+   "full_offset": 441,
+   "full_nibbles": 940
   },
   {
    "key": "musket",
@@ -23,7 +27,9 @@
    "carve": "00c6800",
    "offset": 925,
    "nibbles": 450,
-   "rate": 5000
+   "rate": 5000,
+   "full_offset": 911,
+   "full_nibbles": 430
   },
   {
    "key": "machinegun",
@@ -31,7 +37,9 @@
    "carve": "00c3400",
    "offset": 1150,
    "nibbles": 476,
-   "rate": 5000
+   "rate": 5000,
+   "full_offset": 1126,
+   "full_nibbles": 474
   },
   {
    "key": "cannon",
@@ -39,7 +47,9 @@
    "carve": "00c3a00",
    "offset": 1388,
    "nibbles": 2000,
-   "rate": 5000
+   "rate": 5000,
+   "full_offset": 1363,
+   "full_nibbles": 2548
   },
   {
    "key": "missile",
@@ -47,7 +57,9 @@
    "carve": "00c7e00",
    "offset": 2388,
    "nibbles": 2500,
-   "rate": 5000
+   "rate": 5000,
+   "full_offset": 2637,
+   "full_nibbles": 4744
   },
   {
    "key": "laser",
@@ -55,7 +67,9 @@
    "carve": "00d0800",
    "offset": 3638,
    "nibbles": 1500,
-   "rate": 5000
+   "rate": 5000,
+   "full_offset": 5009,
+   "full_nibbles": 1516
   },
   {
    "key": "explosion",
@@ -63,7 +77,9 @@
    "carve": "00c9e00",
    "offset": 4388,
    "nibbles": 2250,
-   "rate": 5000
+   "rate": 5000,
+   "full_offset": 5767,
+   "full_nibbles": 3450
   },
   {
    "key": "grunt",
@@ -71,7 +87,9 @@
    "carve": "00cfc00",
    "offset": 5513,
    "nibbles": 1400,
-   "rate": 5000
+   "rate": 5000,
+   "full_offset": 7492,
+   "full_nibbles": 1384
   },
   {
    "key": "orchestra",
@@ -79,7 +97,9 @@
    "carve": "0050a00",
    "offset": 6213,
    "nibbles": 2500,
-   "rate": 5000
+   "rate": 5000,
+   "full_offset": 8184,
+   "full_nibbles": 5694
   },
   {
    "key": "timpani",
@@ -87,7 +107,9 @@
    "carve": "0066600",
    "offset": 7463,
    "nibbles": 1876,
-   "rate": 5000
+   "rate": 5000,
+   "full_offset": 11031,
+   "full_nibbles": 1878
   }
  ]
 }

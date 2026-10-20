@@ -55,6 +55,19 @@ irq_handler:
  sta joy_raw
  jsr sound_tick              ; SFX gate timer + music sequencer
  jsr fx_tick                 ; border flash, screen shake, sprite colour pulse
+ lda ic_active
+ beq irq_native_bars
+ lda ic_visible_mode
+ cmp #2
+ bne irq_not_ours
+ lda #$18
+ sta $d016
+ lda #162                    ; top 14 cell rows multicolour; lower text hires
+ sta $d012
+ lda #18
+ sta irq_stage
+ jmp irq_not_ours
+irq_native_bars:
  lda title_active
  beq irq_not_ours
  lda vblank                  ; title: arm the wobbling raster-bar stack
@@ -70,6 +83,8 @@ irq_not_ours:
 
 irq_bar:
  ldx irq_stage               ; 1..BAR_COUNT paint, BAR_COUNT+1 restores
+ cpx #18
+ beq irq_scene_split
  cpx #BAR_COUNT+1
  bcs irq_bar_last
  lda bar_color-1,x
@@ -83,6 +98,15 @@ irq_bar:
  sta irq_line
  sta $d012
  jmp $ea81
+irq_scene_split:
+ lda #8
+ sta $d016
+ lda #IRQ_LINE
+ sta $d012
+ lda #0
+ sta irq_stage
+ jmp $ea81
+
 irq_bar_last:
  lda #6
  ldy title_bmp

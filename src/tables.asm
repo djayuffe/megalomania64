@@ -63,3 +63,7 @@ smp_off_lo: !byte <(smp_data+0),<(smp_data+450),<(smp_data+925),<(smp_data+1150)
 smp_off_hi: !byte >(smp_data+0),>(smp_data+450),>(smp_data+925),>(smp_data+1150),>(smp_data+1388),>(smp_data+2388),>(smp_data+3638),>(smp_data+4388),>(smp_data+5513),>(smp_data+6213),>(smp_data+7463)
 smp_len_lo: !byte 132,182,194,220,208,196,220,202,120,196,84
 smp_len_hi: !byte 3,3,1,1,7,9,5,8,5,9,7
+fx_off_lo: !byte <(smp_data+0),<(smp_data+441),<(smp_data+911),<(smp_data+1126),<(smp_data+1363),<(smp_data+2637),<(smp_data+5009),<(smp_data+5767),<(smp_data+7492),<(smp_data+8184),<56303
+fx_off_hi: !byte >(smp_data+0),>(smp_data+441),>(smp_data+911),>(smp_data+1126),>(smp_data+1363),>(smp_data+2637),>(smp_data+5009),>(smp_data+5767),>(smp_data+7492),>(smp_data+8184),>56303
+fx_len_lo: !byte 114,172,174,218,244,136,236,122,104,62,86
+fx_len_hi: !byte 3,3,1,1,9,18,5,13,5,22,7

@@ -159,7 +159,7 @@ class SpeechAndCards(GameCase):
         self.assertEqual(bytes(self.cpu.m[0xe000:0xfffa]),raw[0x3380:])
         self.assertEqual(bytes(self.cpu.m[0xfffa:]),b'VECTOR')
         # Loading speech must preserve the original effect sample bank.
-        self.assertEqual(bytes(self.cpu.m[self.sym['smp_data']:self.sym['smp_end']]),BLOB_LOCAL())
+        self.assertEqual(bytes(self.cpu.m[self.sym['smp_data']:self.sym['smp_payload_end']]),BLOB_LOCAL())
         self.assertEqual(self.cpu.channels,{})
 
     def test_invalid_voice_index_is_rejected_before_sample_writes(self):

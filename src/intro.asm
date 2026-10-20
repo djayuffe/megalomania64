@@ -9,10 +9,10 @@ intro_sequence:
  sta ic_hold
  sta ic_hold+1
  sta title_active
+ sta music_hold
  lda #1
  sta ic_active
  sta title_bmp
- sta music_hold
  sta ic_bank
  sta ic_index
  lda vblank
@@ -22,6 +22,20 @@ intro_sequence:
  lda #0
  sta $d015
 ic_next:
+ lda ic_visible
+ beq ic_filename
+ lda ic_visible_mode
+ cmp #2
+ bne ic_filename
+ic_story_hold:
+ jsr intro_poll              ; IEC masks IRQs: split-mode text needs a quiet display
+ lbcs ic_finish
+ lda ic_hold
+ ora ic_hold+1
+ bne ic_story_hold
+ lda #$0b
+ sta $d011                   ; blank only while the next story is loaded
+ic_filename:
  lda ic_index
  ldx #$30
 ic_tens:
@@ -84,6 +98,15 @@ ic_finish:
  lda #1
  sta ic_skip
 ic_exit:
+ php
+ sei
+ lda #0
+ sta irq_stage
+ sta ic_visible_mode
+ lda #IRQ_LINE
+ sta $d012
+ sta irq_line
+ plp
  lda #0
  sta title_bmp
  sta music_hold
@@ -175,7 +198,7 @@ ic_magic:
  bcc ic_magic
  jsr ld_read
  lbcs ic_load_bad
- cmp #2
+ cmp #3
  lbcs ic_load_bad
  sta ic_mode
  jsr ld_read
@@ -265,6 +288,7 @@ ic_colors:
  lda ic_d018,x
  sta $d018
  lda ic_mode
+ sta ic_visible_mode
  beq ic_hires
  lda #$18
  bne ic_d016

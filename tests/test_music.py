@@ -35,8 +35,8 @@ class AmigaFormats(unittest.TestCase):
         stream,info=score(synthetic_mod())
         self.assertEqual(info['frames'],28)
         self.assertEqual(stream[0],28)
-        self.assertEqual(stream[1]&63,25)
-        self.assertEqual(stream[-4:],bytes(4))
+        self.assertEqual(stream[4]&63,25)
+        self.assertEqual(stream[-1],0)
 
     def test_score_rejects_unsupported_commands(self):
         data=bytearray(synthetic_mod());data[1090]=0x11
@@ -44,19 +44,17 @@ class AmigaFormats(unittest.TestCase):
 
 
 class OriginalScore(GameCase):
-    def bank(self,duration=100):
+    def bank(self,duration=100,events=None):
         bank=bytearray(256)
         for note in range(64):
             bank[note*2:note*2+2]=bytes((note,note+1))
             bank[128+note*2:130+note*2]=bytes((note+2,note+3))
-        bank+=struct.pack('<HH',0xc504,0xc50c)
-        bank+=bytes((duration,25,0,0,0,0,0,0))
-        bank+=bytes((duration,0,26,0,0,0,0,0))
-        return b'MLM1'+len(bank).to_bytes(2,'little')+bank
+        bank+=events or bytes((duration,5,25,10,26,8,0))
+        return b'MLM2'+len(bank).to_bytes(2,'little')+bank
 
-    def load(self,data=None):
-        self.cpu.drive_files['MUSIC']=data or self.bank()
-        self.call('music_load')
+    def load(self,data=None,game=False):
+        self.cpu.drive_files['MUSICG' if game else 'MUSIC']=data or self.bank()
+        self.cpu.a=int(game);self.call('music_load')
         self.cpu.m[0x02a6]=1
 
     def test_score_bank_loads_and_control_data_has_no_sprite_overlap(self):
@@ -65,14 +63,18 @@ class OriginalScore(GameCase):
         self.assertLessEqual(self.sym['control_data_end'],0x3700)
         self.assertEqual(self.cpu.channels,{})
 
-    def test_title_and_game_use_their_own_original_score(self):
-        self.load();self.put('title_active',1);self.call('music_tick')
+    def test_title_and_game_load_their_own_score_and_render_all_four_channels(self):
+        self.load();self.call('music_tick')
         self.assertEqual(self.cpu.m[0xd400:0xd402],bytes((25,26)))
-        self.assertEqual(self.cpu.m[0xd404],0x10) # note off for one frame before gate on
+        self.assertEqual(self.cpu.m[0xd404],0x10)
         self.call('music_tick');self.assertEqual(self.cpu.m[0xd404],0x11)
-        self.put('title_active',0);self.call('music_tick')
-        self.assertEqual(self.cpu.m[0xd407:0xd409],bytes((26,27)))
-        self.assertEqual(self.state('mu_mode'),0)
+        self.load(self.bank(events=bytes((100,15,20,10,21,10,22,10,23,10,0))),game=True)
+        seen=[]
+        for _ in range(6):
+            self.call('music_tick');seen.append(self.cpu.m[0xd400])
+        self.assertEqual(set(seen),{20,21})
+        self.assertEqual(self.cpu.m[0xd407],22);self.assertEqual(self.cpu.m[0xd40e],23)
+        self.assertEqual(self.state('mu_mode'),1)
 
     def test_ntsc_uses_its_frequency_table_and_fifty_hz_timebase(self):
         self.load();self.cpu.m[0x02a6]=0
@@ -81,7 +83,7 @@ class OriginalScore(GameCase):
         self.assertEqual(self.cpu.m[0xd407:0xd409],bytes((28,29)))
 
     def test_tonal_effect_keeps_voice_one_until_it_finishes(self):
-        self.load();self.put('title_active',1);self.call('music_tick')
+        self.load();self.call('music_tick')
         self.put('soundtime',4);self.cpu.m[0xd400:0xd402]=b'\xaa\xbb';self.cpu.m[0xd404]=0x81
         self.call('music_tick');self.assertEqual(self.cpu.m[0xd400:0xd402],b'\xaa\xbb')
         self.assertEqual(self.cpu.m[0xd404],0x81)
@@ -96,7 +98,7 @@ class OriginalScore(GameCase):
         self.call('sample_stop');self.call('sound_tick');self.assertEqual(self.state('mu_wait'),wait-1)
 
     def test_bad_length_or_pointer_cannot_enable_the_bank(self):
-        for at,value in [(5,0x10),(6+257,0xd0)]:
+        for at,value in [(5,0x20),(4,0),(5,0)]:
             data=bytearray(self.bank());data[at]=value;self.load(data)
             self.assertEqual(self.state('mu_ready'),0)
 
@@ -106,9 +108,47 @@ class OriginalScore(GameCase):
         self.cpu.m[self.sym['mu_fetch']+1:self.sym['mu_fetch']+3]=end.to_bytes(2,'little')
         self.call('mu_read');self.assertTrue(self.cpu.flag(1));self.assertEqual(self.state('mu_ready'),0)
 
-    def test_skip_carry_survives_loading_music_before_game_start(self):
+    def test_new_notes_during_an_effect_are_kept_and_restore_all_registers(self):
+        self.load(self.bank(events=bytes((1,1,25,10,100,1,26,6,0))))
+        self.call('music_tick');self.put('soundtime',4)
+        for a in range(0xd400,0xd407):self.cpu.m[a]=0xaa
+        self.call('music_tick')
+        self.assertEqual(self.state('mu_notes'),26)
+        self.assertEqual(self.cpu.m[0xd400:0xd407],bytes([0xaa])*7)
+        self.put('soundtime',0);self.call('music_tick');self.call('music_tick')
+        self.assertEqual(self.cpu.m[0xd400:0xd407],bytes((26,27,0,8,0x11,8,0x66)))
+
+    def test_percussion_has_a_decaying_envelope_instead_of_sustained_noise(self):
+        self.load(self.bank(events=bytes((100,1,0xc0|25,12,0))))
+        self.call('music_tick');self.call('music_tick')
+        self.assertEqual(self.cpu.m[0xd404],0x81)
+        self.assertEqual(self.cpu.m[0xd405],6)
+        self.assertEqual(self.cpu.m[0xd406],0)
+
+    def test_volume_only_events_keep_the_note_and_change_sustain(self):
+        self.load(self.bank(events=bytes((1,1,25,10,100,1,0,4,0))))
+        self.call('music_tick');self.call('music_tick')
+        self.assertEqual(self.cpu.m[0xd406],0x46)
+        self.assertEqual(self.cpu.m[0xd400],25)
+
+    def test_music_can_cross_into_ram_under_io_and_restores_the_port(self):
+        events=bytes((1,0))*1800+b'\0'
+        self.load(self.bank(events=events));self.assertEqual(self.state('mu_ready'),1)
+        self.cpu.m[1]=0x36
+        self.cpu.m[self.sym['mu_fetch']+1:self.sym['mu_fetch']+3]=b'\x00\xd0'
+        self.call('mu_read');self.assertEqual(self.cpu.m[1],0x36)
+
+    def test_intro_colour_shadow_does_not_overwrite_the_title_score(self):
+        self.load();bank=bytes(self.cpu.m[0xc400:0xc507])
+        self.cpu.drive_files['SCENE01']=encode(bytes(8000),bytes(1000),bytes([3])*1000,frames=4)
+        self.cpu.m[0x200:0x207]=b'SCENE01';self.cpu.a=7;self.cpu.x=0;self.cpu.y=2
+        self.put('ic_bank',1);self.call('ic_load')
+        self.assertEqual(bytes(self.cpu.m[0xc400:0xc507]),bank)
+        self.assertEqual(bytes(self.cpu.m[0xc000:0xc3e8]),bytes([3])*1000)
+
+    def test_skip_reaches_game_with_game_music_loaded(self):
         blank=encode(bytes(8000),bytes(1000),bytes(1000),frames=4)
-        self.cpu.drive_files={'SCENE01':blank,'SCENE02':blank,'MUSIC':self.bank()}
+        self.cpu.drive_files={'SCENE01':blank,'SCENE02':blank,'MUSIC':self.bank(),'MUSICG':self.bank()}
         self.cpu.drive_files['TITLE']=encode((ROOT/'assets/intro_bitmap.bin').read_bytes(),
             (ROOT/'assets/intro_screen.bin').read_bytes(),(ROOT/'assets/intro_color.bin').read_bytes(),multicolor=True)
         hit=[]
@@ -118,3 +158,4 @@ class OriginalScore(GameCase):
         self.cpu.m[0x02a6]=1;self.cpu.pc=self.sym['start']
         self.cpu.run_until(self.sym['main_loop'],max_steps=4000000,on_pc=skip)
         self.assertEqual(hit,[]);self.assertEqual(self.state('mu_ready'),1)
+        self.assertEqual(self.state('mu_mode'),1)

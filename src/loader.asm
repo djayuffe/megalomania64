@@ -103,8 +103,19 @@ ld_put:
  ora ld_left+1
  beq ld_put_bad
  pla
+ sta ld_write
+ php
+ sei
+ lda $01
+ pha
+ and #$f8
+ sta $01                     ; one bounded write, including RAM beneath I/O
+ lda ld_write
  ldy #0
  sta (PTR),y
+ pla
+ sta $01
+ plp
  inc PTR
  bne ld_put_count
  inc PTR+1

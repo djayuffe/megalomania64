@@ -12,9 +12,16 @@ C=1;Z=2;I=4;D=8;B=16;U=32;V=64;N=128
 class CPU:
  def __init__(self,prg):
   buf=Path(prg).read_bytes();start=buf[0]+256*buf[1]
-  self.m=bytearray(65536);self.m[start:start+len(buf)-2]=buf[2:];self.m[0xdc00]=255
+  self.cia2_reads=0;self.ram_io=bytearray(4096);self.m=bytearray(65536);self.m[1]=0x36;self.m[start:start+len(buf)-2]=buf[2:];self.m[0xdc00]=255
   self.a=self.x=self.y=0;self.s=0xfd;self.p=0x24;self.pc=0x1000;self.steps=0;self.key=0;self.drive_files={};self.channels={};self.input_channel=None;self.filename="";self.lfs=(1,8,1)
   self.in_irq=False;self.joystick=0xff;self.raster_msb=0;self.io_screen=[];self.status=0;self.drive_device=8;self.write_protected=False;self.disk_log=[]
+ def read(self,addr):
+  if 0xd000<=addr<0xe000 and not(self.m[1]&3):return self.ram_io[addr-0xd000]
+  if addr==0xdd0d:self.cia2_reads+=1
+  return self.m[addr]
+ def write(self,addr,value):
+  if 0xd000<=addr<0xe000 and not(self.m[1]&3):self.ram_io[addr-0xd000]=value
+  else:self.m[addr]=value
  def flag(self,f):return bool(self.p&f)
  def set(self,f,v):self.p=(self.p|f) if v else (self.p & (~f&255))
  def nz(self,v):self.set(Z,(v&255)==0);self.set(N,bool(v&128));return v&255
@@ -162,15 +169,15 @@ class CPU:
     lo=self.m[zp];hi=self.m[(zp+1)&255];addr=lo+(hi<<8)
     if mode=='indy':addr=(addr+self.y)&65535
    else:raise AssertionError(f'unsupported mode {mode} at ${pc:04X}')
-   v=self.m[addr]
-   if addr==0xdc00 and name in ('LDA','LDX','LDY'):v=self.joystick   # port 2 pins, not the written output latch
-   if addr==0xd011 and name in ('LDA','LDX','LDY'):v=(v&0x7f)|(self.raster_msb<<7)   # bit 7 reads the live raster MSB
+   v=self.read(addr)
+   if (self.m[1]&3) and addr==0xdc00 and name in ('LDA','LDX','LDY'):v=self.joystick   # port 2 pins, not the written output latch
+   if (self.m[1]&3) and addr==0xd011 and name in ('LDA','LDX','LDY'):v=(v&0x7f)|(self.raster_msb<<7)   # bit 7 reads the live raster MSB
   if name=='LDA':self.a=self.nz(v)
   elif name=='LDX':self.x=self.nz(v)
   elif name=='LDY':self.y=self.nz(v)
-  elif name=='STA':self.m[addr]=self.a
-  elif name=='STX':self.m[addr]=self.x
-  elif name=='STY':self.m[addr]=self.y
+  elif name=='STA':self.write(addr,self.a)
+  elif name=='STX':self.write(addr,self.x)
+  elif name=='STY':self.write(addr,self.y)
   elif name=='ADC':self.adc(v)
   elif name=='SBC':self.sbc(v)
   elif name=='CMP':self.compare(self.a,v)
@@ -179,15 +186,15 @@ class CPU:
   elif name=='AND':self.a=self.nz(self.a&v)
   elif name=='ORA':self.a=self.nz(self.a|v)
   elif name=='EOR':self.a=self.nz(self.a^v)
-  elif name=='INC':self.m[addr]=self.nz(v+1)
-  elif name=='DEC':self.m[addr]=self.nz(v-1)
+  elif name=='INC':self.write(addr,self.nz(v+1))
+  elif name=='DEC':self.write(addr,self.nz(v-1))
   elif name in ('ASL','LSR','ROL','ROR'):
    carry=self.flag(C)
    if name=='ASL':self.set(C,bool(v&128));v=(v<<1)&255
    elif name=='LSR':self.set(C,bool(v&1));v>>=1
    elif name=='ROL':self.set(C,bool(v&128));v=((v<<1)|(1 if carry else 0))&255
    else:self.set(C,bool(v&1));v=(v>>1)|(128 if carry else 0)
-   self.m[addr]=self.nz(v)
+   self.write(addr,self.nz(v))
   elif name=='BIT':self.set(Z,(v&self.a)==0);self.set(N,v&128);self.set(V,v&64)
   else:raise AssertionError(f'unimplemented {name} at ${pc:04X}')
  def call(self,addr,max_ops=400000):

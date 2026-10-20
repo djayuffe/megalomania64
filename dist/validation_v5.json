@@ -1,32 +1,88 @@
 {
   "version": "5.0.0-dev",
   "date": "2026-10-20",
-  "automated_tests": 211,
-  "focused_mutants_killed": 9,
-  "prg_sha256": "332ada7d1741591cdf0f577ede6bca2a85d1ee0c1237c441e2570976e97de5db",
-  "fallback_d64_sha256": "06596e7f11bc28dcf381e636e709fc8965df5b10aac6a73c666d0a7028f0ca79",
-  "local_full_d64_sha256": "f45de53704b31152e534cd3fca21066056f6850ae96a7cff88d649577c876b48",
+  "update": "Music, full original effects, SID gain, story colours",
+  "automated_tests": 228,
+  "focused_mutants_killed": 16,
+  "prg_sha256": "6fc8ec05510d95a7cd2abcb64782f72d1801e815b6fae646f7ebf30bb33afa69",
+  "fallback_d64_sha256": "7b8ea682acc536b8ca96da8df8da0a7cc06ab759bb4458caf26de1d81ee54d37",
+  "local_full_d64_sha256": "242da5370ac9821093234152a99da8d31287274797837bc9f8877dca0c51df37",
   "vice": {
     "version": "3.9",
-    "models": [
-      "pal",
-      "ntsc"
+    "cases": [
+      "PAL with unmodified 8580",
+      "NTSC with 6581"
     ],
     "true_drive": true,
     "virtual_device_traps": false,
-    "audio_verified": false,
+    "sid_revision_detection_verified": true,
+    "non_silent_pcm_verified": true,
+    "audio_metrics": {
+      "av_pal_8580_percussion": {
+        "title_music": {
+          "seconds": 4.985333333333333,
+          "rms": 1378.5084701256442,
+          "peak": 17385,
+          "clipped_fraction": 0.0
+        },
+        "game_music": {
+          "seconds": 4.987333333333333,
+          "rms": 3325.271874948556,
+          "peak": 16375,
+          "clipped_fraction": 0.0
+        },
+        "effect_orchestra": {
+          "seconds": 2.382,
+          "rms": 1409.4403102190065,
+          "peak": 17067,
+          "clipped_fraction": 0.0
+        },
+        "original_speech": {
+          "seconds": 2.3933333333333335,
+          "rms": 965.430057099665,
+          "peak": 16735,
+          "clipped_fraction": 0.0
+        }
+      },
+      "av_ntsc_6581_percussion": {
+        "title_music": {
+          "seconds": 4.176666666666667,
+          "rms": 1618.3098115654795,
+          "peak": 18342,
+          "clipped_fraction": 0.0
+        },
+        "game_music": {
+          "seconds": 4.178,
+          "rms": 4725.210617181029,
+          "peak": 10935,
+          "clipped_fraction": 0.0
+        },
+        "effect_orchestra": {
+          "seconds": 1.9973333333333334,
+          "rms": 3312.227241443605,
+          "peak": 10252,
+          "clipped_fraction": 0.0
+        },
+        "original_speech": {
+          "seconds": 2.005333333333333,
+          "rms": 2115.564601598743,
+          "peak": 14131,
+          "clipped_fraction": 0.0
+        }
+      }
+    },
     "checks": [
-      "20 streamed scenes and restored title",
-      "SID score bytes and title/game selection",
-      "island sprite bytes",
-      "resident speech bytes",
-      "low-RAM and KERNAL-shadow voice completion"
+      "all 20 original picture scenes",
+      "stable mixed-mode story text",
+      "title and game score bytes including RAM under I/O",
+      "full effect RAM bytes and playback completion",
+      "resident speech bytes and exact pointer completion"
     ]
   },
   "limitations": [
-    "original game rules incomplete",
-    "exact intro scrolling and timing incomplete",
-    "SID arrangement omits one MOD channel",
-    "physical hardware untested"
+    "original game rules and balance not reconstructed",
+    "exact original intro scrolling/timing incomplete",
+    "four source parts use a SID arrangement rather than Paula sample synthesis",
+    "physical hardware and human listening/playtesting unverified"
   ]
 }

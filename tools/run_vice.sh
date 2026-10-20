@@ -1,5 +1,5 @@
 #!/bin/sh
-# Run a C64/C64C emulator with the packaged PRG. Requires VICE x64sc or x64.
+# Run the local full disk when present, otherwise the packaged fallback D64.
 set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 EMULATOR=${VICE_BIN:-}
@@ -11,4 +11,11 @@ if [ -z "$EMULATOR" ]; then
     exit 127
   fi
 fi
-exec "$EMULATOR" -autostart "$ROOT/dist/MegaLoMania64.prg"
+if [ "$#" -gt 0 ]; then
+  DISK=$1
+elif [ -f "$ROOT/../recovery/MegaLoMania64_full.d64" ]; then
+  DISK=$ROOT/../recovery/MegaLoMania64_full.d64
+else
+  DISK=$ROOT/dist/MegaLoMania64.d64
+fi
+exec "$EMULATOR" -model "${VICE_MODEL:-c64c}" -sound +warp -soundrecdev "" -drive8truedrive +virtualdev8 -autostart "$DISK"

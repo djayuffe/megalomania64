@@ -63,6 +63,8 @@ sp_skip:
 ; original sample for this event just started, or a sample is still playing (the SID
 ; voices are muted for the duration). Preserves X.
 sfx_sample:
+ lda fx_valid
+ beq ss_invalid
  txa
  pha
  lda sfx_smp,x
@@ -96,6 +98,10 @@ ss_none:
  lda smp_left
  ora smp_left+1
  cmp #1                      ; carry set when a sample is playing (non-zero)
+ rts
+
+ss_invalid:
+ clc
  rts
 
 ; sample per SFX id ($ff none, $fe by epoch)

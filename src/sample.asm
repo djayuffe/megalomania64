@@ -30,7 +30,29 @@ sample_init:
  sta $fffb                   ; RAM NMI vector for the brief KERNAL-out sample fetch
  lda #<nmi_entry
  sta $fffa
- jmp sample_stop
+ jsr sample_stop
+ jmp sid_detect
+
+sid_detect:
+ lda #0
+ sta sid_8580
+ lda #$20
+ sta $d40e
+ sta $d40f
+ lda #$30
+ sta $d412                    ; combined triangle/saw output differs by SID revision
+ ldx #0
+sm_detect_loop:
+ lda $d41b
+ bpl sm_detect_next
+ lda #1
+ sta sid_8580
+sm_detect_next:
+ dex
+ bne sm_detect_loop
+ lda #$20
+ sta $d412
+ rts
 
 ; A = sample id. Starts playback (replacing any sample in progress).
 sample_play:
@@ -39,6 +61,8 @@ sample_play:
  jsr sample_mute
  pla
  tax
+ lda fx_ready
+ bne sm_full
  lda smp_off_lo,x
  sta smp_rd+1
  lda smp_off_hi,x
@@ -47,6 +71,17 @@ sample_play:
  sta smp_left
  lda smp_len_hi,x
  sta smp_left+1
+ jmp sm_loaded
+sm_full:
+ lda fx_off_lo,x
+ sta smp_rd+1
+ lda fx_off_hi,x
+ sta smp_rd+2
+ lda fx_len_lo,x
+ sta smp_left
+ lda fx_len_hi,x
+ sta smp_left+1
+sm_loaded:
  lda #0
  sta smp_half
 sm_start:
@@ -78,20 +113,52 @@ sm_go:
 
 sample_mute:
  lda #0
+ sta soundtime
+ sta sfx_cur_prio
  sta $d406
  sta $d40d
- sta $d414                    ; sustain 0 / fastest release ...
+ sta $d414                    ; mute musical oscillators
  lda #$10
  sta $d404
  lda #$40
  sta $d40b
  lda #$20
- sta $d412                    ; ... and gates off: the SID voices are silent under the digi
+ sta $d412
+ lda #0
+ sta $d413
+ lda #$f0
+ sta $d414
+ lda #$49
+ sta $d412                    ; one DC source on 6581, three on the quieter 8580
+ lda sid_8580
+ beq sm_muted
+ lda #0
+ sta $d405
+ sta $d40c
+ lda #$f0
+ sta $d406
+ sta $d40d
+ lda #$49
+ sta $d404
+ sta $d40b
+sm_muted:
  rts
 
 ; Stop any sample and restore the SID master volume. Preserves A, X, Y.
 sample_stop:
  pha
+ lda #$10
+ sta $d404
+ lda #$40
+ sta $d40b
+ lda #9
+ sta $d405
+ lda #8
+ sta $d40c
+ lda #$20
+ sta $d412                    ; remove the digi DC source and TEST bit
+ lda #8
+ sta $d413
  lda #$a5
  sta $d406                    ; envelopes back to the game values (main.asm)
  lda #$a6
@@ -116,7 +183,22 @@ nmi_entry:
  pha
  txa
  pha
- lda $dd0d                    ; acknowledge; bit 7 = CIA 2 raised it (not the RESTORE key)
+ lda $01
+ and #2
+ beq sm_ack_banked
+ lda $dd0d                    ; ordinary KERNAL/I/O-visible entry
+ jmp sm_ack_flags
+sm_ack_banked:
+ lda $01
+ pha
+ ora #6
+ sta $01                      ; a nested edge may arrive during a hidden-RAM fetch
+ lda $dd0d                    ; acknowledge the real CIA, not the RAM underneath it
+ tax
+ pla
+ sta $01
+ txa
+sm_ack_flags:
  bpl sm_neout
  lda nmi_busy
  bne sm_neout                ; VIC DMA can stretch a digi NMI past the next timer edge
@@ -135,7 +217,11 @@ sample_step:
  ora smp_left+1
  lbeq sample_finished
  lda smp_speech
- beq smp_rd
+ bne sm_bank_read
+ lda smp_rd+2
+ cmp #$d0
+ bcc smp_rd
+sm_bank_read:
  lda $01
  pha
  and #$fd
@@ -143,7 +229,11 @@ sample_step:
 smp_rd:
  lda smp_data                 ; self-modified (absolute form forced: operand is a >$FF address): current sample byte
  ldx smp_speech
- beq sm_value
+ bne sm_restore_port
+ ldx smp_rd+2
+ cpx #$d0
+ bcc sm_value
+sm_restore_port:
  tax
  pla
  sta $01
@@ -163,15 +253,30 @@ sm_low:
  ldx #0
  stx smp_half
  inc smp_rd+1
- bne sm_out
+ bne sm_check_wrap
  inc smp_rd+2
+sm_check_wrap:
  pha
  lda smp_speech
- beq sm_no_wrap
+ beq sm_fx_wrap
  lda smp_rd+2
  cmp #$80
  bne sm_no_wrap
  lda #$e0
+ sta smp_rd+2
+ jmp sm_no_wrap
+sm_fx_wrap:
+ lda fx_ready
+ beq sm_no_wrap
+ lda smp_rd+1
+ cmp #<smp_end
+ bne sm_no_wrap
+ lda smp_rd+2
+ cmp #>smp_end
+ bne sm_no_wrap
+ lda #0
+ sta smp_rd+1
+ lda #$d4
  sta smp_rd+2
 sm_no_wrap:
  pla

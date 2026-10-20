@@ -1,3 +1,10 @@
+Audio/colour update (20 October 2026): the local full disk now retains all four
+MOD parts in a SID arrangement, follows volume slides, plays full-length original
+effects and queues speech after them. Original story pictures use multicolour
+art with hires lettering; greys remain neutral. The `MUSICG` and `EFFECTS` files
+are generated alongside the other local content. See
+[reconstruction details](docs/REVERSE_ENGINEERING_V5.md).
+
 # v5 reconstruction in progress
 
 The lost cloud working copy has been rebuilt locally from v4.4. The DOS LZHUF

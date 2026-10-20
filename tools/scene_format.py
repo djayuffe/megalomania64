@@ -45,9 +45,9 @@ def unpack(data, size, at=0):
 def encode(bitmap, screen, color, multicolor=False, background=0, frames=180):
     if tuple(map(len, (bitmap, screen, color))) != SEGMENTS:
         raise ValueError('scene segment size')
-    if not 0 <= background < 16 or not 1 <= frames <= 65535:
+    if not 0 <= int(multicolor) <= 2 or not 0 <= background < 16 or not 1 <= frames <= 65535:
         raise ValueError('scene header range')
-    return MAGIC + struct.pack('<BBH', bool(multicolor), background, frames) + b''.join(
+    return MAGIC + struct.pack('<BBH', int(multicolor), background, frames) + b''.join(
         pack(segment) for segment in (bitmap, screen, color))
 
 
@@ -55,7 +55,7 @@ def decode(data):
     if len(data) < 8 or data[:4] != MAGIC:
         raise ValueError('invalid scene magic')
     mode, bg, frames = struct.unpack_from('<BBH', data, 4)
-    if mode > 1 or bg > 15 or frames == 0:
+    if mode > 2 or bg > 15 or frames == 0:
         raise ValueError('invalid scene header')
     at, segments = 8, []
     for size in SEGMENTS:
