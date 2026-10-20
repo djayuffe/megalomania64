@@ -81,7 +81,9 @@ SAMPLES = [('stick', '00cda00', 0.18, 1.0), ('throw', '00c6e00', 0.19, 1.0), ('m
 
 
 def sample_nibbles(orig, fid, seconds, gain):
-    rate, name, pcm = load_8svx(orig / 'amiga_8svx' / f'original_{fid}_8SVX.iff')
+    source = orig / 'amiga_8svx' / f'original_{fid}_8SVX.iff'
+    if not source.is_file():source = orig / f'{int(fid,16):06x}_8SVX.iff'
+    rate, name, pcm = load_8svx(source)
     n_out = int(seconds * SMP_RATE)
     step = rate / SMP_RATE
     mean = sum(pcm) / len(pcm)
@@ -249,9 +251,15 @@ def preview(army, builds):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--orig', default=str(ROOT / 'original'))
+    ap.add_argument('--samples-only', action='store_true', help='rebuild effects from recovered Amiga IFFs without changing art')
     a = ap.parse_args()
     orig = Path(a.orig)
     OUT.mkdir(parents=True, exist_ok=True)
+    if a.samples_only:
+        blob,index=samples(orig)
+        (OUT/'samples.bin').write_bytes(blob)
+        (OUT/'samples.json').write_text(json.dumps({'rate':SMP_RATE,'samples':index},indent=1))
+        print('samples:',len(index),len(blob),'bytes');return
     write_galaxy_png(galaxy(orig))
     army = army_frames(orig)
     builds = building_icons(orig)

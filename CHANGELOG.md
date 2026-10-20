@@ -1,5 +1,25 @@
 # Endringslogg
 
+## v5.0.0-dev (20. oktober 2026, lokalt arbeid)
+
+- Ny, avgrenset LZHUF-dekoder; alle 101 DOS-ressurser behandlet. 85 IFF-filer
+  validerer strukturelt (27 ILBM, 20 PBM, 38 8SVX); 16 øvrige ressurser er rådata.
+- Amiga-disk: 510 byte data + 2 byte footer per sektor. 21 ILBM, 20 8SVX og
+  to MOD-filer gjenfunnet; én ugyldig IFF avvist. Effektene regenerert uten footere.
+- `war14` og `choose3` arrangert for tre SID-stemmer; hastighet/pattern-breaks
+  bevart, sample-klang og volumfades tilnærmet, én kanal utelatt (1888 byte i RAM).
+- Full D64 med 20 originale bildescener, dobbel VIC-buffer, originaltittel gjenopprettet
+  før den innebygde tittelen, åtte resident lagrede stemmer og 28 øybilder fra disk.
+- 6502-laster med kontroll av filformat, EOF, avkortede pakker og utdataområder.
+- Talebanken bruker 4 bit / 4 kHz og leser RAM under KERNAL kun under sample-hentingen.
+  Våpenhvile spiller spørsmål med køet svar.
+- VICE fant at GETIN leste diskkanalen under CHKIN. Tastaturpolling bytter nå kanal;
+  modellen og en regresjonstest gjenskaper den faktiske KERNAL-oppførselen.
+- NTSC sprite-DMA kunne gi nestede sample-NMI og underløp ved siste sample;
+  reentransvakt og regresjonstest hindrer dette. PAL og NTSC kontrollert i VICE.
+- Eksakt original timing, bevegelse, musikk og spillregler er fortsatt ikke rekonstruert.
+  Ingen påstand om identisk originalport eller ferdig v5-utgivelse.
+
 ## v4.4.0 (19. oktober 2026)
 
 Originale Amiga-lydeffekter og en ny flerscene-intro bygget av de dekodede originaldataene.

@@ -23,7 +23,11 @@ def main():
  p.add_argument('--regen-gfx',action='store_true',help='rebuild charset/cursor assets; requires Pillow')
  p.add_argument('--preview',action='store_true',help='render memory previews to dist/*.png; requires Pillow')
  p.add_argument('--package',action='store_true',help='also write the release ZIP and checksums')
+ p.add_argument('--content',type=Path,help='generated original scene directory')
+ p.add_argument('--full-d64',type=Path,help='output D64 including optional original content')
  a=p.parse_args()
+ if bool(a.content)!=bool(a.full_d64):p.error('--content and --full-d64 must be used together')
+ if a.full_d64 and a.full_d64.resolve().is_relative_to(ROOT):p.error('write the full D64 outside the source checkout')
  (ROOT/'dist').mkdir(exist_ok=True)
  if a.regen_gfx:
   subprocess.run([sys.executable,str(ROOT/'tools/make_gfx.py')],cwd=ROOT,check=True)
@@ -39,9 +43,19 @@ def main():
  d64=ROOT/'dist/MegaLoMania64.d64'
  block_count=make_image(output,d64)
  print(f'D64 {d64.name}: {block_count} PRG blocks, chain verified')
+ if a.content:
+  from scene_format import decode
+  files={}
+  for name in [f'SCENE{i:02d}' for i in range(1,21)]+['TITLE']:
+   data=(a.content/(name+'.bin')).read_bytes();decode(data);files[name]=data
+  for name in ['SPEECH','MUSIC']+[f'ISL{i:02d}' for i in range(1,29)]:
+   files[name]=(a.content/(name+'.bin')).read_bytes()
+  make_image(output,a.full_d64,files=files)
+  print(f'Full D64: {a.full_d64} ({len(files)} content files)')
  table=(ROOT/'dist/symbols.txt').read_text()
  code_end=symbol(table,'cpu_count');last_data=symbol(table,'checksum_sum')+1
  if not (0x1000 < code_end < last_data < 0x3200):raise SystemExit('FATAL: program code/state overlaps the original-art sprite RAM at $3200')
+ if symbol(table,'mu_data_end')>0x3400 or symbol(table,'control_data_end')>0x3700:raise SystemExit('FATAL: streaming control data overlaps sprite RAM')
  if symbol(table,'smp_end')>0xC000:raise SystemExit('FATAL: engine/sample bank runs into the $C000 save buffer')
  prg=output.read_bytes();top=prg[0]+256*prg[1]+len(prg)-3
  if top>=0xC000:raise SystemExit(f'FATAL: program ends at ${top:04X}, overlaps the $C000 save buffer')

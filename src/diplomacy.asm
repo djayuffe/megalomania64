@@ -38,6 +38,7 @@ pt_not_active:
  jsr message
  jmp beep_no
 pt_evaluate:
+ jsr speech_question
  lda #1
  jsr calc_power
  lda pwr_lo
@@ -62,9 +63,13 @@ pt_accept:
  lda #>msg_truce_ok
  sta PTR+1
  jsr message
+ lda #4
+ jsr speech_answer
  lda #SFX_TRUCE
  jmp sfx_play
 pt_refuse:
+ lda #5
+ jsr speech_answer
  ldy pt_faction
  lda #TRUCE_COOL
  sta truce_cool,y

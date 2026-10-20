@@ -5,7 +5,7 @@ import hashlib,zipfile
 ROOT=Path(__file__).resolve().parents[1]
 INCLUDE=['README.md','README_NO.md','CHANGELOG.md','VERSION','Makefile','.gitignore','.github',
          'src','assets','tools','tests','docs']
-DIST=['MegaLoMania64.prg','MegaLoMania64.d64','SHA256SUMS.txt','symbols.txt',
+DIST=['MegaLoMania64.prg','MegaLoMania64.d64','SHA256SUMS.txt','symbols.txt','build_test_log.txt','validation_v5.json',
       'preview_title.png','preview_initial.png','preview_truce.png','preview_expansion.png','preview_future.png']
 def files():
     out=[]

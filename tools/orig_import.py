@@ -4,8 +4,8 @@
 * ILBM/LBM reader (BMHD, CMAP, BODY with ByteRun1) -> palette-index image
 * MEGA.EXE text-table extractor (island names, epochs, ranks, elements, weapons)
 
-Only formats that are fully understood are read. The proprietary .DAT files are not decoded
-by anyone yet, so no map or balance data comes from them.
+DOS resource compression is decoded by tools/lzhuf.py. Decoding a resource does not
+establish its gameplay meaning; no original map or balance semantics are assumed.
 """
 import struct
 from pathlib import Path
@@ -16,9 +16,13 @@ def _chunks(data):
         raise ValueError('not an IFF ILBM')
     pos = 12
     end = 8 + struct.unpack('>I', data[4:8])[0]
-    while pos + 8 <= min(end, len(data)):
+    if end != len(data):
+        raise ValueError('IFF FORM size mismatch')
+    while pos + 8 <= end:
         cid = data[pos:pos + 4]
         size = struct.unpack('>I', data[pos + 4:pos + 8])[0]
+        if pos + 8 + size > end:
+            raise ValueError('truncated IFF chunk')
         yield cid, data[pos + 8:pos + 8 + size]
         pos += 8 + size + (size & 1)
 
@@ -30,14 +34,18 @@ def _unpack_byterun1(src, expect):
         n = src[i]
         i += 1
         if n < 128:
+            if i + n + 1 > len(src):
+                raise ValueError('truncated ByteRun1 literal')
             out += src[i:i + n + 1]
             i += n + 1
         elif n > 128:
             if i >= len(src):
-                break
+                raise ValueError('truncated ByteRun1 run')
             out += bytes([src[i]]) * (257 - n)
             i += 1
-    return bytes(out[:expect])
+    if len(out) != expect:
+        raise ValueError('ByteRun1 size mismatch')
+    return bytes(out)
 
 
 def load_ilbm(path):
@@ -54,10 +62,19 @@ def load_ilbm(path):
     if bmhd is None or body is None:
         raise ValueError('missing BMHD/BODY')
     w, h, _x, _y, planes, masking, comp = struct.unpack('>HHhhBBB', bmhd[:11])
+    if not 1 <= w <= 4096 or not 1 <= h <= 4096 or not 1 <= planes <= 8 or comp not in (0, 1) or masking not in (0, 1, 2):
+        raise ValueError('unsupported bitmap layout')
     stride = ((w + 15) // 16) * 2
     nplanes = planes + (1 if masking == 1 else 0)
-    raw = _unpack_byterun1(body, stride * nplanes * h) if comp == 1 else body
+    chunky = data[8:12] == b'PBM '
+    expected = ((w + 1) & ~1) * h if chunky else stride * nplanes * h
+    raw = _unpack_byterun1(body, expected) if comp == 1 else body
+    if len(raw) != expected:
+        raise ValueError('bitmap BODY size mismatch')
     pal = [tuple(cmap[i * 3:i * 3 + 3]) for i in range(len(cmap) // 3)] if cmap else []
+    if chunky:
+        pitch = (w + 1) & ~1
+        return w, h, pal, [list(raw[y * pitch:y * pitch + w]) for y in range(h)]
     rows = []
     for y in range(h):
         base = y * stride * nplanes

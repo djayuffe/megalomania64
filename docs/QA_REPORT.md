@@ -1,3 +1,19 @@
+# v5.0.0-dev validation — 20 October 2026
+
+- Final build: `$0801–$BF27`, 46889 PRG bytes including load address, 216 bytes below `$C000`.
+- **211 automated tests passed**; full output in `dist/build_test_log.txt`.
+- **9 focused streaming/music mutation checks passed** (`tools/mutation_streaming.py`). The historical 45-mutant v4 suite was not rerun for this build.
+- VICE 3.9 x64sc, PAL and NTSC, true 1541 drive emulation with virtual-device traps disabled: all 20 streamed scenes reached the restored native title; the original-score bank matched disk bytes; island-card sprites and resident speech matched their disk payloads; both a low-RAM voice and a voice crossing into RAM under KERNAL finished at their exact expected addresses.
+- NTSC sprite DMA exposed nested sample NMI reentry and a final-counter underflow. A reentry guard fixes this; a model regression injects the nested interrupt at the final sample. Both final VICE runs include this fix.
+- Local VICE evidence: `../recovery/vice/pal_guarded` and `../recovery/vice/ntsc_guarded`. These contain screenshots, monitor transcripts and RAM captures. `dist/validation_v5.json` records artifact hashes and scope.
+- The distributed default D64 exercises the optional-content fallback. Original-derived scene, speech, music and island files are generated locally by the documented recovery commands into a separate full D64; they are not embedded in the public source archive.
+
+Remaining limits: original game rules and exact scrolling/timing have not been reconstructed; SID music is a three-voice arrangement with approximate timbres and one omitted MOD channel. The final VICE runs disable audio and establish execution/memory behavior, not listening quality. No physical C64, real drive, SID listening or human campaign playtest is claimed. This is a development build.
+
+The v4 report below is historical and describes its own older build and emulator coverage.
+
+---
+
 # QA-rapport — v4.4.0
 
 ## Valideringsstatus (kjørt i byggemiljøet)

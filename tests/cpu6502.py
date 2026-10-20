@@ -13,7 +13,7 @@ class CPU:
  def __init__(self,prg):
   buf=Path(prg).read_bytes();start=buf[0]+256*buf[1]
   self.m=bytearray(65536);self.m[start:start+len(buf)-2]=buf[2:];self.m[0xdc00]=255
-  self.a=self.x=self.y=0;self.s=0xfd;self.p=0x24;self.pc=0x1000;self.steps=0;self.key=0;self.drive_files={};self.filename="";self.lfs=(1,8,1)
+  self.a=self.x=self.y=0;self.s=0xfd;self.p=0x24;self.pc=0x1000;self.steps=0;self.key=0;self.drive_files={};self.channels={};self.input_channel=None;self.filename="";self.lfs=(1,8,1)
   self.in_irq=False;self.joystick=0xff;self.raster_msb=0;self.io_screen=[];self.status=0;self.drive_device=8;self.write_protected=False;self.disk_log=[]
  def flag(self,f):return bool(self.p&f)
  def set(self,f,v):self.p=(self.p|f) if v else (self.p & (~f&255))
@@ -38,22 +38,41 @@ class CPU:
   if name=='BRK':raise AssertionError(f'unsupported interrupt ${pc:04X}')
   if name=='JSR':
    addr=self.fetch16()
-   if addr==0xffe4:
+   if addr==0xffe4 and self.input_channel is None:
     self.a=self.nz(self.key);self.key=0;return
    if addr==0xffba:  # SETLFS - unit-test KERNAL disk shim
     self.lfs=(self.a,self.x,self.y);return
    if addr==0xffbd:  # SETNAM
     self.filename=bytes(self.m[(self.x|(self.y<<8)):(self.x|(self.y<<8))+self.a]).decode('ascii');return
    if addr in (0xffc0,0xffd8,0xffd5):self.io_screen.append((self.m[0xd011]&0x10,self.m[0xd015],self.m[0xd011]&0x80))
-   if addr==0xffc0:  # OPEN: only the DOS command channel (15,dev,15) is modelled
+   if addr==0xffc6:  # CHKIN
+    self.input_channel=self.x
+    self.set(C,self.x not in self.channels);return
+   if addr in (0xffcf,0xffe4):  # CHRIN / GETIN from a selected input channel, including valid last byte with EOF status
+    channel=self.channels.get(self.input_channel)
+    if channel is None:
+     self.status=0x80;self.a=self.nz(0);return
+    image,pos=channel
+    if pos>=len(image):
+     self.status=0x40;self.a=self.nz(0);return
+    self.a=self.nz(image[pos]);channel[1]+=1
+    self.status=0x40 if channel[1]==len(image) else 0;return
+   if addr==0xffc3:
+    self.channels.pop(self.a,None);return
+   if addr==0xffcc:
+    self.input_channel=None;return
+   if addr==0xffc0:  # OPEN: DOS command channel and sequential data channels
     if self.lfs[0]==15 and self.lfs[2]==15 and self.lfs[1]==self.drive_device:
      name=self.filename
      self.disk_log.append(('cmd',name))
      if name.startswith('S0:') and not self.write_protected:self.drive_files.pop(name[3:],None)
      self.set(C,False)
-    else:self.set(C,True)
+    elif self.lfs[1]==self.drive_device and self.filename in self.drive_files:
+     self.channels[self.lfs[0]]=[self.drive_files[self.filename],0]
+     self.disk_log.append(('open',self.filename));self.status=0;self.set(C,False)
+    else:
+     self.status=0x42;self.set(C,True)
     return
-   if addr in (0xffc3,0xffcc):return   # CLOSE, CLRCHN
    if addr==0xffb7:  # READST
     self.a=self.nz(self.status);return
    if addr==0xffd8:  # SAVE: A=ZP pointer, X/Y=end exclusive
@@ -114,6 +133,8 @@ class CPU:
    elif name=='INY':self.y=self.nz(self.y+1)
    elif name=='DEX':self.x=self.nz(self.x-1)
    elif name=='DEY':self.y=self.nz(self.y-1)
+   elif name=='PHP':self.push(self.p|B|U)
+   elif name=='PLP':self.p=(self.pop()&~B)|U
    elif name=='PHA':self.push(self.a)
    elif name=='PLA':self.a=self.nz(self.pop())
    elif name=='NOP':pass

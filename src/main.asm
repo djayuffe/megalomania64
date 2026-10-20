@@ -2,7 +2,7 @@
 ; 6510/8500 CPU, PAL+NTSC VIC-II. Program $1000, sprite $3700, charset $3800.
 ; Python build: python tools/build.py
 ; No BASIC runtime dependence; GETIN uses standard KERNAL IRQ keyboard scanning.
-; Original 28-island campaign data, 10 progressive technology epochs, port 2 joystick.
+; Port's 28-island campaign tables, 10 progressive technology epochs, port 2 joystick.
 
 SCR = $0400
 COL = $D800
@@ -75,8 +75,18 @@ start:
  lda #0
  sta $9d                     ; KERNAL messages off (no "SAVING"/"SEARCHING" over the map)
  jsr irq_install             ; raster IRQ engine (ends with CLI)
+ jsr intro_sequence
+ php
+ jsr music_load
+ plp
+ bcs streamed_skip_title
  jsr title_screen
+streamed_skip_title:
  jsr new_game
+ jsr speech_load
+ lda #1
+ sta cards_on
+ jsr level_card
  lda vblank
  sta lastvb
 main_loop:
@@ -115,7 +125,7 @@ new_game:
  rts
 
 ; 28 unique game maps; island 0..26 in 9 three-island epochs, final island 27.
-; Each stage reads original deterministic per-island terrain/mineral tables.
+; Each stage reads this port's deterministic per-island terrain/mineral tables.
 load_island:
  jsr orig_init
  lda #0
@@ -246,6 +256,7 @@ truce_reset:
  lda #>msg_start
  sta PTR+1
  jsr message
+ jsr level_card
  rts
 
 ; A holds owner 2..4, X holds distinct starting sector.
@@ -3004,6 +3015,12 @@ cpu_count: !byte 0
 checksum_xor: !byte 0
 checksum_sum: !byte 0
 save_count = cpu_count+1-owner
+
+* = $3340
+!source "music_data.asm"
+
+* = $3480
+!source "control_data.asm"
 
 * = $3700
 !bin "../assets/cursor_sprite.bin"

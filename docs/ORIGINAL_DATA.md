@@ -18,7 +18,7 @@ The converted results are committed in `assets/orig/` so a normal build needs ne
 
 | Amiga ADF carves, `amiga_8svx/original_*_8SVX.iff` — 8SVX sound effects (stick, throw, musket, machine gun, cannon, missile, laser, explosion, grunt, orchestra hit, timpani) | `orig_import.load_8svx` | `assets/orig/samples.bin` (+ `samples.json` index): mean removed, resampled to 5 kHz, soft-limited and error-diffused to 4 bit, packed two per byte (8401 bytes). Played through the SID master volume by an NMI player (v4.4) |
 
-v4.4 note: the Amiga disk carves are fragmented — the **samples** are intact (8SVX has no compression here) but the carved ILBM **images** are garbled, so only the PC pictures above are used. The original *intro sequence* is therefore **not** recovered: the intro in v4.4 is a new sequence made of the decoded original art (galaxy, soldier sprites) and sounds. The Amiga music score is not available either; the tunes stay this port's own.
+Historical v4.4 assessment (superseded by the v5 sector recovery below): the Amiga disk carves appeared fragmented — the **samples** are intact (8SVX has no compression here) but the carved ILBM **images** are garbled, so only the PC pictures above are used. The original *intro sequence* is therefore **not** recovered: the intro in v4.4 is a new sequence made of the decoded original art (galaxy, soldier sprites) and sounds. The Amiga music score is not available either; the tunes stay this port's own.
 
 Sprite colour mapping: dark → black (`$D025`), light low-saturation → light grey (`$D026`), coloured clothing/brick → the owner's colour (per-sprite). The galaxy is mapped by brightness onto black / blue / light blue / cyan / white with an ordered dither.
 
@@ -29,9 +29,22 @@ Sprite colour mapping: dark → black (`$D025`), light low-saturation → light 
 * The eight soldiers of the intro parade are epochs 0–7 of the army sheet (epochs 8 and 9 are only in the game).
 * Slot 28 of the island names is "THE MOTHER" (from the original "the mother / of battles" strings); the original text refers to island 27 as MEGALOMANIA.
 
-## Not used (not decoded by anyone yet)
+## v5 resource reconstruction
 
-The 54 `.DAT` files (maps, tech tree, balance, speech, music) — the reverse-engineering package states that no compression signature is proven and no decoder exists. Nothing was guessed or fabricated from them. The remaining ILBM sheets (`ISLANDS`, `MSLANDS`, `MRMIES`, `MUILDS`) are not converted yet; the island map tiles stay the port's own character graphics.
+The 54 DAT files and 38 voice files now decode through `tools/lzhuf.py`.
+All 101 non-EXE/non-sidecar DOS resources have been processed; all 85 IFF files
+validate through the ILBM/PBM/8SVX readers. See `REVERSE_ENGINEERING_V5.md` for
+executable evidence, manifest reproduction, scene conversion and known gaps.
+
+The optional full D64 uses V5E–V19E, V1E–V4E, VH/MUNRISE, eight voice clips and
+28 tiles from ISLANDS.LBM. Generated content stays outside the source checkout.
+The Amiga disk layout is now recovered as 510 payload bytes followed by a two-byte
+footer in each sector. Removing these recovers 21 ILBM images, 20 8SVX sounds and
+two valid MOD modules, `war14` and `choose3`. The 11 committed effects are regenerated
+from the corrected sample bytes. The full disk includes a three-voice SID arrangement
+of both scores; sample timbres and continuous volume fades are approximated and
+one Amiga channel is omitted. Exact intro animation/timing and gameplay semantics
+remain unresolved; raw image buffers are not recovered game maps or balance tables.
 
 ## Licence note
 

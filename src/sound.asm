@@ -21,6 +21,8 @@ SFX_REPULSE = 12
 ; A = effect id. A running effect is only replaced by one of equal/higher priority.
 sfx_play:
  tax
+ jsr speech_event
+ bcs sp_skip
  jsr sfx_sample              ; original Amiga sample instead of the SID effect?
  bcs sp_skip
  lda soundtime
@@ -147,6 +149,12 @@ st_quiet:
 ; Voice 2 = pulse lead (PWM), voice 3 = sawtooth bass. Each step releases both notes
 ; and re-gates them two frames later so repeated notes are articulated.
 music_tick:
+ lda mu_ready
+ beq music_port_score
+ lda music_over
+ bne music_port_score
+ jmp original_music_tick
+music_port_score:
  ldy music_over
  bne music_have
  ldy title_active

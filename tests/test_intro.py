@@ -98,6 +98,28 @@ class SamplePlayer(GameCase):
         self.assertEqual((c.a,c.x,c.y),regs);self.assertEqual(c.s,sp)
         return n
 
+    def test_nested_nmi_cannot_underflow_the_last_sample_counter(self):
+        self.play(1);self.put('smp_left',1);self.put('smp_left',0,1)
+        c=self.cpu;c.m[0xdd0d]=0x81
+        c.push(0xff);c.push(0xf0);c.push(c.p);c.pc=self.sym['nmi_entry']
+        for _ in range(200):
+            if c.pc==self.sym['sm_out']:break
+            c.step()
+        else:self.fail('outer NMI did not reach the sample write')
+        resume=c.pc
+        c.push(resume>>8);c.push(resume&255);c.push(c.p);c.pc=self.sym['nmi_entry']
+        for _ in range(300):
+            if c.pc==resume:break
+            c.step()
+        else:self.fail('nested NMI did not return')
+        for _ in range(500):
+            if c.pc==0xfff0:break
+            c.step()
+        else:self.fail('outer NMI did not return')
+        self.assertEqual(self.state('smp_left')|(self.state('smp_left',1)<<8),0)
+        self.assertEqual(self.state('nmi_busy'),0)
+        self.assertEqual(c.m[0xdd0e],0)
+
     def test_nmi_entry_steps_the_player_and_keeps_registers(self):
         self.play(1)
         self.cpu.a=0x31;self.cpu.x=0x42;self.cpu.y=0x53

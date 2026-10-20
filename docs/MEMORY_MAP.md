@@ -1,3 +1,42 @@
+# v5 development memory changes
+
+The v4 table below is retained as historical context. Current addresses come from
+`dist/symbols.txt`; `tools/build.py` enforces the `$3200` and `$C000` boundaries.
+
+| Range | Current role |
+|---|---|
+| `$1000–$31B0` | Main logic, port campaign tables, snapshot state |
+| `$3200–$333F` | Existing army and conquest sprites |
+| `$3340–$336C` | Music control state, outside army/card sprite RAM |
+| `$3480–$3558` | Streaming control data; exact end in symbols, checked below `$3700` |
+| `$3400–$347F` | Two island-card sprites, loaded per island |
+| `$3700–$3FFF` | Cursor/source sprites and character set |
+| `$4000–$4C7F` | Original army/building source sprites, retained throughout play |
+| `$4C80–$7FFF` | Intro screen/bitmap initially; first 13184-byte voice region after title exit |
+| `$8000–$BF27` | Engine modules, streaming/voice/card routines, volatile state, original effect samples; exact end in symbols |
+| `$C000–…` | Existing save/load staging buffer |
+| `$C400–$C7E7` | Intro bank-1 colour shadow; reused by original-score bank after intro |
+| `$C800–$CBE7` | Intro bank-3 colour shadow |
+| `$CC00–$CFE7` | Intro bank-3 screen; sprite pointers excluded from writes |
+| `$E000–$FF3F` | Intro bank-3 bitmap |
+| `$E000–$FFF9` | Second 8186-byte voice region after title exit |
+| `$FFFA/$FFFB` (RAM) | NMI vector for the brief KERNAL-out sample fetch; installed before disk streaming |
+
+Intro bank 1: bitmap `$6000`, screen `$5C00`, `$D018=$78`. Intro bank 3:
+bitmap `$E000`, screen `$CC00`, `$D018=$38`. Engine code stays outside both.
+The `TITLE` disk file restores the embedded bitmap before the native title runs.
+The optional 1888-byte `MUSIC` bank then reuses `$C400–$CB5F` for PAL/NTSC
+frequency tables and two bounded three-SID-voice event streams.
+Speech then reuses intro RAM; subsequent island cards use `$3400` and preserve it.
+
+The NMI voice player wraps the read cursor from `$8000` to `$E000`. Its file index
+must describe eight nonempty, even-nibble, contiguous clips, with the final byte
+below `$FFFA`. KERNAL is mapped out only around the sample read and the previous
+CPU-port value is restored. Weapon effects still use the unchanged 5 kHz bank;
+original speech uses approximately 4 kHz (PAL latch 245 / NTSC 254).
+
+## Historical v4 layout
+
 # Native C64 memory plan v4
 
 | Range | Purpose |

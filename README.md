@@ -1,3 +1,21 @@
+# v5 reconstruction in progress
+
+The lost cloud working copy has been rebuilt locally from v4.4. The DOS LZHUF
+resources now decode, and an optional full disk streams 20 original picture scenes,
+loads eight resident voices, plays two recovered MOD scores as three-voice SID
+arrangements, and reads an original island tile for each level.
+These are new local implementations, not recovered copies of the missing v5 source.
+See [the evidence and build instructions](docs/REVERSE_ENGINEERING_V5.md).
+
+The Amiga disk's 510-byte payload / two-byte footer layout now recovers 21 images,
+20 sounds and the original `war14` / `choose3` music modules. The SID arrangements
+approximate their sample timbres and omit one Amiga channel.
+
+The original game's rules, maps, and exact intro motion and timing have not been
+fully reconstructed. Credit framing, scene durations, voice selection and atlas
+ordering are port choices. The existing strategy engine remains this port's own.
+This development build is not a verified release.
+
 # Mega-Lo-Mania 64 — Island Wars, C64C Edition 4.4.0
 
 **Unofficial, independently programmed, fan-inspired real-time strategy game for an unexpanded Commodore 64 / C64C.** Native NMOS 6502/6510 machine code, 64 KB RAM, VIC-II character/sprite graphics, 3-voice SID, raster-interrupt engine. Everything — assembler, build, disk-image writer, 6502 test model — is in this repository and runs with plain Python 3.

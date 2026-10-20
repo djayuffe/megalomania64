@@ -1,3 +1,15 @@
+# v5 under rekonstruksjon
+
+DOS-ressursene er nå LZHUF-dekodet. Full disk kan bygges lokalt med 20 originale
+bildescener, åtte taleklipp, to originale MOD-låter arrangert for tre SID-stemmer,
+og øybilder lastet fra disk. Amiga-diskens sektorfootere er også løst: 21 bilder,
+20 lyder og `war14`/`choose3` er gjenfunnet. Koden er skrevet på nytt
+fra v4.4; den tapte v5-arbeidsmappen er ikke gjenfunnet. Se
+[bevis og byggeinstruksjoner](docs/REVERSE_ENGINEERING_V5.md).
+
+Spillregler, kartdata og introens eksakte bevegelse/timing er ennå
+ikke rekonstruert fra originalen. Dette er et utviklingsbygg.
+
 # Mega-Lo-Mania 64 v4.4 — norsk spillmanual
 
 Uoffisielt, selvstendig utviklet strategispill inspirert av Mega-Lo-Mania for **Commodore 64 / C64C uten minneutvidelse**. Ekte 6510-maskinkode, VIC-II tegnsett og sprites, SID, rasterinterrupt-motor og fire konkurrerende fraksjoner.
