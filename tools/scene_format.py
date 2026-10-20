@@ -3,6 +3,8 @@ import struct
 
 MAGIC = b'MLI1'
 SEGMENTS = (8000, 1000, 1000)
+PATCH_SEGMENTS = (1600, 200, 200)
+CREDIT_SEGMENTS = (2048, 3000, 3000, 1600, 200)
 
 
 def pack(data):
@@ -55,12 +57,26 @@ def decode(data):
     if len(data) < 8 or data[:4] != MAGIC:
         raise ValueError('invalid scene magic')
     mode, bg, frames = struct.unpack_from('<BBH', data, 4)
-    if mode > 2 or bg > 15 or frames == 0:
+    if mode > 4 or bg > 15 or frames == 0 or (mode == 3 and frames > 400):
         raise ValueError('invalid scene header')
     at, segments = 8, []
-    for size in SEGMENTS:
+    for size in (CREDIT_SEGMENTS if mode == 3 else PATCH_SEGMENTS if mode == 4 else SEGMENTS):
         segment, at = unpack(data, size, at)
         segments.append(segment)
     if at != len(data):
         raise ValueError('trailing scene data')
     return mode, bg, frames, segments
+
+
+def encode_credit(charset, cells, colors, logo_bitmap, logo_screen, steps):
+    segments = (charset, cells, colors, logo_bitmap, logo_screen)
+    if tuple(map(len, segments)) != CREDIT_SEGMENTS or not 1 <= steps <= 400:
+        raise ValueError('credit segment/header range')
+    return MAGIC + struct.pack('<BBH', 3, 0, steps) + b''.join(pack(s) for s in segments)
+
+
+def encode_story_patch(bitmap, screen, color, frames=250):
+    segments=(bitmap,screen,color)
+    if tuple(map(len,segments)) != PATCH_SEGMENTS or not 1 <= frames <= 65535:
+        raise ValueError('story patch segment/header range')
+    return MAGIC+struct.pack('<BBH',4,0,frames)+b''.join(pack(s) for s in segments)

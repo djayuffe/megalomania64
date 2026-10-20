@@ -27,6 +27,9 @@ TRUCE_COOL = 60              ; cool-down before a faction talks again
 !source "sample.asm"
 sample_code_end:
 
+* = $0E80
+!source "intro_poll.asm"
+
 * = $1000
 start:
  sei

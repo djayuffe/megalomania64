@@ -85,38 +85,55 @@ Paula-style sampled mixing is claimed.
 
 ## What the full disk implements
 
-`SCENE01`–`SCENE15` contain V5E–V19E credit cards; `SCENE16`–`SCENE19` contain the
-four V1E–V4E story panels, including their original rasterized text. `SCENE20`
-composes the VH logo with the decoded packed-nibble MUNRISE image. The sunrise
-palette is the 16-entry, six-bit RGB table at EXE file offset `$3326`: code at
-file `$2000` copies CS:`$1D26` to DS:`$5236` immediately after loading `SUNRISE.dat`.
-Startup code at file `$1632` walks the 30 pointers at DS:`$4474` and rewrites
-the first filename character to M, including `SUNRISE.dat` → `MUNRISE.dat`.
-`tools/exe_palette_evidence.py` checks those exact instructions and pointers
-and records a manifest; this closes the earlier palette provenance gap. Credit cards are vertically reframed around their content;
-180/360-frame holds are port choices, not recovered original animation/timing.
+`SCENE01`–`SCENE14` reproduce the four V1E–V4E stories in the DOS order.
+Each story starts with its original 320×200 view; after 250 source retraces, a
+39-pixel text strip from y=200, 239, or 278 replaces y=161–199. The four stories
+have 3, 3, 4, and 4 stages. Only the changing bottom 40-pixel cell band is stored
+for later stages, keeping the complete introduction on one D64.
 
-The original MOD sample voices cannot be reproduced literally by three SID oscillators; the four-part score is retained as an explicit hardware arrangement.
+`SCENE15`–`SCENE29` contain the V5E–V19E credits. All 320×600 source pixels remain
+in the converter; there is no center crop or resize. Black-background hires
+characters preserve the 320-pixel lettering, with a best-fit C64 ink per cell.
+Each card has 21–242 distinct glyphs, fitting a 256-character set. The viewport
+scrolls upward over 160 pixels of screen; a separate 40-pixel logo stays below.
+The recovered scroll counts are 328,328,344,240,240,240,240,320,390,376,390,360,
+390,290,130. A nominal 70 Hz logical clock runs on both PAL and NTSC, advancing
+one or two source ticks per physical frame. It preserves the recovered count and
+average speed; it cannot reproduce every 70 Hz VGA frame on a 50/60 Hz VIC.
+DOS palette fades and disk-load pauses are not cycle-exact reproductions.
 
-The optional image conversion tools need Pillow and NumPy (`python3 -m pip install Pillow numpy`).
-Normal assembly needs neither.
+`tools/intro_timeline.py` verifies the executable SHA-256, exact instruction
+bytes, initial 40-byte scanline stride / 1600-byte display start, and scroll table
+before asset conversion. `tools/trace_dos.py` optionally runs the original x86
+instructions under Unicorn to corroborate the resource order and retrace calls.
+Its virtual DOS writes do not modify the original resources. This diagnostic
+models neither VGA timing nor the original game interrupts, so it does not prove
+original AI/economy/combat behavior.
 
-C64 hires preserves 320-pixel credit lettering and chooses the best colour pair
-per 8×8 cell using Oklab error, instead of two most-common nearest colours. Neutral
-source pixels stay on the neutral C64 ramp, preventing grey text from turning brown.
-Story scenes use 14 multicolour cell rows for artwork and 11 hires rows for lettering;
-the logo uses a full multicolour bitmap. Multicolour cells optimize all three local
-colours against a shared black background. Source RGB values are mapped to the
-Pepto PAL C64 palette; the physical VIC/SID hardware still limits fidelity.
+The optional image tools need Pillow and NumPy. Normal assembly needs neither.
+Story art uses 20 multicolour character rows above five hires rows of text. Hires
+conversion minimizes Oklab error and keeps neutral source pixels on the neutral
+C64 ramp. Multicolour cells optimize three local colours against black. Physical
+VIC colour/cell constraints still limit fidelity.
 
-The runtime alternates VIC banks 1/3. Split story scenes hold without IEC reads,
-because KERNAL serial transfers mask IRQs and can delay the raster mode change.
-The screen blanks while their successor loads; ordinary single-mode credits can
-prefetch. Colour shadows at `$5400` and `$C000` avoid the resident title score.
-Each `MLI1` file has a validated mode (0 hires, 1 multicolour, 2 story split),
-background, hold count and three bounded RLE segments (8000/1000/1000 bytes).
-Any key or FIRE skips; optional-content failure falls back to the native title.
-`TITLE` restores the embedded bitmap after bank reuse.
+The runtime holds split-mode scenes without IEC reads, since serial transfers
+mask IRQs. It blanks during the next load. Credit text uses bank 3 and switches
+to one of two fixed logo placements according to the VIC row counter; this avoids
+moving the logo with the text's fine scroll. Intro-only code occupies `$5100`
+and a disk-read callback stays resident at `$0E80`, because speech later replaces
+the intro RAM. The original sprite-source RAM is preserved.
+
+`MLI1` modes 0/1/2 have 8000/1000/1000-byte bitmap/screen/colour segments;
+mode 3 has 2048/3000/3000/1600/200-byte charset/map/ink/logo/screen segments;
+mode 4 changes only 1600/200/200 bytes at the bottom of the current story.
+Every segment has bounded RLE decoding, and credit counts above 400 are rejected.
+Any key or FIRE skips; missing content falls back to the native title. `TITLE`
+restores the embedded bitmap after reuse. The older native title/parade remains
+before the fan strategy engine, so the whole boot sequence is not the DOS UI.
+
+The sunrise palette evidence remains in `tools/exe_palette_evidence.py`: the
+startup table changes SUNRISE to MUNRISE, and code copies the 48-byte RGB6 table at
+EXE `$3326` to DS:`$5236`. That resource is not inserted after the credit roll.
 
 `SPEECH` contains eight complete DOS clips (ARCONQ, FDEST, DESREADY, AWANNA,
 PVERYW, NOWAY, LAFF, ARWON), resampled to 4 kHz and error-diffused to four bits.
@@ -133,7 +150,7 @@ original map/terrain/economy semantics have not been recovered.
 
 The D64 builder supports chained directory sectors, DOS-style data interleave 10,
 PRG and SEQ files, allocation/chain/EOF/BAM validation, duplicates and disk-full
-rejection. The full disk has 53 content files plus the main PRG. Save/load retains
+rejection. The full disk has 62 content files plus the main PRG. Save/load retains
 its v4 snapshot format and `$C000` buffer.
 
 ## Reproduce
@@ -158,8 +175,8 @@ original scenes/voices/island files and uses the existing title/effects.
 
 ## Remaining reverse engineering
 
-Original intro viewport scrolling, transitions and
-scene timing; faithful four-channel sampled timbre on SID; gameplay object layouts, campaign
+Cycle-exact intro palette transitions and VIC split behaviour; exact VGA refresh
+on 50/60 Hz hardware; faithful four-channel sampled timbre on SID; gameplay object layouts, campaign
 terrain, AI, economy, combat and balance; raw resource semantics; real hardware
 IEC timing and 6581/8580 audio quality. The strategy simulation remains the fan
 port's existing engine. A decoded file alone is not proof that any of these game
@@ -167,14 +184,17 @@ systems has been ported.
 
 ## Further executable evidence
 
-The original credit-file order is established from the EXE's DS:`$453A` table,
-not inferred from filename order: V5E through V19E. File `$11A37` loads DS:`$455A`
-and DS:`$453C`; `$11A3F` loads a scroll parameter and adds 160. The routine at file
-`$11AF2` writes CRTC display-start registers 0C/0D; `$11AFF` advances the display
-address by DS:`$AF7F`. The far call `11B9:0C58` resolves to file `$13DE8`, where
-reads of port `$3DA`, bit 3, wait for a vertical-retrace edge. Consequently the
-original credits really scroll on retrace; this port still displays reframed static
-cards. The parameter words are 0,168,168,184,80,80,80,80,160,230,216,230,200,230,130.
-Runtime video-mode stride/scaling remains to be established before claiming exact
-motion and timing. Local evidence is in `../recovery/exe_intro_evidence.json` and
-`exe_intro_disassembly.txt`.
+The credit order comes from DS:`$453A`, V5E through V19E. File `$11A37` selects
+DS:`$455A` and DS:`$453C`; `$11A3F` adds 160 to each signed table word. The words
+actually begin at `$455A`, not `$4558`: 168,168,184,80,80,80,80,160,230,216,230,
+200,230,130,-30. The earlier notes included a preceding zero and missed -30.
+File `$11AF2` sets CRTC 0C/0D; `$11AFF` adds DS:`$AF7F` (40 in the traced
+16-colour mode) once per call to `11B9:0C58`. That routine at file `$13DE8`
+waits on port `$3DA`, bit 3. The initial display start is 1600 bytes, or 40 rows.
+CRTC line-compare 320, with double-scanned source pixels, leaves a 160-pixel
+viewport above the fixed logo. Runtime tracing corroborates every card distance.
+
+The story helper at file `$1FA34` copies `$618` (1560) bytes from SI to video
+address `$1928`: 39 scanlines × 40 bytes, destination y=161. Its calls use SI
+`$1F40`, `$2558`, `$2B70`, corresponding to y=200/239/278. The outer loops load
+CX=250. These are executable-derived values, not estimates from screenshots.

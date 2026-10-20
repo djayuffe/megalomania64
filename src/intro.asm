@@ -1,189 +1,3 @@
-; Original cards streamed to alternating VIC banks. Missing optional content falls
-; back to the embedded title. A malformed/aborted sequence returns to the game.
-intro_sequence:
- lda #0
- sta $c6                     ; discard the autostart RUN/RETURN queue before polling
- sta ic_skip
- sta ic_dirty
- sta ic_visible
- sta ic_hold
- sta ic_hold+1
- sta title_active
- sta music_hold
- lda #1
- sta ic_active
- sta title_bmp
- sta ic_bank
- sta ic_index
- lda vblank
- sta ic_vb
- lda $d015
- sta ic_sprites
- lda #0
- sta $d015
-ic_next:
- lda ic_visible
- beq ic_filename
- lda ic_visible_mode
- cmp #2
- bne ic_filename
-ic_story_hold:
- jsr intro_poll              ; IEC masks IRQs: split-mode text needs a quiet display
- lbcs ic_finish
- lda ic_hold
- ora ic_hold+1
- bne ic_story_hold
- lda #$0b
- sta $d011                   ; blank only while the next story is loaded
-ic_filename:
- lda ic_index
- ldx #$30
-ic_tens:
- cmp #10
- bcc ic_ones
- sec
- sbc #10
- inx
- jmp ic_tens
-ic_ones:
- stx ic_name+5
- clc
- adc #$30
- sta ic_name+6
- lda #7
- ldx #<ic_name
- ldy #>ic_name
- jsr ic_load
- bcs ic_finish
-ic_wait:
- jsr intro_poll
- bcs ic_finish
- lda ic_hold
- ora ic_hold+1
- bne ic_wait
- jsr ic_flip
- lda ic_time
- sta ic_hold
- lda ic_time+1
- sta ic_hold+1
- lda #1
- sta ic_visible
- lda ic_bank
- eor #1
- sta ic_bank
- inc ic_index
- lda ic_index
- cmp #21
- bcc ic_next
-ic_last_wait:
- jsr intro_poll
- bcs ic_finish
- lda ic_hold
- ora ic_hold+1
- bne ic_last_wait
-ic_finish:
- lda #0
- sta ic_active
- lda ic_dirty
- beq ic_exit
- lda #$0b
- sta $d011
- lda #0
- sta ic_bank
- lda #5
- ldx #<ic_title
- ldy #>ic_title
- jsr ic_load
- bcc ic_exit
- lda #1
- sta ic_skip
-ic_exit:
- php
- sei
- lda #0
- sta irq_stage
- sta ic_visible_mode
- lda #IRQ_LINE
- sta $d012
- sta irq_line
- plp
- lda #0
- sta title_bmp
- sta music_hold
- sta title_active
- lda $dd00
- and #$fc
- ora #3
- sta $dd00
- lda #$1b
- sta $d011
- lda #$18
- sta $d016
- lda #$1e
- sta $d018
- lda #6
- sta $d020
- sta $d021
- lda ic_sprites
- sta $d015
- lda ic_skip
- bne ic_return_skip
- clc
- rts
-ic_return_skip:
- sec
- rts
-
-; Called after each disk byte, and while waiting. Frame subtraction handles wrap.
-intro_poll:
- lda ic_active
- beq ic_poll_ok
- lda ic_skip
- bne ic_poll_abort
- lda vblank
- sec
- sbc ic_vb
- beq ic_poll_ok
- tax
- lda vblank
- sta ic_vb
-ic_tick:
- lda ic_hold
- ora ic_hold+1
- beq ic_keys
- lda ic_hold
- bne ic_tick_low
- dec ic_hold+1
-ic_tick_low:
- dec ic_hold
- dex
- bne ic_tick
-ic_keys:
- lda ld_opened
- beq ic_keyboard
- jsr $ffcc                    ; GETIN otherwise reads the selected disk channel!
- jsr KGETIN
- pha
- ldx #2
- jsr $ffc6
- pla
- jmp ic_key_ready
-ic_keyboard:
- jsr KGETIN
-ic_key_ready:
- bne ic_poll_abort
- lda joy_raw
- and #16
- beq ic_poll_abort
-ic_poll_ok:
- clc
- rts
-ic_poll_abort:
- lda #1
- sta ic_skip
- sec
- rts
-
 ic_load:
  jsr ld_open
  lbcs ic_load_bad
@@ -198,7 +12,7 @@ ic_magic:
  bcc ic_magic
  jsr ld_read
  lbcs ic_load_bad
- cmp #3
+ cmp #5
  lbcs ic_load_bad
  sta ic_mode
  jsr ld_read
@@ -214,6 +28,18 @@ ic_magic:
  sta ic_time+1
  ora ic_time
  lbeq ic_load_bad
+ lda ic_mode
+ cmp #3
+ bne ic_header_ok
+ lda ic_time+1
+ cmp #2
+ lbcs ic_load_bad
+ cmp #1
+ bne ic_header_ok
+ lda ic_time
+ cmp #145
+ lbcs ic_load_bad
+ic_header_ok:
  lda #0
  sta ic_segment
  lda ic_bank
@@ -221,6 +47,25 @@ ic_magic:
  lda #1
  sta ic_dirty                 ; even a failed unpack may overwrite the embedded bitmap
 ic_segments:
+ lda ic_mode
+ cmp #4
+ beq ic_patch_segments
+ lda ic_mode
+ cmp #3
+ bne ic_bitmap_segments
+ jmp credit_load_segments
+ic_patch_segments:
+ ldx ic_segment
+ lda ic_patch_lo,x
+ sta PTR
+ lda ic_patch_hi,x
+ sta PTR+1
+ lda ic_patch_size_lo,x
+ sta ld_left
+ lda ic_patch_size_hi,x
+ sta ld_left+1
+ jmp ic_unpack_segment
+ic_bitmap_segments:
  lda ic_bank
  asl
  clc
@@ -237,6 +82,7 @@ ic_segments:
  sta ld_left
  lda ic_size_hi,x
  sta ld_left+1
+ ic_unpack_segment:
  jsr ld_unpack
  bcs ic_load_bad
  inc ic_segment
@@ -259,6 +105,11 @@ ic_no_skip:
  rts
 
 ic_flip:
+ lda ic_mode
+ cmp #3
+ bne ic_bitmap_flip
+ jmp credit_flip
+ic_bitmap_flip:
  lda #$0b
  sta $d011
  ldx ic_bank
@@ -288,7 +139,12 @@ ic_colors:
  lda ic_d018,x
  sta $d018
  lda ic_mode
+ cmp #4
+ bne ic_flip_mode
+ lda #2
+ic_flip_mode:
  sta ic_visible_mode
+ cmp #0
  beq ic_hires
  lda #$18
  bne ic_d016

@@ -203,6 +203,11 @@ test_lzhuf_rejects_truncation_and_size_bomb (test_streaming.Codecs) ... ok
 test_multifile_d64_roundtrip_and_corruption (test_streaming.Codecs) ... ok
 test_rle_boundaries (test_streaming.Codecs) ... ok
 test_rle_rejects_truncation_and_overrun (test_streaming.Codecs) ... ok
+test_nominal_vga_clock_advances_seventy_ticks_per_second (test_streaming.IntroTimeline) ... ok
+test_text_strip_patch_keeps_the_story_artwork (test_streaming.IntroTimeline) ... ok
+test_complete_card_scrolls_without_cropping_or_touching_logo (test_streaming.ScrollingCredits) ... ok
+test_credit_raster_switch_keeps_logo_fixed (test_streaming.ScrollingCredits) ... ok
+test_oversized_scroll_is_rejected_before_writing_glyphs (test_streaming.ScrollingCredits) ... ok
 test_invalid_voice_index_is_rejected_before_sample_writes (test_streaming.SpeechAndCards) ... ok
 test_island_card_restores_vic_registers_and_preserves_speech (test_streaming.SpeechAndCards) ... ok
 test_question_queues_its_reply_and_disk_stop_cancels_it (test_streaming.SpeechAndCards) ... ok
@@ -212,7 +217,7 @@ test_voice_wraps_from_7fff_to_e000_and_restores_cpu_port (test_streaming.SpeechA
 test_6502_packet_decoder_matches_python (test_streaming.Streaming) ... ok
 test_6502_rejects_truncated_packets_and_output_overflow (test_streaming.Streaming) ... ok
 test_intro_scene_validation_and_bank_selection (test_streaming.Streaming) ... ok
-test_intro_streams_twenty_scenes_restores_title_and_skips (test_streaming.Streaming) ... ok
+test_intro_streams_twenty_nine_stages_restores_title (test_streaming.Streaming) ... ok
 test_keyboard_poll_does_not_consume_the_disk_channel (test_streaming.Streaming) ... ok
 test_last_byte_is_valid_and_next_read_fails (test_streaming.Streaming) ... ok
 test_loader_stops_nmi_and_rejects_missing_drive (test_streaming.Streaming) ... ok
@@ -228,8 +233,8 @@ test_music_tables_are_in_sid_range (test_tools.Tools) ... ok
 test_package_is_reproducible_and_complete (test_tools.Tools) ... ok
 
 ----------------------------------------------------------------------
-Ran 228 tests in 162.355s
+Ran 233 tests in 174.938s
 
 OK
-MegaLoMania64_v5.0.0-dev_Source.zip: 330226 bytes, sha256 d66e12638db625de486e1557b168c41802fdf30780db1fa512646c4bbde2c817
-MegaLoMania64_v5.0.0-dev_Source.zip: 330226 bytes, sha256 d66e12638db625de486e1557b168c41802fdf30780db1fa512646c4bbde2c817
+MegaLoMania64_v5.0.0-dev_Source.zip: 342398 bytes, sha256 9272956a5e67733f4bfae1ac817f2f8eb5989d6e0b3631c728f30728927bf935
+MegaLoMania64_v5.0.0-dev_Source.zip: 342398 bytes, sha256 9272956a5e67733f4bfae1ac817f2f8eb5989d6e0b3631c728f30728927bf935

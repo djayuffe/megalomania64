@@ -11,6 +11,10 @@ import tempfile
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 CASES=[
+ ('src/credits.asm',' adc #40\n sta cr_ptr',' adc #39\n sta cr_ptr','test_streaming.py','test_complete_card_scrolls_without_cropping_or_touching_logo'),
+ ('src/intro_poll.asm',' adc #70',' adc #50','test_streaming.py','test_nominal_vga_clock_advances_seventy_ticks_per_second'),
+ ('src/intro.asm',' cmp #145',' cmp #255','test_streaming.py','test_oversized_scroll_is_rejected_before_writing_glyphs'),
+ ('src/control_data.asm','ic_patch_hi: !byte $f9,$cf,$c3','ic_patch_hi: !byte $e0,$cf,$c3','test_streaming.py','test_text_strip_patch_keeps_the_story_artwork'),
  ('src/music.asm',' cmp #$c0\n bne mu_sustained',' cmp #$ff\n bne mu_sustained','test_music.py','test_percussion_has_a_decaying_envelope_instead_of_sustained_noise'),
  ('src/sample.asm',' lda sid_8580\n beq sm_muted',' lda #0\n beq sm_muted','test_intro.py','test_8580_detection_boosts_three_dc_sources_and_stop_removes_every_test_bit'),
  ('src/sample.asm',' ora #6\n sta $01',' ora #0\n sta $01','test_intro.py','test_nested_nmi_during_banked_read_acknowledges_the_real_cia'),
@@ -19,7 +23,7 @@ CASES=[
  ('src/sample.asm',' lda #$49\n sta $d412',' lda #$48\n sta $d412','test_intro.py','test_sid_voices_are_muted_while_a_sample_plays_and_restored_after'),
  ('tools/vic_bitmap.py','distance+=neutral[:,:,None]*chromatic[None,None,:]','distance+=0','test_av_fixes.py','test_grey_text_does_not_turn_brown'),
  ('src/sample.asm',' bne sm_neout                ; VIC DMA can stretch a digi NMI past the next timer edge',' nop\n nop','test_intro.py','test_nested_nmi_cannot_underflow_the_last_sample_counter'),
- ('src/intro.asm',' jsr $ffcc                    ; GETIN otherwise reads the selected disk channel!',' nop','test_streaming.py','test_keyboard_poll_does_not_consume_the_disk_channel'),
+ ('src/intro_poll.asm',' jsr $ffcc                    ; GETIN otherwise reads the selected disk channel!',' nop','test_streaming.py','test_keyboard_poll_does_not_consume_the_disk_channel'),
  ('src/loader.asm',' lda ld_eof\n bne ld_fail_read',' lda #0\n nop\n nop','test_streaming.py','test_last_byte_is_valid_and_next_read_fails'),
  ('src/sample.asm',' and #$fd\n sta $01',' and #$ff\n sta $01','test_streaming.py','test_voice_wraps_from_7fff_to_e000_and_restores_cpu_port'),
  ('src/level.asm',' lda #$30\n sta $d015',' lda #0\n sta $d015','test_streaming.py','test_island_card_restores_vic_registers_and_preserves_speech'),

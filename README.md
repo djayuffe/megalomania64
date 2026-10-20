@@ -1,27 +1,20 @@
-Audio/colour update (20 October 2026): the local full disk now retains all four
-MOD parts in a SID arrangement, follows volume slides, plays full-length original
-effects and queues speech after them. Original story pictures use multicolour
-art with hires lettering; greys remain neutral. The `MUSICG` and `EFFECTS` files
-are generated alongside the other local content. See
-[reconstruction details](docs/REVERSE_ENGINEERING_V5.md).
-
 # v5 reconstruction in progress
 
-The lost cloud working copy has been rebuilt locally from v4.4. The DOS LZHUF
-resources now decode, and an optional full disk streams 20 original picture scenes,
-loads eight resident voices, plays two recovered MOD scores as three-voice SID
-arrangements, and reads an original island tile for each level.
-These are new local implementations, not recovered copies of the missing v5 source.
-See [the evidence and build instructions](docs/REVERSE_ENGINEERING_V5.md).
+The local full disk now shows the original DOS stories in order, changes their
+text in 14 recovered stages, and scrolls all 15 complete credit cards above a
+fixed logo. Scroll distances and story intervals come from the executable; a
+nominal 70 Hz timeline is adapted to PAL and NTSC. C64 colours and display modes,
+palette fades, and the extra native title still differ from DOS.
 
-The Amiga disk's 510-byte payload / two-byte footer layout now recovers 21 images,
-20 sounds and the original `war14` / `choose3` music modules. The SID arrangements
-approximate their sample timbres and omit one Amiga channel.
+The disk also loads eight original voices, all eleven full effects, two recovered
+four-part MOD scores arranged for SID, and original island-entry tiles. Generated
+original content remains in the owner's local recovery folder. See
+[the evidence and build instructions](docs/REVERSE_ENGINEERING_V5.md).
 
-The original game's rules, maps, and exact intro motion and timing have not been
-fully reconstructed. Credit framing, scene durations, voice selection and atlas
-ordering are port choices. The existing strategy engine remains this port's own.
-This development build is not a verified release.
+The gameplay is still the fan engine: original campaign terrain, research,
+production, combat, AI and balance have not been faithfully converted. This is an
+unfinished development build, not a completed original-game port. Sections below
+describe historical v4 releases and their limitations at that time.
 
 # Mega-Lo-Mania 64 — Island Wars, C64C Edition 4.4.0
 

@@ -18,4 +18,7 @@ elif [ -f "$ROOT/../recovery/MegaLoMania64_full.d64" ]; then
 else
   DISK=$ROOT/dist/MegaLoMania64.d64
 fi
+if [ "${VICE_TURBO_FLOPPY:-1}" = 1 ]; then
+  exec "$EMULATOR" -model "${VICE_MODEL:-c64c}" -sound +warp -soundrecdev "" -virtualdev8 +drive8truedrive -autostart-warp -autostart "$DISK"
+fi
 exec "$EMULATOR" -model "${VICE_MODEL:-c64c}" -sound +warp -soundrecdev "" -drive8truedrive +virtualdev8 -autostart "$DISK"

@@ -6,7 +6,8 @@ Current exact addresses are in `dist/symbols.txt`; the v4 table below is histori
 |---|---|
 | `$0801–$080C` | BASIC autostart stub |
 | `$0900–$0C3F` | SID sequencer and optional full-effect loader; build checks the boundary |
-| `$0C40–$0FFF` | NMI sample player; build checks the boundary |
+| `$0C40–$0E7F` | NMI sample player; build checks the boundary |
+| `$0E80–$0FFF` | Resident disk polling and PAL/NTSC intro clock |
 | `$1000–$31FF` | Main game, port campaign tables and snapshot state; exact end in symbols |
 | `$3200–$333F` | Army/conquest sprites |
 | `$3340–$33FF` | Music control state |
@@ -15,13 +16,18 @@ Current exact addresses are in `dist/symbols.txt`; the v4 table below is histori
 | `$3700–$3FFF` | Cursor/source sprites and character set |
 | `$4000–$4C7F` | Original army/building source sprites |
 | `$4C80–$7FFF` | Intro RAM, then first resident speech region |
+| `$5100–$52A1` | Intro entry and fixed-logo copy code, released before speech |
+| `$52F8–$53BF` | Bank-1 fixed-logo screen cells during credits |
+| `$5800–$6F6F` | Full credit character and ink maps during credits |
+| `$77C0–$7DFF` | Fixed-logo bitmap alternate placement during credits |
 | `$5400–$57E7` | Intro bank-1 colour shadow, before speech takes over |
 | `$8000–$BFFF` | Engine and 9000-byte main effect bank; exact end below `$C000` |
 | `$C000–$C3E7` | Intro bank-3 colour shadow; save buffer used after intro exit |
 | `$C400–$D3FF` | Optional SID score: title bank first, larger game bank after intro |
+| `$CB20–$CBE7` | Bank-3 fixed-logo screen cells during credits |
 | `$CC00–$CFE7` | Intro bank-3 screen, before the game score takes over |
 | `$D400–$DFFF` (RAM) | Second full-effect region, distinct from the SID/I/O registers |
-| `$E000–$FF3F` | Intro bank-3 bitmap |
+| `$E000–$FF3F` | Intro bank-3 bitmap; `$E000–$E7FF` is the credit font |
 | `$E000–$FFF9` | Second resident speech region after title exit |
 | `$FFFA/$FFFB` (RAM) | NMI vector for briefly banking ROM/I/O out |
 

@@ -1,5 +1,17 @@
 # Endringslogg
 
+## v5 recovered intro scrolling (20 October 2026)
+
+- Original DOS story order and 14 text-strip stages, with recovered 250-retrace
+  intervals; 15 complete 320x600 credit cards scroll over a 160-pixel viewport.
+- Executable-checked card distances, fixed 40-pixel logo, and a nominal 70 Hz
+  source clock adapted to PAL/NTSC. No center cropping or arbitrary card holds.
+- Story-strip deltas keep 62 content files and the PRG on one D64. Resident
+  polling survives speech overwriting intro RAM. Turbo floppy is the launcher
+  default; set VICE_TURBO_FLOPPY=0 for true-drive playback.
+- Original campaign rules/maps, palette fades, exact VGA frame timing and the
+  original game UI remain unfinished. The playable strategy engine is the fan port.
+
 ## v5 audio/colour follow-up (20 October 2026)
 
 - All four MOD parts retained using a shared-voice SID arpeggio; 16-level dynamics,

@@ -46,7 +46,7 @@ def main():
  if a.content:
   from scene_format import decode
   files={}
-  for name in [f'SCENE{i:02d}' for i in range(1,21)]+['TITLE']:
+  for name in [f'SCENE{i:02d}' for i in range(1,30)]+['TITLE']:
    data=(a.content/(name+'.bin')).read_bytes();decode(data);files[name]=data
   for name in ['SPEECH','MUSIC','MUSICG','EFFECTS']+[f'ISL{i:02d}' for i in range(1,29)]:
    files[name]=(a.content/(name+'.bin')).read_bytes()
@@ -55,7 +55,8 @@ def main():
  table=(ROOT/'dist/symbols.txt').read_text()
  code_end=symbol(table,'cpu_count');last_data=symbol(table,'checksum_sum')+1
  if not (0x1000 < code_end < last_data < 0x3200):raise SystemExit('FATAL: program code/state overlaps the original-art sprite RAM at $3200')
- if symbol(table,'effects_code_end')>0x0c40 or symbol(table,'sample_code_end')>0x1000:raise SystemExit('FATAL: music driver overlaps game code')
+ if symbol(table,'effects_code_end')>0x0c40 or symbol(table,'sample_code_end')>0x0e80 or symbol(table,'intro_poll_end')>0x1000:raise SystemExit('FATAL: music driver overlaps game code')
+ if symbol(table,'intro_overlay_end')>0x52f8:raise SystemExit('FATAL: intro overlay overlaps fixed-logo screen cells')
  if symbol(table,'mu_data_end')>0x3400 or symbol(table,'control_data_end')>0x3700:raise SystemExit('FATAL: streaming control data overlaps sprite RAM')
  if symbol(table,'smp_end')>0xC000:raise SystemExit('FATAL: engine/sample bank runs into the $C000 save buffer')
  prg=output.read_bytes();top=prg[0]+256*prg[1]+len(prg)-3

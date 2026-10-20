@@ -1,17 +1,17 @@
-# v5.0.0-dev audio/colour validation — 20 October 2026
+# v5.0.0-dev scrolling intro validation — 20 October 2026
 
-- Final PRG: `$0801–$BEE9`, 46827 bytes including load address; 278 bytes below `$C000`.
-- **228 automated tests passed** (`dist/build_test_log.txt`). This includes the four-part sequencer, voice-one effect ownership/recovery, volume changes, decaying percussion, full effect RAM crossing, partial-file fallback, SID detection/DC boost cleanup, nested NMI while I/O is banked out, neutral grey mapping and mixed story raster/serial ordering.
-- **16 focused mutation checks passed** (`tools/mutation_streaming.py`). The historical v4 45-mutant suite was not rerun; these counts are not added together.
-- Final VICE 3.9 x64sc runs: **PAL/8580 and NTSC/6581**, true 1541 drive emulation, virtual-device traps disabled. Both traverse all 20 original picture scenes, verify title/game score bytes, island-card sprites, full effect banks and resident speech against the full disk, and complete low-RAM and KERNAL-shadow voice clips at exact expected pointers.
-- SID revision detection selects the expected one-DC-source 6581 / three-source 8580 digi gain. Timed full-orchestra and original-speech playback completes on both models.
-- Four normal-speed mono 16-bit WAV captures per model contain non-silent PCM: title music, game music, full orchestra effect and original speech. **No 16-bit digital clipping** was measured. Detailed duration, RMS and peak values are in `dist/validation_v5.json`; signal-level verification is not a human listening test.
-- Final evidence is local in `../recovery/vice/av_pal_8580_percussion` and `../recovery/vice/av_ntsc_6581_percussion`: screenshots, RAM dumps, monitor transcript, WAV files and `audio_metrics.json`. Earlier recorder attempts produced empty files and are excluded from the final evidence bundle.
-- A fresh assembly matches the final PRG byte-for-byte. The standard fallback disk remains self-contained. The normal build and non-image regression tests also run without optional Pillow/NumPy; colour conversion tests require those libraries and CI installs them.
+- Final PRG: `$0801–$BF96`, 47000 bytes including load address; 105 bytes below `$C000`.
+- **233 automated tests passed** (`dist/build_test_log.txt`). New tests cover every credit offset through 390 pixels, page crossings, fixed logo memory, raster setup, oversized-card rejection, 70 logical ticks per PAL/NTSC second and story patches preserving artwork. Existing music/effects/speech/game tests still pass.
+- **20 focused mutation checks passed** (`tools/mutation_streaming.py`). The historical v4 45-mutant suite was not rerun; counts are not combined.
+- VICE 3.9 x64sc on **PAL/8580 and NTSC/6581**, true 1541 emulation with virtual-device traps disabled, traverses all 29 original intro stages and reaches the fan game. The complete 320×40 logo region is pixel-identical across all eight fine-scroll positions on both models. Credit charset/logo, title/game score, effect and speech RAM bytes match the disk.
+- Eight fresh mono 16-bit WAVs verify non-silent title/game music, the full orchestra effect and original speech. No measured digital clipping; metrics are in `dist/validation_v5.json`. This is signal-level verification, not a human listening judgment.
+- Exact low-RAM and KERNAL-shadow speech completion pointers, island-card sprite setup and SID revision detection pass on both models.
+- Final local evidence: `../recovery/vice/scroll_pal_audio_final`, `scroll_ntsc_final`, and the context-preserving `scroll_ntsc_release` harness run. Earlier diagnostic failures are excluded from the delivery bundle.
+- The standard source disk remains self-contained without original content. The private full disk contains 62 content files plus the PRG. The launcher defaults to turbo floppy; validation above uses true drive.
 
-VICE exposed that KERNAL serial reads can delay raster splits. Story panels now hold without background serial reads and blank while their successor loads; screenshots confirm readable hires text below multicolour art. A static EXE probe also establishes the SUNRISE→MUNRISE filename rewrite and the actual six-bit sunrise palette copy.
+Two hardware-specific failures were corrected: speech overwrote an intro-only disk callback, and VIC badline stalls delayed the credit/logo split. Polling now stays resident; an early raster IRQ waits for the split line and chooses a logo placement for the current row counter. The original sprite-source RAM remains intact.
 
-Original game rules/terrain/balance and exact original scrolling/timing remain unfinished. Music retains all four parts through a three-oscillator SID arrangement, with quantized dynamics and different timbres. No physical C64/drive, human listening judgment or complete campaign playtest is claimed.
+Story order, text-strip coordinates, 250-retrace intervals, complete credit canvases and scroll distances are established from the executable. Nominal 70 Hz source motion is adapted to 50/60 Hz displays; exact VGA presentation, palette fades and original disk-load pauses are not claimed. The native title/parade and the fan strategy engine remain. Original campaign rules/maps/UI/balance, physical hardware and a complete campaign playtest are unfinished.
 
 The following v4 report is historical.
 

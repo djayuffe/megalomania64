@@ -21,6 +21,10 @@ ic_dest_lo: !byte $00,$00,$00,$00,$00,$00
 ic_dest_hi: !byte $60,$5c,$54,$e0,$cc,$c0
 ic_size_lo: !byte $40,$e8,$e8
 ic_size_hi: !byte $1f,$03,$03
+ic_patch_lo: !byte $00,$20,$20
+ic_patch_hi: !byte $f9,$cf,$c3
+ic_patch_size_lo: !byte $40,$c8,$c8
+ic_patch_size_hi: !byte $06,$00,$00
 ic_color_hi: !byte $54,$c0
 ic_vic: !byte 2,0
 ic_d018: !byte $78,$38
@@ -38,6 +42,18 @@ ic_time: !word 0
 ic_hold: !word 0
 ic_vb: !byte 0
 ic_sprites: !byte 0
+ic_clock: !byte 0
+ic_rate: !byte 50
+
+; full-height credits (intro-only state)
+cr_phase: !byte 0
+cr_row: !byte 0
+cr_y: !byte 3
+cr_ptr: !word $5800
+cr_dest_lo: !byte $00,$00,$b8,$00,$20
+cr_dest_hi: !byte $e0,$58,$63,$f9,$cf
+cr_size_lo: !byte $00,$b8,$b8,$40,$c8
+cr_size_hi: !byte $08,$0b,$0b,$06,$00
 
 ; speech
 sp_sprites: !byte 0

@@ -27,6 +27,9 @@ orig_build:                    ; 10 building icons x 64 bytes (pointers 40..49)
 * = $4D00
 intro_screen_src:              ; screen-RAM colours of the picture; title_screen reveals it row by row into $5C00
 !bin "../assets/intro_screen.bin"
+* = $5100
+!source "intro_entry.asm"
+
 * = $5800
 intro_color:
 !bin "../assets/intro_color.bin"
@@ -39,6 +42,7 @@ intro_color:
 !source "title.asm"
 !source "loader.asm"
 !source "intro.asm"
+!source "credits.asm"
 !source "sound.asm"
 !source "speech.asm"
 !source "level.asm"

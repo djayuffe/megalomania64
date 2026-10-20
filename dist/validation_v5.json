@@ -1,88 +1,105 @@
 {
   "version": "5.0.0-dev",
   "date": "2026-10-20",
-  "update": "Music, full original effects, SID gain, story colours",
-  "automated_tests": 228,
-  "focused_mutants_killed": 16,
-  "prg_sha256": "6fc8ec05510d95a7cd2abcb64782f72d1801e815b6fae646f7ebf30bb33afa69",
-  "fallback_d64_sha256": "7b8ea682acc536b8ca96da8df8da0a7cc06ab759bb4458caf26de1d81ee54d37",
-  "local_full_d64_sha256": "242da5370ac9821093234152a99da8d31287274797837bc9f8877dca0c51df37",
+  "update": "Recovered story stages and scrolling credit viewport",
+  "automated_tests": 233,
+  "focused_mutants_killed": 20,
+  "prg_sha256": "6295bd8207ba497f0e6469614259988bc9f77f893612db100aaa48aafb0828a5",
+  "fallback_d64_sha256": "02fe6f708c6719a3c560b1a727de96ccc5cb5f4f060488c6377e8f74ad0b71b4",
+  "local_full_d64_sha256": "6f6bb23795738fb93574d21a9b2ad564ef35079d0362ef9d599f288d3a824e59",
+  "prg_bytes": 47000,
+  "free_below_c000": 105,
+  "intro": {
+    "story_stages": 14,
+    "credit_cards": 15,
+    "source_credit_size": [
+      320,
+      600
+    ],
+    "viewport_height": 160,
+    "logo_height": 40,
+    "nominal_source_hz": 70,
+    "content_files": 62
+  },
   "vice": {
     "version": "3.9",
     "cases": [
-      "PAL with unmodified 8580",
+      "PAL with 8580",
       "NTSC with 6581"
     ],
     "true_drive": true,
     "virtual_device_traps": false,
+    "fixed_logo_all_eight_phases_pixel_equal": true,
     "sid_revision_detection_verified": true,
     "non_silent_pcm_verified": true,
     "audio_metrics": {
-      "av_pal_8580_percussion": {
+      "scroll_pal_audio_final": {
         "title_music": {
           "seconds": 4.985333333333333,
-          "rms": 1378.5084701256442,
-          "peak": 17385,
+          "rms": 1313.9204349153256,
+          "peak": 18660,
           "clipped_fraction": 0.0
         },
         "game_music": {
           "seconds": 4.987333333333333,
-          "rms": 3325.271874948556,
-          "peak": 16375,
+          "rms": 2315.453848751565,
+          "peak": 16115,
           "clipped_fraction": 0.0
         },
         "effect_orchestra": {
-          "seconds": 2.382,
-          "rms": 1409.4403102190065,
-          "peak": 17067,
+          "seconds": 2.3826666666666667,
+          "rms": 1423.4283060212358,
+          "peak": 17050,
           "clipped_fraction": 0.0
         },
         "original_speech": {
           "seconds": 2.3933333333333335,
-          "rms": 965.430057099665,
-          "peak": 16735,
+          "rms": 1060.8637854107524,
+          "peak": 16540,
           "clipped_fraction": 0.0
         }
       },
-      "av_ntsc_6581_percussion": {
+      "scroll_ntsc_final": {
         "title_music": {
           "seconds": 4.176666666666667,
-          "rms": 1618.3098115654795,
-          "peak": 18342,
+          "rms": 1795.0671030283245,
+          "peak": 13636,
           "clipped_fraction": 0.0
         },
         "game_music": {
           "seconds": 4.178,
-          "rms": 4725.210617181029,
-          "peak": 10935,
+          "rms": 4686.060366964992,
+          "peak": 9627,
           "clipped_fraction": 0.0
         },
         "effect_orchestra": {
           "seconds": 1.9973333333333334,
-          "rms": 3312.227241443605,
-          "peak": 10252,
+          "rms": 3253.0387725519636,
+          "peak": 11371,
           "clipped_fraction": 0.0
         },
         "original_speech": {
           "seconds": 2.005333333333333,
-          "rms": 2115.564601598743,
-          "peak": 14131,
+          "rms": 2726.11337251317,
+          "peak": 13054,
           "clipped_fraction": 0.0
         }
       }
     },
     "checks": [
-      "all 20 original picture scenes",
-      "stable mixed-mode story text",
+      "29 intro stages in original story/credit order",
+      "all eight full 320x40 logo crops equal on PAL and NTSC",
+      "credit charset and logo bytes match disk",
       "title and game score bytes including RAM under I/O",
-      "full effect RAM bytes and playback completion",
+      "full effect bank bytes and playback completion",
       "resident speech bytes and exact pointer completion"
     ]
   },
   "limitations": [
-    "original game rules and balance not reconstructed",
-    "exact original intro scrolling/timing incomplete",
-    "four source parts use a SID arrangement rather than Paula sample synthesis",
+    "original gameplay rules, terrain, UI and balance remain the fan engine",
+    "nominal 70 Hz motion is adapted to 50/60 Hz displays; original palette fades are not reproduced",
+    "original four-part music uses a SID arrangement rather than Paula synthesis",
+    "native title/parade remains after original credit roll",
     "physical hardware and human listening/playtesting unverified"
   ]
 }

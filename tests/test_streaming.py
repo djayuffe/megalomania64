@@ -3,7 +3,7 @@ import struct
 import tempfile
 from pathlib import Path
 from common import *
-from scene_format import pack, unpack, encode, decode
+from scene_format import pack, unpack, encode, decode, encode_credit
 from make_d64 import make_image, read_files, OFFSET
 from lzhuf import decompress, Huffman, TREE, ROOT as HUFF_ROOT
 
@@ -123,8 +123,8 @@ class Streaming(GameCase):
         boot(self.cpu,self.sym)
         self.assertFalse(self.state('ic_dirty'));self.assertEqual(self.cpu.m[0xd018],0x1e)
 
-    def test_intro_streams_twenty_scenes_restores_title_and_skips(self):
-        files={f'SCENE{i:02d}':encode(bytes([i])*8000,bytes([i])*1000,bytes(1000),frames=2) for i in range(1,21)}
+    def test_intro_streams_twenty_nine_stages_restores_title(self):
+        files={f'SCENE{i:02d}':encode(bytes([i])*8000,bytes([i])*1000,bytes(1000),frames=2) for i in range(1,30)}
         files['TITLE']=encode((ROOT/'assets/intro_bitmap.bin').read_bytes(),(ROOT/'assets/intro_screen.bin').read_bytes(),(ROOT/'assets/intro_color.bin').read_bytes(),multicolor=True,frames=1)
         self.cpu.drive_files=files
         flips=[];self.cpu.m[0x02a6]=1;self.call('irq_install')
@@ -132,7 +132,7 @@ class Streaming(GameCase):
             if c.pc==self.sym['ic_flip']:flips.append(self.state('ic_bank'))
         self.cpu.pc=self.sym['intro_sequence'];self.cpu.push(0xff);self.cpu.push(0xef)
         self.cpu.run_until(0xfff0,max_steps=10000000,on_pc=record)
-        self.assertEqual(flips,[1,0]*10)
+        self.assertEqual(flips,([1,0]*15)[:29])
         self.assertEqual(bytes(self.cpu.m[0x6000:0x7f40]),(ROOT/'assets/intro_bitmap.bin').read_bytes())
         self.assertEqual(self.cpu.m[0xd018],0x1e)
         self.assertFalse(self.cpu.flag(1));self.assertEqual(self.cpu.channels,{})
@@ -217,3 +217,81 @@ class SpeechAndCards(GameCase):
 
 def BLOB_LOCAL():
     return (ROOT/'assets/orig/samples.bin').read_bytes()
+
+
+class ScrollingCredits(GameCase):
+    def load_credit(self, steps=390):
+        chars=bytes(range(256))*8
+        cells=bytes((i//40+i%40)%256 for i in range(3000))
+        colors=bytes((i//40)%16 for i in range(3000))
+        logo=bytes([0x55])*1600;screen=bytes([0x10])*200
+        data=encode_credit(chars,cells,colors,logo,screen,steps)
+        self.assertEqual(decode(data)[3],[chars,cells,colors,logo,screen])
+        self.cpu.drive_files['TEST']=data
+        self.cpu.m[0x200:0x204]=b'TEST';self.cpu.a=4;self.cpu.x=0;self.cpu.y=2
+        self.cpu.call(self.sym['ic_load'],max_ops=2000000);self.assertFalse(self.cpu.flag(1))
+        self.call('ic_flip')
+        return cells,colors,logo,screen
+
+    def test_complete_card_scrolls_without_cropping_or_touching_logo(self):
+        cells,colors,logo,screen=self.load_credit()
+        self.put('ic_hold',255);self.put('ic_hold',1,1)
+        for pixel in range(391):
+            row=pixel//8;offset=row*40
+            self.assertEqual(bytes(self.cpu.m[0xcc00:0xcf20]),cells[offset:offset+800],pixel)
+            self.assertEqual(bytes(self.cpu.m[0xd800:0xdb20]),colors[offset:offset+800],pixel)
+            self.assertEqual(self.state('cr_y'),(3-pixel)%8)
+            self.assertEqual(bytes(self.cpu.m[0xf900:0xff40]),logo)
+            self.assertEqual(bytes(self.cpu.m[0xcb20:0xcbe8]),screen)
+            self.assertEqual(bytes(self.cpu.m[0xcf20:0xcfe8]),bytes(200))
+            self.assertEqual(bytes(self.cpu.m[0x77c0:0x7e00]),logo)
+            if pixel<390:self.call('credit_tick')
+        self.assertEqual(self.state('cr_row'),48)
+
+    def test_credit_raster_switch_keeps_logo_fixed(self):
+        self.load_credit();self.call('irq_install')
+        self.put('ic_active',1);self.put('ic_visible_mode',3);self.put('cr_y',6)
+        self.cpu.m[0xd019]=1;self.cpu.run_irq()
+        self.assertEqual(self.cpu.m[0xd011],0x1e)
+        self.assertEqual(self.cpu.m[0xd012],208)
+        self.cpu.m[0xd019]=1;self.cpu.m[0xd012]=210;self.cpu.run_irq()
+        self.assertEqual(self.cpu.m[0xd011],0x3b)
+        self.assertEqual(self.cpu.m[0xd012],250)
+        self.assertEqual(self.state('irq_stage'),0)
+
+    def test_oversized_scroll_is_rejected_before_writing_glyphs(self):
+        data=bytearray(encode_credit(bytes(2048),bytes(3000),bytes(3000),bytes(1600),bytes(200),1))
+        data[6:8]=struct.pack('<H',401)
+        self.cpu.drive_files['TEST']=data
+        self.cpu.m[0xe000]=0xa5
+        self.cpu.m[0x200:0x204]=b'TEST';self.cpu.a=4;self.cpu.x=0;self.cpu.y=2
+        self.call('ic_load');self.assertTrue(self.cpu.flag(1))
+        self.assertEqual(self.cpu.m[0xe000],0xa5)
+        with self.assertRaises(ValueError):decode(data)
+
+
+class IntroTimeline(GameCase):
+    def test_nominal_vga_clock_advances_seventy_ticks_per_second(self):
+        for frames in (50,60):
+            self.put('ic_active',1);self.put('ic_skip',0);self.put('ic_visible_mode',0)
+            self.put('ic_clock',0);self.put('ic_rate',frames);self.put('ic_vb',0)
+            self.put('ic_hold',200);self.put('ic_hold',0,1);self.put('joy_raw',31)
+            for i in range(1,frames+1):
+                self.put('vblank',i);self.call('intro_poll')
+                self.assertFalse(self.cpu.flag(1))
+            self.assertEqual(self.state('ic_hold'),130)
+            self.assertEqual(self.state('ic_clock'),0)
+
+    def test_text_strip_patch_keeps_the_story_artwork(self):
+        from scene_format import encode_story_patch
+        self.cpu.m[0xe000:0xf900]=bytes([0xa5])*6400
+        self.cpu.m[0xcc00:0xcf20]=bytes([0x3b])*800
+        raw=encode_story_patch(bytes([0x55])*1600,bytes([0x10])*200,bytes([7])*200)
+        self.cpu.drive_files['TEST']=raw
+        self.cpu.m[0x200:0x204]=b'TEST';self.cpu.a=4;self.cpu.x=0;self.cpu.y=2
+        self.put('ic_bank',1);self.cpu.call(self.sym['ic_load'],max_ops=2000000)
+        self.assertFalse(self.cpu.flag(1))
+        self.assertEqual(bytes(self.cpu.m[0xe000:0xf900]),bytes([0xa5])*6400)
+        self.assertEqual(bytes(self.cpu.m[0xf900:0xff40]),bytes([0x55])*1600)
+        self.assertEqual(bytes(self.cpu.m[0xcc00:0xcf20]),bytes([0x3b])*800)
+        self.call('ic_flip');self.assertEqual(self.state('ic_visible_mode'),2)

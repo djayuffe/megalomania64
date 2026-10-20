@@ -58,13 +58,29 @@ irq_handler:
  lda ic_active
  beq irq_native_bars
  lda ic_visible_mode
+ cmp #3
+ beq irq_credit_top
  cmp #2
  bne irq_not_ours
  lda #$18
  sta $d016
- lda #162                    ; top 14 cell rows multicolour; lower text hires
+ lda #210                    ; 160 pixels of art, then hires story text
  sta $d012
  lda #18
+ sta irq_stage
+ jmp irq_not_ours
+irq_credit_top:
+ lda $dd00
+ and #$fc
+ sta $dd00
+ lda #$38
+ sta $d018
+ lda cr_y
+ ora #$18
+ sta $d011
+ lda #208                    ; allow for a 40-cycle badline before the logo split
+ sta $d012
+ lda #19
  sta irq_stage
  jmp irq_not_ours
 irq_native_bars:
@@ -83,6 +99,8 @@ irq_not_ours:
 
 irq_bar:
  ldx irq_stage               ; 1..BAR_COUNT paint, BAR_COUNT+1 restores
+ cpx #19
+ beq irq_credit_logo
  cpx #18
  beq irq_scene_split
  cpx #BAR_COUNT+1
@@ -98,6 +116,28 @@ irq_bar:
  sta irq_line
  sta $d012
  jmp $ea81
+irq_credit_logo:
+ lda $dd00
+ and #$fc
+ ldx cr_y
+ cpx #4
+ bcc irq_logo_bank3
+ ora #2
+ tay
+ ldx #$48
+ bne irq_logo_wait
+irq_logo_bank3:
+ tay
+ ldx #$28
+irq_logo_wait:
+ lda $d012
+ cmp #210
+ bcc irq_logo_wait
+ sty $dd00
+ stx $d018
+ lda #$3b
+ sta $d011
+ jmp irq_scene_split
 irq_scene_split:
  lda #8
  sta $d016

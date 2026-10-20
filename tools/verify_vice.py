@@ -14,7 +14,7 @@ import subprocess
 import time
 from pathlib import Path
 from make_d64 import read_files
-from scene_format import unpack
+from scene_format import unpack, decode
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -76,18 +76,55 @@ def verify(emulator, disk, out, model="pal", audio=False, sid_model="6581"):
                 if len(data) != end-start+1: raise RuntimeError(f'monitor parse: {reply!r}')
                 return bytes(data)
 
-            response(); cmd('delete'); cmd('warp on'); screenshot('01_original_credit.png')
+            response(); cmd('delete'); cmd('warp on'); screenshot('01_original_story.png')
             if audio and memory(syms['sid_8580'],syms['sid_8580'])!=bytes([int(sid_model=='8580')]):
                 raise AssertionError('SID revision detection selected the wrong digi gain')
-            print('VICE: first original credit displayed', flush=True)
+            print('VICE: first original story displayed', flush=True)
             cmd(f'break {syms["ic_displayed"]:04x}')
-            cmd('ignore 1 $0e')
+            cmd('ignore 1 $0d')
             cmd('x')
-            screenshot('02_original_story.png')
             cmd('delete')
+            if memory(syms['ic_index'],syms['ic_index']) != b'\x0f':
+                raise AssertionError('credits did not follow fourteen story stages')
+            credit=decode(read_files(disk)['SCENE15'])[3]
+            cmd('bank ram')
+            cmd(f'bsave "{out / "credit_charset.bin"}" 0 e000 e7ff')
+            if (out/'credit_charset.bin').read_bytes()!=credit[0]:
+                raise AssertionError('credit glyphs differ from disk')
+            cmd(f'bsave "{out / "credit_logo.bin"}" 0 f900 ff3f')
+            if (out/'credit_logo.bin').read_bytes()!=credit[3]:
+                raise AssertionError('fixed logo bitmap differs from disk')
+            cmd('bank cpu')
+            cmd(f'break {syms["credit_tick"]:04x}');cmd('ignore 1 $63');cmd('x');cmd('delete')
+            screenshot('02_scrolling_credit.png')
+            cmd('delete')
+            # Freeze the main loop and exercise every fine-scroll phase. IRQs
+            # still run, so this checks the actual VIC character-row counter.
+            saved_regs=cmd('registers').decode('latin1')
+            saved_pc=int(re.search(r'\.;([0-9a-fA-F]{4})',saved_regs).group(1),16)
+            saved_fine=memory(syms['cr_y'],syms['cr_y'])[0]
+            wait=syms['wait_frame']
+            # Preserve the complete interrupted CPU context with native 6502
+            # pushes/pulls. Restoring PC alone can corrupt an active copy loop.
+            cmd(f'> 0240 08 48 8a 48 98 48 a2 03 20 {wait&255:02x} {wait>>8:02x} ca d0 fa 4c 4e 02 68 a8 68 aa 68 28 4c {saved_pc&255:02x} {saved_pc>>8:02x}')
+            for phase in range(8):
+                cmd(f'> {syms["cr_y"]:04x} {phase:02x}')
+                cmd('registers pc='+('0240' if phase==0 else '0246'));cmd('until 024e')
+                cmd(f'screenshot "{out / ("credit_phase_"+str(phase)+".png")}" 2')
+            cmd(f'> {syms["cr_y"]:04x} {saved_fine:02x}')
+            cmd(f'> {syms["ic_vb"]:04x} {memory(syms["vblank"],syms["vblank"])[0]:02x}')
+            cmd('registers pc=0251');cmd(f'until {saved_pc:04x}')
+            from PIL import Image
+            # VICE crops PAL at raster 16 and NTSC at 28; logo is 211..250.
+            logo_y=195 if model=="pal" else 183
+            logos=[Image.open(out/f'credit_phase_{phase}.png').convert('RGB').crop((32,logo_y,352,logo_y+40)).tobytes() for phase in range(8)]
+            if not any(logos[0]):raise AssertionError("fixed logo capture is blank")
+            if any(logo != logos[0] for logo in logos[1:]):
+                raise AssertionError('fixed logo moved or changed across fine-scroll phases')
+            print('VICE: fixed logo pixels match across all eight scroll phases',flush=True)
             cmd(f'until {syms["title_wait"]:04x}')
-            if memory(syms['ic_index'], syms['ic_index']) != b'\x15':
-                raise AssertionError('did not complete all twenty original scenes')
+            if memory(syms['ic_index'], syms['ic_index']) != b'\x1e':
+                raise AssertionError('did not complete all twenty-nine original intro stages')
             if memory(syms['ic_skip'], syms['ic_skip']) != b'\x00':
                 raise AssertionError('intro aborted')
             if memory(syms['mu_ready'],syms['mu_ready'])!=b'\x01':
@@ -119,7 +156,7 @@ def verify(emulator, disk, out, model="pal", audio=False, sid_model="6581"):
             cmd(f'until {syms["title_wait"]:04x}')
             record('title_music',250)
             print('VICE: original SID score bank loaded; title arrangement running',flush=True)
-            print('VICE: all twenty scenes loaded; embedded title restored', flush=True)
+            print('VICE: all twenty-nine intro stages loaded; embedded title restored', flush=True)
             cmd('> 0277 20'); cmd('> 00c6 01')
             cmd(f'until {syms["lc_wait"]:04x}')
             card_regs=memory(0xd000,0xd02e)

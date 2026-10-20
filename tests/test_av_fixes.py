@@ -15,7 +15,7 @@ class FullEffects(GameCase):
         self.irq_on();self.put('ic_active',1);self.put('ic_visible_mode',2)
         before=self.state('vblank');self.cpu.run_irq()
         self.assertEqual(self.cpu.m[0xd016],0x18)
-        self.assertEqual(self.cpu.m[0xd012],162)
+        self.assertEqual(self.cpu.m[0xd012],210)
         self.assertEqual(self.state('irq_stage'),18)
         self.cpu.run_irq()
         self.assertEqual(self.cpu.m[0xd016],8)

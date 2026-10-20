@@ -56,11 +56,13 @@ def convert(im,multicolor=False):
     return bytes(bitmap),bytes(screen),bytes(color),Image.fromarray(shown)
 
 
-def mixed_story(im):
-    """14 multicolour cell rows for art, then 11 hires rows for 320px text."""
+def mixed_story(im, rows=14):
+    """Multicolour art above hires story text; split on a character boundary."""
+    if not 0 <= rows <= 25:raise ValueError("story split row")
+    cells=rows*40; pixels=rows*8
     mc=convert(im,True);hi=convert(im,False)
-    bitmap=mc[0][:4480]+hi[0][4480:]
-    screen=mc[1][:560]+hi[1][560:]
-    color=mc[2][:560]+hi[2][560:]
-    shown=mc[3].copy();shown.paste(hi[3].crop((0,112,320,200)),(0,112))
+    bitmap=mc[0][:cells*8]+hi[0][cells*8:]
+    screen=mc[1][:cells]+hi[1][cells:]
+    color=mc[2][:cells]+hi[2][cells:]
+    shown=mc[3].copy();shown.paste(hi[3].crop((0,pixels,320,200)),(0,pixels))
     return bitmap,screen,color,shown
