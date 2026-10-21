@@ -54,6 +54,32 @@ intro_color:
 !source "develop.asm"
 !source "tables.asm"
 !source "engine_data.asm"
+; The optional starter is loaded below the resident audio drivers. It replaces
+; the old engine only after all original intro scenes have completed.
+native_start:
+ jsr disk_begin
+ lda #1
+ sta music_hold
+ lda #7
+ ldx #<native_name
+ ldy #>native_name
+ jsr $ffbd
+ lda #1
+ ldx devnum
+ ldy #1
+ jsr $ffba
+ lda #0
+ jsr $ffd5
+ php
+ jsr disk_end
+ lda #0
+ sta music_hold
+ plp
+ bcs native_missing
+ jmp $080d
+native_missing:
+ rts
+native_name: !text "NGSTART"
 engine_end:
 
 ; Original Amiga effects as packed 4-bit samples (tools/orig_convert.py)

@@ -11,15 +11,19 @@ four-part MOD scores arranged for SID, and original island-entry tiles. Generate
 original content remains in the owner's local recovery folder. See
 [the evidence and build instructions](docs/REVERSE_ENGINEERING_V5.md).
 
-The running disk's gameplay is still the fan engine. A separate native 6502
-rules module now implements and differentially verifies original population,
-mining, construction, research, manufacturing, armies, tower capture, building
-removal and turret damage. It is
-not integrated into the playable disk yet; complete battles, AI and the full
-campaign remain to be ported. See
-[gameplay progress and verification](docs/GAMEPLAY_PORT.md). This is an
-unfinished development build, not a completed original-game port. Sections below
-describe historical v4 releases and their limitations at that time.
+A local native integration disk now connects the verified original rules to a
+keyboard/joystick development front end. It loads compressed island state,
+original army/building sprites and island pictures, keeps the SID score resident,
+and streams effects/voices through a shared sample cache. The launcher prefers
+this D81 when it exists. The packaged fallback D64 still runs the older fan game.
+
+**The native integration is not a complete playable original-game port.** It
+supports population, resources, research, construction, manufacturing, army
+allocation and movement, and neutral tower construction, with two-player hotseat
+selection. The original battle scheduler, AI, campaign progression and native
+save/load are still missing. See [native build, controls and memory layout](docs/NATIVE_INTEGRATION.md)
+and [verified rule coverage](docs/GAMEPLAY_PORT.md). Sections below describe
+historical v4 releases and their limitations at that time.
 
 # Mega-Lo-Mania 64 — Island Wars, C64C Edition 4.4.0
 

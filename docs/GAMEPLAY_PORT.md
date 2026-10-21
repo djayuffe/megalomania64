@@ -1,9 +1,11 @@
 # Original gameplay port: development status
 
-The running disk still uses the older fan gameplay engine. The new rules core in
-`src/gameplay/` is compiled and verified separately; it is **not connected to the
-game UI or included in the release PRG**. This is an intermediate implementation,
-not a completed gameplay port.
+The private native D81 now loads these rules into the running development UI.
+The release fallback D64 continues to use the older fan engine when `NGSTART`
+is absent. Native integration covers the economic ticks, army allocation and
+movement, and neutral tower construction; complete battles, AI and original
+campaign flow remain unimplemented. This is not a completed gameplay port.
+See [native integration](NATIVE_INTEGRATION.md) for builds, controls and RAM use.
 
 ## Implemented and checked against the DOS executable
 

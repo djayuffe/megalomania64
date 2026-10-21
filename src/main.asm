@@ -93,6 +93,7 @@ start:
  bcs streamed_skip_title
  jsr title_screen
 streamed_skip_title:
+ jsr native_start             ; optional original-rules integration disk
  lda #1
  jsr music_load
  jsr new_game

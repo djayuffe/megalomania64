@@ -1,5 +1,5 @@
 #!/bin/sh
-# Run the local full disk when present, otherwise the packaged fallback D64.
+# Prefer the local native integration disk, then the full and fallback D64s.
 set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 EMULATOR=${VICE_BIN:-}
@@ -13,12 +13,16 @@ if [ -z "$EMULATOR" ]; then
 fi
 if [ "$#" -gt 0 ]; then
   DISK=$1
+elif [ -f "$ROOT/../recovery/MegaLoMania64_native.d81" ]; then
+  DISK=$ROOT/../recovery/MegaLoMania64_native.d81
 elif [ -f "$ROOT/../recovery/MegaLoMania64_full.d64" ]; then
   DISK=$ROOT/../recovery/MegaLoMania64_full.d64
 else
   DISK=$ROOT/dist/MegaLoMania64.d64
 fi
+DRIVE_TYPE=1541
+case "$DISK" in *.d81|*.D81) DRIVE_TYPE=1581 ;; esac
 if [ "${VICE_TURBO_FLOPPY:-1}" = 1 ]; then
-  exec "$EMULATOR" -model "${VICE_MODEL:-c64c}" -sound +warp -soundrecdev "" -virtualdev8 +drive8truedrive -autostart-warp -autostart "$DISK"
+  exec "$EMULATOR" -model "${VICE_MODEL:-c64c}" -drive8type "$DRIVE_TYPE" -sound +warp -soundrecdev "" -virtualdev8 +drive8truedrive -autostart-warp -autostart "$DISK"
 fi
-exec "$EMULATOR" -model "${VICE_MODEL:-c64c}" -sound +warp -soundrecdev "" -drive8truedrive +virtualdev8 -autostart "$DISK"
+exec "$EMULATOR" -model "${VICE_MODEL:-c64c}" -drive8type "$DRIVE_TYPE" -sound +warp -soundrecdev "" -drive8truedrive +virtualdev8 -autostart "$DISK"
