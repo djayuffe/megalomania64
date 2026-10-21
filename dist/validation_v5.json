@@ -1,14 +1,13 @@
 {
   "version": "5.0.0-dev",
-  "date": "2026-10-20",
-  "update": "Recovered story stages and scrolling credit viewport",
-  "automated_tests": 233,
+  "date": "2026-10-21",
+  "update": "Native combat, AI, campaign integration, compressed banks and resilient saves",
+  "automated_tests": 282,
   "focused_mutants_killed": 20,
-  "prg_sha256": "6295bd8207ba497f0e6469614259988bc9f77f893612db100aaa48aafb0828a5",
-  "fallback_d64_sha256": "02fe6f708c6719a3c560b1a727de96ccc5cb5f4f060488c6377e8f74ad0b71b4",
-  "local_full_d64_sha256": "6f6bb23795738fb93574d21a9b2ad564ef35079d0362ef9d599f288d3a824e59",
-  "prg_bytes": 47000,
-  "free_below_c000": 105,
+  "prg_sha256": "7254bb35a77c5588acc4cbe5f51ec2146cd8a7fbe31be0ed8b036391617e2f07",
+  "fallback_d64_sha256": "940eff171ee6068223e3f5a5bee9c06ddadffc773456c9813e7de028cce01660",
+  "prg_bytes": 47055,
+  "free_below_c000": 50,
   "intro": {
     "story_stages": 14,
     "credit_cards": 15,
@@ -21,7 +20,15 @@
     "nominal_source_hz": 70,
     "content_files": 62
   },
-  "vice": {
+  "limitations": [
+    "C64 AI, linear campaign allocation, travel, diplomacy and interface are adaptations",
+    "special DOS future-shutdown branches and optional arrival branch are not fully reproduced",
+    "original VGA palette/presentation and Paula synthesis are adapted to C64",
+    "real hardware timing, human listening and balance across every island remain unverified",
+    "original-derived native disk and content are private; packaged D64 uses older fan engine"
+  ],
+  "intro_validation_date": "2026-10-20",
+  "intro_vice_historical": {
     "version": "3.9",
     "cases": [
       "PAL with 8580",
@@ -93,13 +100,40 @@
       "title and game score bytes including RAM under I/O",
       "full effect bank bytes and playback completion",
       "resident speech bytes and exact pointer completion"
-    ]
+    ],
+    "scope": "Earlier intro/audio validation; retained historical evidence, not remeasured in this native gameplay run"
   },
-  "limitations": [
-    "original gameplay rules, terrain, UI and balance remain the fan engine",
-    "nominal 70 Hz motion is adapted to 50/60 Hz displays; original palette fades are not reproduced",
-    "original four-part music uses a SID arrangement rather than Paula synthesis",
-    "native title/parade remains after original credit roll",
-    "physical hardware and human listening/playtesting unverified"
-  ]
+  "native_gameplay": {
+    "original_rule_scenarios": 5115,
+    "original_sector_initializations": 448,
+    "backends": [
+      "host C",
+      "native NMOS 6502"
+    ],
+    "vice_models": [
+      "PAL",
+      "NTSC"
+    ],
+    "virtual_device_traps": true,
+    "checks": [
+      "intro handoff and compressed content",
+      "army allocation, movement and return",
+      "research allocation",
+      "two rotating CRC-checked saves and newest-valid load",
+      "corrupt newest save falls back to older slot",
+      "two corrupt saves preserve current game",
+      "victory and next island",
+      "sprite/effect/voice bytes and bank integrity",
+      "software stack guard"
+    ],
+    "synthetic_checks": [
+      "AI researches, equips, attacks and defeats idle opponent",
+      "tower destruction and capture",
+      "air transfer leaves ground troops at source",
+      "hotseat elimination and truce expiry",
+      "nuclear destruction, retaliation and interception",
+      "victory, defeat and final completion"
+    ],
+    "private_disk_sha256": "81d7048cd4cc0f52a2e611fc02f34a5abaa35c89657d1a51dc4bdff353dfc7c6"
+  }
 }

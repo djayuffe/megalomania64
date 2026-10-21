@@ -1,11 +1,11 @@
 # Original gameplay port: development status
 
-The private native D81 now loads these rules into the running development UI.
-The release fallback D64 continues to use the older fan engine when `NGSTART`
-is absent. Native integration covers the economic ticks, army allocation and
-movement, and neutral tower construction; complete battles, AI and original
-campaign flow remain unimplemented. This is not a completed gameplay port.
-See [native integration](NATIVE_INTEGRATION.md) for builds, controls and RAM use.
+The private native D81 integrates the translated rules into a playable C64 game
+with battles, computer opponents, hotseat, diplomacy, nuclear weapons, campaign
+progression and resilient disk saves. The fallback D64 still uses the older fan
+engine. AI choices, campaign starting allocation and interface are C64 policy;
+they are not translations of the DOS AI or UI. Special future-shutdown branches
+are not fully reproduced. See [native integration](NATIVE_INTEGRATION.md).
 
 ## Implemented and checked against the DOS executable
 
@@ -41,6 +41,11 @@ where relevant.
 | Whole-army extraction and demobilization | `11B9:1E18`, `11B9:1F93` |
 | Tower completion and ownership installation | `0000:CD19`, `0000:5A9F` |
 | Building removal and worker casualties | `0000:670B` |
+| Full battle budgets and faction scheduling | `0000:5B10` |
+| Facility targeting and damage | `0000:6366` |
+| Tower-loss civilian and defender redistribution | `0000:68F4` |
+| Intact turret recall and inventory/crew return | `1471:033C` |
+| Ordinary nuclear detonation | `0000:6EC4` |
 
 The original population cap is 998. Worker productivity subtracts one worker for
 every 32 assigned. Mining deposits and construction/research/manufacturing tasks
@@ -69,7 +74,7 @@ allied-turret early return yields the alliance predicate `1`, rather than the
 incoming unused-damage budget; this observed quirk is preserved.
 
 Nuclear arrival schedules the original flight timer and records its faction and
-source sector. Detonation, retaliation and interception are not implemented yet.
+source sector. Detonation is translated; retaliation and interception are orchestrated by the native runtime.
 The optional arrival branch controlled by DOS global `$1C78` is also untranslated;
 the arrival comparisons explicitly set it to zero.
 
@@ -86,16 +91,13 @@ before following pointers. It recovers all 28 island layouts, deposits for their
 technology dates, health tables and research/manufacturing tables. Original game
 tables remain in the owner's private recovery folder.
 
-The latest local run checked **448 campaign-sector initializations** for terrain,
-owner, age, stock and active land deposits, plus **4,871 complete-sector rule
-scenarios on both native backends**. The linked 6502 module is **16,272 bytes**
-(3,747 at `$1000` and 12,525 at `$8000`).
-The chained Aloha scenario allocates inventors, advances population and research,
-finishes an actual recovered design, pays its resource cost and inventories an
-early-age weapon. A second chain contests a neutral sector with two armies,
-defeats the hostile army, resumes construction, and verifies the completed
-tower's ownership and demobilized army. These are not full battles, islands or
-campaign playthroughs.
+The local verifier compares all 448 campaign-sector initializations plus 5,115
+complete-sector scenarios on host C and native 6502. This includes
+battle scheduling, building damage, tower loss, defence recall and ordinary
+nuclear detonation. Chained scenarios cover Aloha research/resource payment and
+contested occupation through tower completion. See the generated private
+`verification.json` for exact counts and code sizes. These comparisons do not
+establish human balance or an exact DOS campaign playthrough.
 
 Tower completion now installs the owner, returns the occupying army's weapons
 to inventory and its crews to the population, then removes one idle person
@@ -138,10 +140,10 @@ The local cc65 build used revision `8d86ca7`.
 
 ## Development ABI
 
-This verification build links resident code in two regions: `$1000–$2FFF` for
+This verification build links resident code in three regions: `$1000–$2FFF` for
 military primitives and `$8000–$BFFF` for the remaining routines and compiler
-helpers. State starts at `$5000`; the cc65 software stack is below `$C400`.
-Both `core-low.prg` and `core.prg` must be loaded before calling `gp_run`, which
+helpers, plus a combat bank at `$D400–$FEFF` with `$01=$34`. State starts at `$5000`; the cc65 software stack is below `$C400`.
+The low/high PRGs and raw `core.bin.bank` at `$D400` must be loaded before calling `gp_run`, which
 initializes that stack and calls `gp_dispatch`. Calls between the two code
 regions are ordinary resident calls; there is no disk access per rule call.
 This layout is **for verification**, and overlaps the current game's resident
@@ -191,28 +193,27 @@ its unit count. Operation 29 demobilizes `gp_army` into the current tower.
 Operation 30 installs the owner given at offset 2 and demobilizes that army;
 operation 31 ticks the selected neutral tower's construction. Operation 32
 removes the building kind given at offset 4, including defenders and affected
-workers. It is the removal primitive; the full tower-loss redistribution and
-battle damage-budget scheduler are not implemented yet.
+workers.
 
-## Remaining work before a full gameplay port
+## Fidelity limits
 
-- Finish equipment assembly and movement, building-damage targeting and
-  tower-loss redistribution, the complete combat scheduler, alliance commands, computer decisions
-  and nuclear interactions. Army/turret damage primitives are implemented;
-  a complete battle has not been ported.
-- Finish whole-world scheduling and connect the verified gatherable update.
-- Implement the real campaign: deployment pool, choosing unfinished islands
-  within an epoch, saved people, shutdown and the final battle.
-- Compact the verified DOS records into C64 world storage, and budget code,
-  graphics, music, effects and speech together. Sixteen full DOS records alone
-  take 17,552 bytes; the existing game has only 105 bytes free below `$C000`.
-- Replace the old sector UI and command handling, then validate full islands
-  and campaign transitions in VICE on PAL and NTSC with audio enabled.
+The running C64 game supplies whole-world scheduling, equipment and movement,
+AI, diplomacy, nuclear flight/defences, victory/campaign transitions and saves.
+Its compact world storage, banked code, pictures and streaming audio coexist in
+64 KB. These integrations are described in `NATIVE_INTEGRATION.md`.
 
-The default build and the existing full-content disk remain the intro/audio
-development build described in `REVERSE_ENGINEERING_V5.md`.
+Exact DOS campaign deployment pools, within-epoch island selection, saved-people
+allocation, future-shutdown special branches and the original interface are
+not reproduced. The native campaign advances linearly, starts each faction with
+100 colonists, and uses adapted shutdown and travel policies. AI choices are
+new C64 code. The optional arrival branch controlled by DOS global `$1C78` is
+excluded from comparisons. Original VGA colours and presentation remain adapted
+to the C64. Real hardware timing and human balance across every island require
+further playtesting.
 
-The next original entry points to translate are building damage at `0000:6366`,
-tower-loss redistribution at `0000:68F4`, and the full combat damage-budget
-scheduler at `0000:5B10`. These have been located but are not implemented by
-this module.
+Operations 33–37 run the complete ordinary battle budget scheduler, building
+damage, tower loss, intact turret recall and nuclear detonation. Scheduler
+request offset 6 is the island's first age and offset 24 is its island index.
+Original 16-bit arithmetic and the observed tower-loss zero-capacity quirk are
+preserved. Native runtime rare routines use a disk overlay shared with audio;
+the standalone verification module keeps all routines resident.

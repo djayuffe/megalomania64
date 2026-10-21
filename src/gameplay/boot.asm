@@ -45,7 +45,7 @@ boot_device:
  lda boot_index
  cmp #6
  bcc boot_next
- jmp $2800
+ jmp $2700
 boot_error:
  lda #2
  sta $d020

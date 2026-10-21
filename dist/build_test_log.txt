@@ -225,12 +225,26 @@ test_tonal_effect_keeps_voice_one_until_it_finishes (test_music.OriginalScore) .
 test_truncated_bank_and_runtime_overrun_disable_playback (test_music.OriginalScore) ... ok
 test_voice_digi_pauses_the_original_score (test_music.OriginalScore) ... ok
 test_volume_only_events_keep_the_note_and_change_sustain (test_music.OriginalScore) ... ok
+test_crc_and_shadow_restore_complete_snapshot (test_native.NativeHardware) ... ok
 test_joystick_directions_and_fire_are_edge_triggered (test_native.NativeHardware) ... ok
+test_playback_does_not_write_into_banked_code (test_native.NativeHardware) ... ok
+test_save_rotates_two_files_and_preserves_previous_on_write_failure (test_native.NativeHardware) ... ok
 test_sequential_reopen_last_byte_and_truncation (test_native.NativeHardware) ... ok
 test_start_zeros_bss_and_keeps_world_and_stack_separate (test_native.NativeHardware) ... ok
 test_c_and_python_match_every_legal_age_window_and_slot (test_native.NativeWorld) ... ok
 test_picture_is_bounded_and_retains_source_silhouette (test_native.NativeWorld) ... ok
 test_rejects_invalid_windows_lengths_and_padding (test_native.NativeWorld) ... ok
+test_ai_researches_equips_attacks_and_defeats_an_idle_enemy (test_native_game.NativeGameTest) ... ok
+test_air_transfer_crosses_water_and_leaves_ground_army_at_source (test_native_game.NativeGameTest) ... ok
+test_army_move_and_return_conserve_units_and_block_nonadjacent_water (test_native_game.NativeGameTest) ... ok
+test_diplomacy_expires_and_attack_breaks_symmetric_alliance (test_native_game.NativeGameTest) ... ok
+test_hotseat_elimination_keeps_other_factions_playing (test_native_game.NativeGameTest) ... ok
+test_hotseat_truce_expires_for_its_original_participants (test_native_game.NativeGameTest) ... ok
+test_nuclear_defence_retaliates_against_original_source (test_native_game.NativeGameTest) ... ok
+test_nuclear_launch_pays_inventory_and_interceptor_prevents_destruction (test_native_game.NativeGameTest) ... ok
+test_tower_can_be_destroyed_and_captured_through_live_ticks (test_native_game.NativeGameTest) ... ok
+test_unintercepted_nuclear_hit_removes_armies_and_land (test_native_game.NativeGameTest) ... ok
+test_victory_defeat_final_completion_and_allied_survival (test_native_game.NativeGameTest) ... ok
 test_d64_rejects_duplicate_names_and_full_disk (test_streaming.Codecs) ... ok
 test_lzhuf_common_iff_prefix_fixture (test_streaming.Codecs) ... ok
 test_lzhuf_literals_and_tree_reconstruction (test_streaming.Codecs) ... ok
@@ -268,8 +282,8 @@ test_music_tables_are_in_sid_range (test_tools.Tools) ... ok
 test_package_is_reproducible_and_complete (test_tools.Tools) ... ok
 
 ----------------------------------------------------------------------
-Ran 268 tests in 171.231s
+Ran 282 tests in 153.189s
 
 OK
-MegaLoMania64_v5.0.0-dev_Source.zip: 395483 bytes, sha256 26906133bf2e46b930f6a070f6d8337541235a9af0530e1219c4ccf5b1e643e7
-MegaLoMania64_v5.0.0-dev_Source.zip: 395483 bytes, sha256 26906133bf2e46b930f6a070f6d8337541235a9af0530e1219c4ccf5b1e643e7
+MegaLoMania64_v5.0.0-dev_Source.zip: 410219 bytes, sha256 00262aec727476d4ad6773d103f5fe74846def64eb4c11ab11d70455a6eb8f49
+MegaLoMania64_v5.0.0-dev_Source.zip: 410219 bytes, sha256 00262aec727476d4ad6773d103f5fe74846def64eb4c11ab11d70455a6eb8f49

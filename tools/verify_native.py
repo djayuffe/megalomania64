@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """Check the private native integration in isolated VICE; never distributes assets."""
-import argparse,json,re,socket,subprocess,time
+import argparse,json,re,shutil,socket,subprocess,time
 from pathlib import Path
-from native_world import decode,SLOT
+from native_world import decode,encode,SLOT
 from scene_format import unpack
 
 
-def verify(emulator,disk,native,out,model,handoff=False):
+def verify(emulator,disk,native,out,model,handoff=False,expect_load=None,expect_reject=False):
     out=out.resolve();out.mkdir(parents=True,exist_ok=True)
     report=json.loads((native/'build.json').read_text())
+    work_disk=out/'test.d81';shutil.copyfile(disk,work_disk)
     labels={s.lstrip('.'):int(a,16)for _,a,s in [line.split()for line in(native/'runtime.lbl').read_text().splitlines()]}
     with socket.socket()as probe:probe.bind(('127.0.0.1',0));port=probe.getsockname()[1]
-    args=[emulator,'-default','-model',model,'+sound','-warp','-virtualdev8','+drive8truedrive','-drive8type','1581','-8',str(disk.resolve()),'-remotemonitor','-remotemonitoraddress',f'ip4://127.0.0.1:{port}','-initbreak','0xa474']
+    args=[emulator,'-default','-model',model,'+sound','-warp','-virtualdev8','+drive8truedrive','-drive8type','1581','-8',str(work_disk),'-remotemonitor','-remotemonitoraddress',f'ip4://127.0.0.1:{port}','-initbreak','0xa474']
     with(out/'vice.log').open('w')as log,(out/'monitor.txt').open('wb')as transcript:
         process=subprocess.Popen(args,stdout=log,stderr=subprocess.STDOUT);connection=None
         try:
@@ -47,8 +48,11 @@ def verify(emulator,disk,native,out,model,handoff=False):
                 cmd(f'watch store {report["hardware"]["native_frames"]:04x}');cmd('x');cmd('x');cmd('delete')
             def key(value):
                 cmd('delete');cmd(f'watch store {labels["_runtime_last_key"]:04x}')
-                cmd(f'> 0277 {ord(value):02x}');cmd('> 00c6 01');cmd('x');cmd('delete')
-                assert memory(labels['_runtime_last_key'],1)==value.encode(),f'key {value} not handled'
+                cmd(f'> 0277 {ord(value):02x}');cmd('> 00c6 01');cmd('step $2000000');cmd('delete')
+                if memory(labels['_runtime_last_key'],1)!=value.encode('latin1'):
+                    print(cmd('r').decode('latin1'));print(cmd('m 0000 001b').decode('latin1'))
+                    memory(0xd400,(native/'runtime.bin.bank').stat().st_size,'failed_code_bank')
+                    raise AssertionError(f'key {ord(value)} not handled')
                 settle()
             def sectors(name):
                 raw=memory(0x4000,SLOT*16,name)
@@ -62,10 +66,12 @@ def verify(emulator,disk,native,out,model,handoff=False):
                 cmd(f'load "{root}/dist/MegaLoMania64.prg" 0');entry=main_symbols['native_start']
             else:
                 cmd(f'load "{native.resolve()}/files/NGSTART" 0');entry=0x080d
+            cmd('> c200 '+'a5 '*32)
             cmd(f'break {report["runtime_main"]:04x}');cmd(f'break {report["boot_error"]:04x}')
             result=cmd(f'g {entry:04x}');assert f'(C:${report["runtime_main"]:04x})'.encode()in result,'boot did not enter runtime'
             cmd('delete');cmd(f'watch store {labels["_runtime_ready"]:04x}');cmd('x');cmd('delete')
             assert memory(labels['_runtime_ready'],1)==b'\1','native content load failed'
+            state=labels['_ng_state'];cmd(f'> {state+23:04x} 01')
             settle();before=sectors('initial_world')
             selected=next(i for i,s in enumerate(before)if word(s,0x3fe)==0)
             assert word(before[selected],0x404)>=99
@@ -73,6 +79,16 @@ def verify(emulator,disk,native,out,model,handoff=False):
             assert sprites[:256]==(Path(__file__).resolve().parents[1]/'assets/orig/army_frames.bin').read_bytes()[:256]
             assert memory(report['hardware']['mu_ready'],1)==b'\1','SID score did not load'
             code=memory(0x8000,report['immutable_high_bytes'],'code_before')
+            code_bank=memory(0xd400,(native/'runtime.bin.bank').stat().st_size,'bank_before')
+            if expect_load or expect_reject:
+                key(' ');unchanged=memory(0x4000,SLOT*16,'before_load')
+                key(chr(136));restored=memory(0x4000,SLOT*16,'after_load')
+                if expect_load:assert restored==expect_load.read_bytes(),'previous valid save was not restored'
+                else:assert restored==unchanged,'invalid save modified the current world'
+                assert memory(0xd400,len(code_bank),'bank_after')==code_bank,'load recovery corrupted banked code'
+                assert memory(0xc200,32,'stack_guard')==bytes([0xa5])*32,'software stack overflow'
+                result=dict(model=model,ready=True,recovery='fallback to previous valid save'if expect_load else'invalid saves rejected without state loss')
+                (out/'verification.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,indent=2));connection.sendall(b'quit\n');return
             key('U');after=sectors('deployed_world');assert after[selected][0x2c8+10]==10,'unarmed deployment failed'
             key('\r');key('S');key('\r')
             moved=sectors('moved_world');assert moved[selected+4][0x2c8+10]==10 and moved[selected][0x2c8+10]==0,'army transfer failed'
@@ -82,16 +98,35 @@ def verify(emulator,disk,native,out,model,handoff=False):
             key('H');after=sectors('returned_world');assert after[selected][0x2c8+10]==0,'army return failed'
             key('R');after=sectors('research_world');assert word(after[selected],0xc4)==1,'inventor assignment failed'
             key('K');after=sectors('released_world');assert word(after[selected],0xc4)==0,'inventor release failed'
-            key('Z')
+            cmd(f'> {labels["_ng_event"]:04x} 01');key('Z')
             clip=(native/'files/NSND11').read_bytes();n=int.from_bytes(clip[4:6],'little')
             expected,_=unpack(clip,(n+1)//2,7)
             assert memory(0xef00,len(expected),'voice_cache')==expected,'voice cache differs from decoded source'
-            key('P');key('P');key('N');after=sectors('island_two_world')
+            key('P');key('P');key(' ')
+            snapshot=memory(0x4000,SLOT*16,'saved_world')
+            key(chr(135));assert memory(state+8,2)==b'\1\0','disk save failed';key('U');assert memory(0x4000,SLOT*16,'changed_world')!=snapshot
+            key(chr(136));assert memory(0x4000,SLOT*16,'restored_world')==snapshot,'save/load round trip changed the world'
+            key('U');second=memory(0x4000,SLOT*16,'second_saved_world');key(chr(135))
+            assert memory(state+8,2)==b'\2\0','second save did not rotate slots'
+            key('H');key(chr(136));assert memory(0x4000,SLOT*16,'newest_world')==second,'newest valid save was not selected'
+            key('H')
+            key('N');assert memory(state+12,1)==b'\0','campaign advanced before victory'
+            key(' ')
+            # Destroyed-enemy fixture exercises cache refresh, outcome detection
+            # and the next-island UI; detailed combat is checked separately.
+            current=sectors('before_victory');enemy=next(i for i,s in enumerate(current)if word(s,0x3fe)==1)
+            current[enemy][0x448]=(current[enemy][0x448]&127)|64
+            fixture=out/'defeated-sector.prg';fixture.write_bytes((0x4000+enemy*SLOT).to_bytes(2,'little')+encode(current[enemy],0,3))
+            cmd(f'load "{fixture}" 0');cmd(f'watch store {state+15:04x}');cmd('x');cmd('delete')
+            assert memory(state+15,1)==b'\1','victory was not detected'
+            key('N');after=sectors('island_two_world');assert memory(state+12,1)==b'\1'
             assert memory(0x8000,len(code),'code_after')==code,'island load corrupted code'
+            assert memory(0xd400,len(code_bank),'bank_after')==code_bank,'banked code was not preserved'
+            assert memory(0xc200,32,'stack_guard')==bytes([0xa5])*32,'software stack overflow'
             assert memory(labels['_runtime_ready'],1)==b'\1'
             (out/'vic.txt').write_bytes(cmd('m d000 d02e'))
             cmd(f'screenshot "{out}/native.png" 2')
-            result=dict(model=model,handoff=handoff,ready=True,checks=['disk bootstrap','rules and compressed world','army sprites','resident SID score','deploy, move and return','research allocation','player switching','next island','compressed effect and voice caches with NMI playback','code bank preserved'])
+            result=dict(model=model,handoff=handoff,ready=True,checks=['disk bootstrap','rules and compressed world','army sprites','resident SID score','deploy, move and return','research allocation','player switching','CRC save/load round trip','victory and next island','compressed effect and voice caches with NMI playback','code bank preserved'])
             (out/'verification.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,indent=2))
             connection.sendall(b'quit\n')
         finally:
@@ -100,5 +135,5 @@ def verify(emulator,disk,native,out,model,handoff=False):
             process.wait(timeout=10)
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--emulator',default='x64sc');p.add_argument('--disk',type=Path,required=True);p.add_argument('--native',type=Path,required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--model',default='pal',choices=['pal','ntsc']);p.add_argument('--handoff',action='store_true');a=p.parse_args()
-    verify(a.emulator,a.disk,a.native,a.out,a.model,a.handoff)
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--emulator',default='x64sc');p.add_argument('--disk',type=Path,required=True);p.add_argument('--native',type=Path,required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--model',default='pal',choices=['pal','ntsc']);p.add_argument('--handoff',action='store_true');p.add_argument('--expect-load',type=Path);p.add_argument('--expect-reject',action='store_true');a=p.parse_args()
+    verify(a.emulator,a.disk,a.native,a.out,a.model,a.handoff,a.expect_load,a.expect_reject)

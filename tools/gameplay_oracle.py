@@ -15,6 +15,15 @@ class Oracle:
         self.machine=Machine(dos,out)
         self.u=self.machine.uc
         self.base=self.machine.ds*16
+        # Notification rendering is outside the rules contract. Returning from
+        # this far UI entry leaves all rule memory and registers unchanged.
+        from unicorn import UC_HOOK_CODE
+        def notification(u,address,size,data):
+            m=self.machine;sp=m.r('sp');ss=m.r('ss')
+            ip,cs=struct.unpack('<HH',u.mem_read(ss*16+sp,4))
+            m.w('sp',sp+4);m.w('cs',cs);m.w('ip',ip)
+        entry=(self.machine.module_seg+0x1a17)*16+0x199d
+        self.u.hook_add(UC_HOOK_CODE,notification,None,entry,entry)
     def word(self,address,value=None):
         if value is None:return struct.unpack('<H',self.u.mem_read(self.base+address,2))[0]
         self.u.mem_write(self.base+address,struct.pack('<H',value&65535))
@@ -42,6 +51,8 @@ class Oracle:
         self.u.mem_write(self.base+0x9c,bytes(alliances or bytes([1,2,4,8])))
         self.word(0x2d16,struct.unpack_from('<H',request,30)[0])
         self.word(0x1c78,0)
+        self.word(0x2456,0)
+        self.word(0x1c64,struct.unpack_from('<H',request,24)[0])
         self.word(0x9a10,SECTOR_BASE)
         self.word(0x99f0,struct.unpack_from('<H',request,2)[0])
         self.word(0x99f2,0)
@@ -59,14 +70,14 @@ class Oracle:
                  (0xd24,0xf91),(0x1471,0xfcd),(0x1a17,0x165f),(0x1471,0x5de),
                  (0xd24,0x1bcd),(0xd24,0xe4e),(0,0x5e55),(0,0x6154),
                  (0x11b9,0x108c),(0xd24,0x2336),(0x11b9,0x1e18),(0x11b9,0x1f93),
-                 (0,0x5a9f),(0,0xcd19),(0,0x670b)]
+                 (0,0x5a9f),(0,0xcd19),(0,0x670b),(0,0x5b10),(0,0x6366),(0,0x68f4),(0x1471,0x33c),(0,0x6ec4)]
         if opcode in [18,20,28,29]:self.word(0x9a14,0x4a20)
         if opcode==20:self.word(0x9a18,struct.unpack_from('<H',request,24)[0])
-        if opcode==24:self.word(0x1c6c,struct.unpack_from('<H',request,6)[0])
+        if opcode in [24,33]:self.word(0x1c6c,struct.unpack_from('<H',request,6)[0])
         if opcode==2:self.word(0x99f4,struct.unpack_from('<H',request,4)[0])
         if opcode==8:
             self.word(0x99f4,struct.unpack_from('<H',request,14)[0]);self.word(0x99f8,struct.unpack_from('<H',request,16)[0])
-        self.call(*entries[opcode],near=opcode in [14,15,24,25,30,31,32])
+        self.call(*entries[opcode],near=opcode in [14,15,24,25,30,31,32,33,34,35,37])
         self.recipe=bytes(self.u.mem_read(self.base+0x4982,10))
         self.army=bytes(self.u.mem_read(self.base+0x4a20,11))
         if opcode in [30,31]:self.army=bytes(self.u.mem_read(self.base+0x4cb8,11))

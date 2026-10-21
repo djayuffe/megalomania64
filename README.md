@@ -11,19 +11,19 @@ four-part MOD scores arranged for SID, and original island-entry tiles. Generate
 original content remains in the owner's local recovery folder. See
 [the evidence and build instructions](docs/REVERSE_ENGINEERING_V5.md).
 
-A local native integration disk now connects the verified original rules to a
-keyboard/joystick development front end. It loads compressed island state,
-original army/building sprites and island pictures, keeps the SID score resident,
-and streams effects/voices through a shared sample cache. The launcher prefers
-this D81 when it exists. The packaged fallback D64 still runs the older fan game.
+The local native D81 now runs a playable campaign with up to four factions:
+economy, research, manufacturing, armies, battles and tower capture, defences,
+nuclear weapons, diplomacy, AI, hotseat, victory/defeat, 28-island progression,
+and CRC-checked rotating saves. It loads compressed original island state,
+converted pictures/sprites, resident SID music and streamed effects/voices.
+The launcher prefers this private D81; the packaged fallback D64 uses the older
+fan game.
 
-**The native integration is not a complete playable original-game port.** It
-supports population, resources, research, construction, manufacturing, army
-allocation and movement, and neutral tower construction, with two-player hotseat
-selection. The original battle scheduler, AI, campaign progression and native
-save/load are still missing. See [native build, controls and memory layout](docs/NATIVE_INTEGRATION.md)
-and [verified rule coverage](docs/GAMEPLAY_PORT.md). Sections below describe
-historical v4 releases and their limitations at that time.
+AI decisions, campaign allocation and the C64 interface are adaptations. This is
+not an exact DOS game reproduction; special future-shutdown branches and human
+balance across the entire campaign remain unverified. See [native build and
+controls](docs/NATIVE_INTEGRATION.md) and [original rule comparisons](docs/GAMEPLAY_PORT.md).
+Sections below describe historical v4 releases and their limitations at that time.
 
 # Mega-Lo-Mania 64 — Island Wars, C64C Edition 4.4.0
 

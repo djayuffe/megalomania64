@@ -49,6 +49,8 @@ def verify(dos,cc65,out):
     labels=build(cc65,out);lib=ctypes.CDLL(str((out/'core.dylib').resolve()))
     native=CPU(out/'core.prg');rng=random.Random(0x1991)
     low=(out/'core.bin.low').read_bytes();native.m[0x1000:0x1000+len(low)]=low
+    bank=(out/'core.bin.bank').read_bytes();native.m[0xd400:0xd400+len(bank)]=bank
+    native.m[1]=0x34
     classes=bytes(rules['element_classes'])
     buildings=b''.join(struct.pack('<12H',*(v['health']+[v['turrets'],v['turret_offset']]))for v in rules['buildings'])
     patterns=b''.join(bytes([len(pattern)]+[v for pair in pattern for v in pair]+[0]*(8-len(pattern)*2))for group in rules['design_patterns']for pattern in group)
@@ -67,7 +69,7 @@ def verify(dos,cc65,out):
         recipe=recipe or bytes([255,0])*5
         army=army or bytes(11);alliances=alliances or bytes([1,2,4,8])
         expected,value,endseed,hi,rate=oracle.apply(op,sector,request,recipe,army,alliances)
-        for prefix,data in [('gp_sector',sector),('gp_request',request),('gp_recipe',recipe),('gp_classes',classes),('gp_buildings',buildings),('gp_patterns',patterns),('gp_groups',groups),('gp_complexity',complexity),('gp_manufacture',manufacture),('gp_research_points',research_points),('gp_technology_points',technology_points),('gp_army',army),('gp_army_rules',army_rules),('gp_defence_rules',defence_rules),('gp_alliances',alliances)]:
+        for prefix,data in [('gp_sector',sector),('gp_request',request),('gp_recipe',recipe),('gp_classes',classes),('gp_buildings',buildings),('gp_patterns',patterns),('gp_groups',groups),('gp_complexity',complexity),('gp_manufacture',manufacture),('gp_research_points',research_points),('gp_technology_points',technology_points),('gp_army',army),('gp_army_rules',army_rules),('gp_defence_rules',defence_rules),('gp_alliances',alliances),('gp_combat_rules',struct.pack('<5H',*rules['combat_rules']))]:
             arr=(ctypes.c_uint8*len(data)).in_dll(lib,prefix);arr[:]=data
             addr=labels['_'+prefix];native.m[addr:addr+len(data)]=data
         lib.gp_dispatch()
@@ -82,9 +84,9 @@ def verify(dos,cc65,out):
             if actual!=expected:
                 differences=[(hex(i),x,y)for i,(x,y)in enumerate(zip(expected,actual))if x!=y]
                 raise AssertionError(f'{backend}, op {op}, a={a}, b={b}, c={c}: sector differs: {differences[:12]}')
-            if op in [4,5,7,12,18,24,25,28] and get(req,12)!=value:
+            if op in [4,5,7,12,18,24,25,28,34] and get(req,12)!=value:
                 raise AssertionError(f'{backend}, op {op}, a={a}, seed={seed}: result {get(req,12)} != original {value}')
-            if op in [7,17,20,24,25] and get(req,10)!=endseed:raise AssertionError(f'{backend}: PRNG seed differs')
+            if op in [7,17,20,24,25,33,34,35] and get(req,10)!=endseed:raise AssertionError(f'{backend}: PRNG seed differs')
             if op in [20,28,29,30,31]:
                 if backend=='C':actual_army=bytes((ctypes.c_uint8*11).in_dll(lib,'gp_army'))
                 else:actual_army=bytes(native.m[labels['_gp_army']:labels['_gp_army']+11])
@@ -380,16 +382,46 @@ def verify(dos,cc65,out):
     sector=check(31,sector,a=5000)
     assert get(sector,0x3fe)==1 and sector[0x446]&1,'Completed tower did not claim the sector'
     assert get(sector,0x2f6)==0 and get(sector,0x404)==9,'Tower army was not demobilized correctly'
+    # Full scheduler, facility targeting and tower-loss arithmetic. Start from
+    # legal records and use the original arrival/ownership routines to construct
+    # strength caches instead of inventing inconsistent sector state.
+    for age in [0,3,6,9]:
+        base=bytearray(oracle.initialize(age*3 if age<9 else 27)[6])
+        put(base,0x418,age);put(base,0x3fe,4);base[0x448]=128
+        for k in range(4):
+            put(base,0x2f4+k*2,0);put(base,0x3f4+k*2,0)
+        army=bytearray(11);army[10]=100
+        base=check(20,base,a=0,army=army,max_age=9)
+        base=check(31,base,a=1000,max_age=9)
+        for faction in [0,1,2]:
+            army=bytearray(11);army[age if age!=8 else 7]=5+faction;army[10]=10+faction
+            base=check(20,base,a=faction,army=army,max_age=9)
+        for elapsed in [0,1,3,10,47,99]:
+            for seed in [0,1,1991,65535]:
+                check(33,base,a=elapsed,c=0,seed=seed,max_age=9,origin=27 if age==9 else 0)
+        for damage in [0,1,17,199,200,201,1000]:
+            for seed in [0,5,65535]:check(34,base,a=damage,b=1,seed=seed,max_age=9)
+        check(35,base,a=1,max_age=9)
+    for age in range(10):
+        base=bytearray(oracle.initialize(min(age*3,27))[6])
+        put(base,0x3fe,0);base[0x446]=1;base[0x448]=128
+        base[0x3b8:0x3c2]=bytes([255])*10
+        base=check(22,base,a=0,b=0,c=age)
+        check(36,base,a=0,b=0)
+        army=bytearray(11);army[age if age!=8 else 7]=3;army[10]=5
+        base=check(20,base,a=1,army=army)
+        check(37,base,a=1,human=3)
     report=dict(exe_sha256=rules['exe_sha256'],campaign_sectors_verified=448,
                 scenarios=tested,backends=['host C','native NMOS 6502'],per_opcode=per_op,
-                native_code_bytes=(out/'core.bin').stat().st_size+(out/'core.bin.low').stat().st_size,
-                native_code_regions={'0x1000':(out/'core.bin.low').stat().st_size,'0x8000':(out/'core.bin').stat().st_size},
+                native_code_bytes=(out/'core.bin').stat().st_size+(out/'core.bin.low').stat().st_size+(out/'core.bin.bank').stat().st_size,
+                native_code_regions={'0x1000':(out/'core.bin.low').stat().st_size,'0x8000':(out/'core.bin').stat().st_size,'0xd400':(out/'core.bin.bank').stat().st_size},
                 chained_scenarios=['Aloha inventors, birth ticks, research completion, resource payment, weapon inventory',
                                   'Neutral occupation, contested construction, hostile army defeated, tower completes and installs owner'],
                 source='Audited original DOS near/far routines; complete sector bytes compared',
-                limitations=['not the full engine','not integrated into the running game',
+                limitations=['C64 AI, interface and campaign allocation are native adaptations',
                              'arrival optional DOS global 0x1c78 branch not translated; verified with zero',
-                             'no full battle, AI or complete campaign-playthrough claim'])
+                             'future shutdown special branches are not covered by DOS comparisons',
+                             'rule comparisons do not establish human balance across all islands'])
     (out/'verification.json').write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps(report,indent=2))
 

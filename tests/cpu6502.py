@@ -41,10 +41,13 @@ class CPU:
   if op not in DECODER:raise AssertionError(f'invalid opcode ${op:02X} at ${pc:04X}')
   name,mode=DECODER[op];self.steps+=1
   if name=='RTI':   # NMI handlers end here (the sample player); IRQs leave through the $EA31/$EA81 shim
-   self.p=self.pop()|U;self.pc=self.pop()|(self.pop()<<8);return
+   self.p=self.pop()|U;self.pc=self.pop()|(self.pop()<<8)
+   if self.in_irq and self.s==getattr(self,'irq_return_s',-1):self.in_irq=False
+   return
   if name=='BRK':raise AssertionError(f'unsupported interrupt ${pc:04X}')
   if name=='JSR':
    addr=self.fetch16()
+   if addr in (0xffea,0xff9f):return  # KERNAL clock/keyboard scan; GETIN is injected
    if addr==0xffe4 and self.input_channel is None:
     self.a=self.nz(self.key);self.key=0;return
    if addr==0xffba:  # SETLFS - unit-test KERNAL disk shim
@@ -106,7 +109,7 @@ class CPU:
      self.set(C,True);return
     if verify:
      self.status=0x40 if bytes(self.m[start:end])==image[2:] else 0x50
-     self.set(C,False);return
+     self.x=end&255;self.y=end>>8;self.set(C,False);return
     self.m[start:end]=image[2:];self.x=end&255;self.y=end>>8;self.status=0x40;self.set(C,False);return
    ret=(self.pc-1)&65535;self.push(ret>>8);self.push(ret&255);self.pc=addr;return
   if name=='RTS':self.pc=((self.pop() |(self.pop()<<8))+1)&65535;return
@@ -209,6 +212,7 @@ class CPU:
  def fire_irq(self):
   """Emulate the 6510 + KERNAL IRQ entry ($FF48) for a raster interrupt."""
   if self.p&I or self.in_irq:return False
+  self.irq_return_s=self.s
   self.push(self.pc>>8);self.push(self.pc&255);self.push(self.p&~B&255)
   self.set(I,True)
   self.push(self.a);self.push(self.x);self.push(self.y)

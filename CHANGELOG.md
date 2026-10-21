@@ -1,5 +1,21 @@
 # Endringslogg
 
+## Native gameplay integration (21 October 2026)
+
+- Original battle scheduler, facility damage, tower loss, defence recall and
+  ordinary nuclear detonation translated; 5,115 scenarios compared with DOS
+  on host C and native 6502, plus all 448 campaign-sector initializations.
+- Playable native economy, armies/capture, defences, nuclear retaliation and
+  interception, four factions, AI difficulty, hotseat, diplomacy, victory,
+  defeat and 28-island progression. Air units cross disconnected land groups.
+- Two rotating CRC-checked saves, verified writes, newest-valid selection,
+  bounded loading and RAM rollback; disk waits excluded from simulation time.
+- Compressed code beneath I/O/KERNAL, rare-rule/audio cache sharing, safe native
+  IRQ/NMI mapping and hardware wrappers. Fixed SID writes corrupting code RAM.
+- AI, travel, starting allocation and interface are C64 adaptations. Special DOS
+  future-shutdown branches and human campaign balance remain unverified.
+  Original content and generated native D81 remain private.
+
 ## v5 recovered intro scrolling (20 October 2026)
 
 - Original DOS story order and 14 text-strip stages, with recovered 250-retrace

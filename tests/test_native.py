@@ -1,5 +1,6 @@
 """Native integration contracts, using synthetic sector and disk data only."""
 import ctypes
+import binascii
 import random
 import shutil
 import struct
@@ -34,9 +35,39 @@ class NativeHardware(unittest.TestCase):
         self.assertEqual(c.m[0x4000:0x6900],bytes([0x5a])*10496)
         self.assertEqual(c.m[2:4],b'\xff\xc3')
         self.assertEqual(c.m[0xc000:0xc400],bytes([0xa5])*1024)
-        self.assertLessEqual(self.sym['support_end'],0x2960)
+        self.assertLessEqual(self.sym['support_end'],0x2b00)
         self.assertLessEqual(self.sym['support_loader_end'],0x1000)
         self.assertEqual(c.m[0xd025],0)
+        self.assertEqual(c.m[1],0x34)
+
+    def test_playback_does_not_write_into_banked_code(self):
+        c=self.cpu;c.m[1]=0x34;c.ram_io[:]=bytes([0xa5])*4096
+        c.a=2;c.x=0;c.call(self.sym['hw_play'])
+        self.assertEqual(c.ram_io,bytes([0xa5])*4096)
+        self.assertEqual(c.m[1],0x34);self.assertEqual(c.m[self.sym['smp_left']],2)
+
+    def test_crc_and_shadow_restore_complete_snapshot(self):
+        c=self.cpu;raw=bytes((i*17+i//53)&255 for i in range(10624))
+        c.m[0x3f80:0x6900]=raw;c.m[1]=0x34
+        c.call(self.sym['hw_crc'],max_ops=3000000)
+        self.assertEqual(c.a|(c.x<<8),binascii.crc_hqx(raw,65535))
+        c.a=0;c.call(self.sym['hw_shadow'],max_ops=500000)
+        self.assertEqual(bytes(c.read(at)for at in range(0xd400,0xfd80)),raw)
+        c.m[0x3f80:0x6900]=bytes(10624)
+        c.a=1;c.call(self.sym['hw_shadow'],max_ops=500000)
+        self.assertEqual(c.m[0x3f80:0x6900],raw);self.assertEqual(c.m[1],0x34)
+
+    def test_save_rotates_two_files_and_preserves_previous_on_write_failure(self):
+        c=self.cpu;c.m[1]=0x34
+        first=bytes((i*3)&255 for i in range(10624));second=bytes((i*7)&255 for i in range(10624))
+        c.m[0x3f80:0x6900]=first;c.a=0;c.call(self.sym['hw_store']);self.assertEqual(c.a,1)
+        self.assertEqual(c.drive_files['NSAVE0'],b'\x80\x3f'+first)
+        c.m[0x3f80:0x6900]=second;c.a=1;c.call(self.sym['hw_store']);self.assertEqual(c.a,1)
+        self.assertEqual(c.drive_files['NSAVE1'],b'\x80\x3f'+second)
+        self.assertEqual(c.drive_files['NSAVE0'],b'\x80\x3f'+first)
+        c.write_protected=True;c.m[0x3f80]^=1;c.a=0;c.call(self.sym['hw_store'])
+        self.assertEqual(c.a,0);self.assertEqual(c.drive_files['NSAVE1'],b'\x80\x3f'+second)
+        self.assertEqual(c.m[1],0x34)
 
     def test_joystick_directions_and_fire_are_edge_triggered(self):
         c=self.cpu

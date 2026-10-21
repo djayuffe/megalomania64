@@ -17,6 +17,7 @@ uint8_t gp_army[11];
 uint8_t gp_army_rules[66];
 uint8_t gp_defence_rules[60];
 uint8_t gp_alliances[4];
+uint8_t gp_combat_rules[10];
 
 static uint16_t rd16(const uint8_t *p) {
     return (uint16_t)p[0] | ((uint16_t)p[1] << 8);
@@ -735,6 +736,149 @@ static void destroy_building(uint16_t kind) {
     wr16(gp_sector+0x2fc,rd16(gp_sector+0x2fc)-1);
     gp_sector[0x446]&=(uint8_t)~(1U<<kind);
 }
+#ifdef __CC65__
+#pragma code-name (push, "BATTLE")
+#endif
+#if defined(__CC65__) && defined(NATIVE_GAME)
+#pragma code-name (push, "RARE")
+#endif
+/* 1471:033C: remove a turret intact, return its weapon and crew. */
+static void recall_defence_impl(uint16_t slot,uint16_t building) {
+    uint16_t at,age,n,crew;
+    if(building>=4 || slot>=rd16(gp_buildings+building*24+20))return;
+    at=rd16(gp_buildings+building*24+22)+slot;age=gp_sector[at];if(age>=10)return;
+    defence_casualty(slot,building);at=0xfa+age*2;n=rd16(gp_sector+at)+1;
+    wr16(gp_sector+at,n>200?200:n);crew=rd16(gp_defence_rules+40+age*2);
+    wr16(gp_sector+GP_POP,rd16(gp_sector+GP_POP)+crew);set_free(rd16(gp_sector+GP_FREE)+crew);
+}
+/* CS0:6EC4 normal detonation: kill all armies, remove facilities and mark
+ * the land uninhabitable. DOS retains the old owner/population behind this flag. */
+static void nuclear_explode_impl(void) {
+    uint8_t f,age,k;
+    for(f=0;f<4;++f)for(age=0;age<11;++age)
+        while(gp_sector[0x2c8+(uint16_t)f*11+age])army_casualty(f,age);
+    for(k=1;k<4;++k)if(gp_sector[0x446]&(1<<k))destroy_building(k);
+    if(gp_sector[0x448]&32)return;
+    if(gp_sector[0x446]&1)destroy_building(0);
+    gp_sector[0x448]=(gp_sector[0x448]&127)|64;gp_sector[0x445]=1;
+}
+/* CS0:68F4: cease civilian tasks, evacuate surviving defenders and make the
+ * sector neutral. DOS uses 16-bit intermediates in its proportional transfer,
+ * including its observed zero-capacity result for armies of <=250 units. */
+static void tower_loss_impl(uint16_t attacker) {
+    uint8_t k,j,age,mask,*d;
+    uint16_t total,counts[4],count,capacity,share,n,at,crew;
+    if(attacker>=4)return;
+    if(rd16(gp_sector+0xbe)!=65535)assign_research(0,rd16(gp_sector+0xbe),rd16(gp_sector+0xc0));
+    if(rd16(gp_sector+0xd2)!=65535)assign_factory(0,rd16(gp_sector+0xd2),rd16(gp_sector+0xd4),rd16(gp_sector+0xd6));
+    for(k=0;k<4;++k) {
+        d=gp_sector+0x134+(uint16_t)k*16;at=rd16(d+12);
+        if(at<20 && gp_classes[at] && rd32(d+2)!=0xffffffffUL)assign_miners(k,0);
+    }
+    for(k=1;k<4;++k)if(rd32(gp_sector+0x6c+(uint16_t)(k-1)*24+6)!=0xffffffffUL)assign_builders(k,0);
+    for(k=0;k<4;++k)for(j=0;j<rd16(gp_buildings+(uint16_t)k*24+20);++j) {
+        at=rd16(gp_buildings+(uint16_t)k*24+22)+j;age=gp_sector[at];
+        if(age<10) {
+            defence_casualty(j,k);
+            at=0xfa+(uint16_t)age*2;n=rd16(gp_sector+at)+1;
+            wr16(gp_sector+at,n>200?200:n);
+            crew=rd16(gp_defence_rules+40+(uint16_t)age*2);
+            wr16(gp_sector+GP_POP,rd16(gp_sector+GP_POP)+crew);
+            set_free(rd16(gp_sector+GP_FREE)+crew);
+        }
+    }
+    mask=gp_alliances[attacker];total=0;
+    for(k=0;k<4;++k) {
+        counts[k]=rd16(gp_sector+0x2f4+(uint16_t)k*2);
+        if(mask&(1<<k)) {if(counts[k])total+=counts[k];else mask&=(uint8_t)~(1<<k);}
+    }
+    k=4;
+    while(k) {
+        --k;if(!(mask&(1<<k)))continue;
+        count=rd16(gp_sector+0x2f4+(uint16_t)k*2);
+        capacity=(count>250?250:count)-count;
+        share=(uint16_t)(counts[k]*1000U)/total;
+        n=(uint16_t)(share*rd16(gp_sector+GP_FREE))/1000;
+        total-=counts[k];if(capacity>n)capacity=n;
+        for(j=0;j<11;++j)gp_army[j]=0;gp_army[10]=(uint8_t)capacity;
+        army_arrive(k);set_free(rd16(gp_sector+GP_FREE)-capacity);
+        wr16(gp_sector+GP_POP,rd16(gp_sector+GP_POP)-capacity);
+    }
+    wr16(gp_sector+0x3fe,4);gp_request[20]|=1;
+}
+/* CS0:6366: pick a present facility uniformly, carry excess damage through
+ * destroyed facilities, and release the tower only when its health reaches 0. */
+static uint16_t damage_buildings_impl(uint16_t damage,uint16_t attacker) {
+    uint16_t owner,hp,at;
+    uint8_t kind;
+    if(!damage || attacker>=4 || !(gp_sector[0x446]&1) || (gp_sector[0x448]&32))return damage;
+    owner=rd16(gp_sector+0x3fe);
+    if(owner<4 && (gp_alliances[owner]&(1<<attacker)))return damage;
+    while(damage && rd16(gp_sector+0x2fc)) {
+        do {kind=(uint8_t)random_bounded(4);}while(!(gp_sector[0x446]&(1<<kind)));
+        at=0x3d6+(uint16_t)kind*2;hp=rd16(gp_sector+at);
+        if(damage<hp) {wr16(gp_sector+at,hp-damage);return 0;}
+        damage-=hp;destroy_building(kind);gp_request[20]|=2;
+        if(!kind) {tower_loss_impl(attacker);break;}
+    }
+    return damage;
+}
+#if defined(__CC65__) && defined(NATIVE_GAME)
+#pragma code-name (pop)
+extern void gp_ensure_rare(void);
+#else
+#define gp_ensure_rare() ((void)0)
+#endif
+static void recall_defence(uint16_t slot,uint16_t building) {gp_ensure_rare();recall_defence_impl(slot,building);}
+static void nuclear_explode(void) {gp_ensure_rare();nuclear_explode_impl();}
+static void tower_loss(uint16_t faction) {gp_ensure_rare();tower_loss_impl(faction);}
+static uint16_t damage_buildings(uint16_t damage,uint16_t attacker) {
+    if(!damage || !(gp_sector[0x446]&1))return damage;
+    gp_ensure_rare();return damage_buildings_impl(damage,attacker);
+}
+/* CS0:5B10: simultaneous strength snapshot, descending faction order, then
+ * army, turret and building damage budgets. Every arithmetic truncation below
+ * matches the original word-sized MUL/ADD/DIV sequence rather than wide math. */
+static uint16_t battle_scale(uint16_t power,uint16_t elapsed) {
+    uint16_t scale;
+    scale=rd16(gp_combat_rules+8);if(!scale)return 0;
+    return (uint16_t)((uint16_t)(power*elapsed)+scale-1)/scale;
+}
+static uint16_t battle_share(uint16_t budget,uint8_t pair) {
+    uint16_t first,last,percent;
+    first=rd16(gp_combat_rules+pair);last=rd16(gp_combat_rules+pair+2);
+    if(last<first)return 0;
+    percent=first+random_bounded(last-first+1);
+    return (uint16_t)((uint16_t)(budget*percent)+99)/100;
+}
+static void battle_tick(uint16_t elapsed,uint16_t first_age) {
+    uint16_t power[4],unarmed[4],damage,initial,remaining,part,unarmed_left;
+    uint8_t faction;
+    for(faction=0;faction<4;++faction) {
+        power[faction]=rd16(gp_sector+0x3f4+(uint16_t)faction*2);
+        unarmed[faction]=rd16(gp_sector+0x374+(uint16_t)faction*22);
+    }
+    faction=4;
+    while(faction) {
+        --faction;if(!(gp_request[30]&(1<<faction)) || !power[faction] || power[faction]>=32768)continue;
+        damage=battle_scale(power[faction],elapsed);if(!damage)continue;
+        initial=damage;unarmed_left=battle_scale(unarmed[faction],elapsed);
+        if(rd16(gp_sector+0x3fe)==faction) {damage_armies(damage,faction,first_age);continue;}
+        part=battle_share(damage,0);remaining=damage_armies(part,faction,first_age);
+        damage=damage-part+remaining;
+        part=battle_share(damage,4);remaining=damage_defences(part,faction);
+        damage=damage-part+remaining;
+        if(rd16(gp_request+24)!=27) {
+            unarmed_left-=(uint16_t)((uint16_t)((initial-damage)*unarmed_left)/initial);
+            damage-=unarmed_left;
+        }
+        damage_buildings(damage,faction);
+    }
+    choose_tower_builders();
+}
+#ifdef __CC65__
+#pragma code-name (pop)
+#endif
 void gp_dispatch(void) {
     uint16_t a,b,c,n;
     a=rd16(gp_request+2);b=rd16(gp_request+4);c=rd16(gp_request+6);
@@ -782,5 +926,10 @@ void gp_dispatch(void) {
     case 30:claim_tower(a);break;
     case 31:tower_tick(a);break;
     case 32:destroy_building(b);break;
+    case 33:battle_tick(a,c);break;
+    case 34:wr16(gp_request+12,damage_buildings(a,b));break;
+    case 35:tower_loss(a);break;
+    case 36:recall_defence(a,b);break;
+    case 37:nuclear_explode();break;
     }
 }

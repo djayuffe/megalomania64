@@ -65,7 +65,7 @@ def extract(data):
                 raise ValueError('invalid design requirement')
             ages.append(requirements)
         patterns.append(ages)
-    return dict(exe_sha256=EXE_SHA256,islands=islands,element_classes=classes,
+    return dict(exe_sha256=EXE_SHA256,islands=islands,element_classes=classes,combat_rules=list(struct.unpack('<5H',block(0x45a2,10))),
                 buildings=[dict(health=list(struct.unpack('<10H',block(word(0x4c26+kind*2),20))),
                                 turrets=word(0x4b62+kind*2),turret_offset=word(0x2ce4+kind*2))for kind in range(4)],
                 army_rules=dict(health=list(struct.unpack('<11H',block(0x4b92,22))),
