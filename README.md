@@ -11,8 +11,11 @@ four-part MOD scores arranged for SID, and original island-entry tiles. Generate
 original content remains in the owner's local recovery folder. See
 [the evidence and build instructions](docs/REVERSE_ENGINEERING_V5.md).
 
-The gameplay is still the fan engine: original campaign terrain, research,
-production, combat, AI and balance have not been faithfully converted. This is an
+The running disk's gameplay is still the fan engine. A separate native 6502
+rules module now implements and differentially verifies original population,
+mining, construction, research and manufacturing. It is not integrated into the
+playable disk yet; combat, AI and the full campaign remain to be ported. See
+[gameplay progress and verification](docs/GAMEPLAY_PORT.md). This is an
 unfinished development build, not a completed original-game port. Sections below
 describe historical v4 releases and their limitations at that time.
 
