@@ -46,6 +46,7 @@ class GameplayCoreTest(unittest.TestCase):
         self.buffers['recipe'][:] = bytes([255, 0] * 5)
         self.buffers['classes'][:] = bytes([0] * 4 + [1] * 4 + [2] * 12)
         self.buffers['alliances'][:] = bytes([1, 2, 4, 8])
+        self.s[0x3b8:0x3c2] = bytes([255] * 10)
         for age in range(11):
             self.write('army_rules', age * 2, 10 + age)
             self.write('army_rules', 22 + age * 2, 1 + age)
@@ -55,6 +56,8 @@ class GameplayCoreTest(unittest.TestCase):
             self.write('defence_rules', 20 + age * 2, 2 + age)
             self.write('defence_rules', 40 + age * 2, 0 if age >= 8 else 1)
         for building, (turrets, offset) in enumerate([(4, 0x3b8), (2, 0x3bc), (1, 0x3be), (3, 0x3bf)]):
+            for age in range(10):
+                self.write('buildings', building * 24 + age * 2, 100 + age * 10)
             self.write('buildings', building * 24 + 20, turrets)
             self.write('buildings', building * 24 + 22, offset)
         for slot in range(4):
@@ -324,6 +327,84 @@ class GameplayCoreTest(unittest.TestCase):
         self.word(0x174, 20)
         self.run_rule(26)
         self.assertEqual(self.read(0x142), 20)
+
+    def test_extracting_an_army_preserves_defender_strength(self):
+        self.word(0xa, 65535)
+        self.s[0x2c8 + 4] = 2
+        self.word(0x2f4, 2)
+        self.word(0x368, 10)
+        self.word(0x310, 4)
+        self.word(0x3f4, 12)
+        self.assertEqual(self.run_rule(28, a=0), 2)
+        self.assertEqual(self.buffers['army'][4], 2)
+        self.assertEqual(self.s[0x2c8 + 4], 0)
+        self.assertEqual(self.read(0x310), 0)
+        self.assertEqual(self.read(0x368), 0)
+        self.assertEqual(self.read(0x3f4), 2)
+
+    def test_demobilization_caps_inventory_and_population_independently(self):
+        self.word(0x404, 990)
+        self.word(0x406, 10)
+        self.buffers['army'][4] = 250
+        self.buffers['army'][10] = 100
+        self.run_rule(29)
+        self.assertEqual(self.read(0x116), 200)
+        self.assertEqual(self.read(0x404), 998)
+        self.assertEqual(self.read(0x406), 18)
+        self.assertEqual(self.buffers['army'][4], 250)
+
+    def test_completed_tower_claims_land_and_demobilizes_its_army(self):
+        self.word(0x3fe, 4)
+        self.word(0xa, 65535)
+        self.buffers['army'][10] = 10
+        self.run_rule(20, a=1)
+        self.run_rule(31, a=4799)
+        self.assertEqual(self.read(0x3fe), 4)
+        self.run_rule(31, a=1)
+        self.assertEqual(self.read(0x3fe), 1)
+        self.assertEqual(self.read(0x404), 9)
+        self.assertEqual(self.read(0x406), 9)
+        self.assertEqual(self.read(0x2f6), 0)
+        self.assertEqual(self.read(0xa), 65535)
+        self.assertEqual(self.read(0x3d6), 100)
+        self.assertEqual(self.s[0x446] & 1, 1)
+        for faction in range(4):
+            self.assertEqual(self.read(12 + faction * 24 + 6, 4), 0xffffffff)
+
+    def test_factory_destruction_kills_workers_without_returning_them(self):
+        self.word(0x404, 100)
+        self.word(0x406, 50)
+        self.word(0x2fc, 1)
+        self.s[0x446] = 8
+        self.word(0xd2, 2)
+        self.word(0xd4, 4)
+        self.word(0xd8, 30)
+        self.word(0xe2, 29)
+        self.dword(0xda, 9000)
+        self.run_rule(32, b=3)
+        self.assertEqual(self.read(0x404), 70)
+        self.assertEqual(self.read(0x406), 50)
+        self.assertEqual(self.read(0xd2), 65535)
+        self.assertEqual(self.read(0xda, 4), 0xffffffff)
+        self.assertEqual(self.read(0xe2), 29)
+        self.assertEqual(self.s[0x446], 0)
+
+    def test_destroyed_mine_kills_only_active_deep_miners(self):
+        self.word(0x404, 100)
+        self.word(0x406, 50)
+        self.word(0x2fc, 1)
+        self.s[0x446] = 2
+        for slot, element in [(0, 8), (1, 4)]:
+            self.word(0x134 + slot * 16, 5)
+            self.word(0x140 + slot * 16, element)
+            self.dword(0x136 + slot * 16, 3000)
+        self.run_rule(32, b=1)
+        self.assertEqual(self.read(0x404), 95)
+        self.assertEqual(self.read(0x406), 50)
+        self.assertEqual(self.read(0x134), 0)
+        self.assertEqual(self.read(0x144), 5)
+        self.assertEqual(self.read(0x136, 4), 0xffffffff)
+        self.assertEqual(self.read(0x146, 4), 3000)
 
 
 if __name__ == '__main__':

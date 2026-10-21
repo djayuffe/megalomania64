@@ -36,6 +36,9 @@ where relevant.
 | Random enemy-army targeting and damage resolution | `0000:5E55` |
 | Random turret targeting and damage resolution | `0000:6154` |
 | Gatherable-resource reconciliation and conversion tick | `11B9:108C`, `0D24:2336` |
+| Whole-army extraction and demobilization | `11B9:1E18`, `11B9:1F93` |
+| Tower completion and ownership installation | `0000:CD19`, `0000:5A9F` |
+| Building removal and worker casualties | `0000:670B` |
 
 The original population cap is 998. Worker productivity subtracts one worker for
 every 32 assigned. Mining deposits and construction/research/manufacturing tasks
@@ -82,13 +85,24 @@ technology dates, health tables and research/manufacturing tables. Original game
 tables remain in the owner's private recovery folder.
 
 The latest local run checked **448 campaign-sector initializations** for terrain,
-owner, age, stock and active land deposits, plus **4,038 complete-sector rule
-scenarios on both native backends**. The linked 6502 module is **14,328 bytes**.
+owner, age, stock and active land deposits, plus **4,871 complete-sector rule
+scenarios on both native backends**. The linked 6502 module is **16,272 bytes**
+(3,747 at `$1000` and 12,525 at `$8000`).
 The chained Aloha scenario allocates inventors, advances population and research,
 finishes an actual recovered design, pays its resource cost and inventories an
 early-age weapon. A second chain contests a neutral sector with two armies,
-defeats the hostile army, and verifies that tower construction resumes without
-changing ownership. These are not full battles, islands or campaign playthroughs.
+defeats the hostile army, resumes construction, and verifies the completed
+tower's ownership and demobilized army. These are not full battles, islands or
+campaign playthroughs.
+
+Tower completion now installs the owner, returns the occupying army's weapons
+to inventory and its crews to the population, then removes one idle person
+from both population counts, as the original does. Inventory and population caps apply
+independently. All factions' construction timers are cleared. Building removal
+destroys its defenders and kills affected workers instead of returning them to
+idle population: active deep miners in a mine, inventors on age-6-or-later
+research in a lab, and workers manufacturing age-4-or-later items in a factory.
+Original stale rates behind disabled task timers are preserved.
 
 Unused fields in the original initializer are not assumed to be zero. In
 particular, sea sectors may retain stale deposit quantities after reinitializing
@@ -113,7 +127,7 @@ python3 tools/verify_gameplay.py \
   --out /absolute/path/outside/the/checkout/gameplay-verification
 ```
 
-Output includes the raw module, load-addressed PRG, linker map/labels, host
+Output includes the raw code regions, two load-addressed PRGs, linker map/labels, host
 library and `verification.json`. A failed verification removes any previous
 success report. Output derived from the original must stay outside the checkout.
 The audited executable SHA-256 is
@@ -122,10 +136,14 @@ The local cc65 build used revision `8d86ca7`.
 
 ## Development ABI
 
-This verification build links code at `$8000`, state at `$5000`, and the cc65
-software stack below `$C400`. `gp_run` initializes that stack and calls
-`gp_dispatch`. This layout is **for verification**, and overlaps the current
-game's resident audio/data layout. Loading it over the running game is unsafe.
+This verification build links resident code in two regions: `$1000–$2FFF` for
+military primitives and `$8000–$BFFF` for the remaining routines and compiler
+helpers. State starts at `$5000`; the cc65 software stack is below `$C400`.
+Both `core-low.prg` and `core.prg` must be loaded before calling `gp_run`, which
+initializes that stack and calls `gp_dispatch`. Calls between the two code
+regions are ordinary resident calls; there is no disk access per rule call.
+This layout is **for verification**, and overlaps the current game's resident
+code and audio/data layout. Loading it over the running game is unsafe.
 
 The byte arrays use explicit little-endian access. `gp_sector` retains the DOS
 record layout so original state transitions can be compared without an adapter.
@@ -166,11 +184,18 @@ unused damage at offset 12. Incoming units and unaccepted remainders use
 tables and diplomacy. This module does not yet provide the command-validation layer.
 Operations 26 and 27 reconcile gatherable stocks and tick their conversion,
 respectively. Operation 27 also performs reconciliation after the tick.
+Operation 28 extracts the faction given at offset 2 into `gp_army` and returns
+its unit count. Operation 29 demobilizes `gp_army` into the current tower.
+Operation 30 installs the owner given at offset 2 and demobilizes that army;
+operation 31 ticks the selected neutral tower's construction. Operation 32
+removes the building kind given at offset 4, including defenders and affected
+workers. It is the removal primitive; the full tower-loss redistribution and
+battle damage-budget scheduler are not implemented yet.
 
 ## Remaining work before a full gameplay port
 
-- Finish equipment assembly and movement, building damage/destruction, the
-  complete combat scheduler, capture, alliance commands, computer decisions
+- Finish equipment assembly and movement, building-damage targeting and
+  tower-loss redistribution, the complete combat scheduler, alliance commands, computer decisions
   and nuclear interactions. Army/turret damage primitives are implemented;
   a complete battle has not been ported.
 - Finish whole-world scheduling and connect the verified gatherable update.
@@ -185,7 +210,7 @@ respectively. Operation 27 also performs reconciliation after the tick.
 The default build and the existing full-content disk remain the intro/audio
 development build described in `REVERSE_ENGINEERING_V5.md`.
 
-The next original entry points to translate are tower completion at `0000:CD19`
-(ownership setup at `0000:5A9F`), building damage at `0000:6366`, and the full
-combat damage-budget scheduler at `0000:5B10`. These have been located but are
-not implemented by this module.
+The next original entry points to translate are building damage at `0000:6366`,
+tower-loss redistribution at `0000:68F4`, and the full combat damage-budget
+scheduler at `0000:5B10`. These have been located but are not implemented by
+this module.

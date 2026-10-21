@@ -401,6 +401,9 @@ static void assign_research(uint16_t men,uint16_t category,uint16_t age) {
     wr32(gp_sector+0xc6,150UL*(uint16_t)(rd16(gp_sector+0xc2)*10U));
     wr16(gp_sector+0xce,worker_rate(men));
 }
+#ifdef __CC65__
+#pragma code-name (push, "LOWCODE")
+#endif
 /* 0D24:0F91: weapon units and the people crewing them are different counts. */
 static uint16_t army_men(const uint8_t *army) {
     uint16_t men;
@@ -589,6 +592,9 @@ static uint16_t damage_defences(uint16_t damage,uint16_t attacker) {
     }
     return damage;
 }
+#ifdef __CC65__
+#pragma code-name (pop)
+#endif
 /* 11B9:108C: gatherables keep total stock separately from the deposit's
  * remaining raw material. Spending can reduce that remaining amount directly.
  * A small gathered buffer selects a fast, slow or stopped conversion rate. */
@@ -633,6 +639,102 @@ static void gathering_tick(uint16_t elapsed) {
     }
     reconcile_gatherables();
 }
+/* 11B9:1E18: remove a whole faction's army into the caller's transfer
+ * buffer, including clearing its front-unit health and cached strength. */
+static uint16_t extract_army(uint16_t faction) {
+    uint8_t age;
+    uint16_t power,count,at;
+    if(faction>=4)return 0;
+    power=0;
+    for(age=0;age<11;++age) {
+        at=0x2c8+faction*11+age;
+        gp_army[age]=gp_sector[at];gp_sector[at]=0;
+        at=0x360+faction*22+(uint16_t)age*2;
+        power+=rd16(gp_sector+at);wr16(gp_sector+at,0);
+        wr16(gp_sector+0x308+faction*22+(uint16_t)age*2,0);
+    }
+    count=rd16(gp_sector+0x2f4+faction*2);wr16(gp_sector+0x2f4+faction*2,0);
+    wr16(gp_sector+0x3f4+faction*2,rd16(gp_sector+0x3f4+faction*2)-power);
+    choose_tower_builders();return count;
+}
+/* 11B9:1F93: demobilize crews into the tower and weapons into inventory.
+ * Inventory limits and the population cap are applied independently. */
+static void return_army(void) {
+    uint8_t age;
+    uint16_t n,men;
+    for(age=0;age<10;++age) {
+        n=rd16(gp_sector+GP_INVENTORY+40+(uint16_t)age*2)+gp_army[age];
+        if(n>200)n=200;
+        wr16(gp_sector+GP_INVENTORY+40+(uint16_t)age*2,n);
+    }
+    men=army_men(gp_army);
+    n=rd16(gp_sector+GP_POP)+men;
+    if(n>998)men=998-rd16(gp_sector+GP_POP);
+    wr16(gp_sector+GP_POP,rd16(gp_sector+GP_POP)+men);
+    set_free(rd16(gp_sector+GP_FREE)+men);
+}
+/* CS0:5A9F: install the owner, demobilize its army, then remove the one
+ * person consumed by establishing the tower, if an idle person is available. */
+static void claim_tower(uint16_t faction) {
+    if(faction>=4)return;
+    wr16(gp_sector+0x3fe,faction);
+    extract_army(faction);return_army();
+    if(rd16(gp_sector+GP_FREE)) {
+        set_free(rd16(gp_sector+GP_FREE)-1);
+        wr16(gp_sector+GP_POP,rd16(gp_sector+GP_POP)-1);
+    }
+}
+/* CS0:CD19: ownership changes only after the selected army completes its
+ * tower. All factions' construction timers are then disabled and cleared. */
+static void tower_tick(uint16_t elapsed) {
+    uint16_t faction,rate;
+    uint32_t deadline,progress;
+    uint8_t *d,i;
+    faction=rd16(gp_sector+10);
+    if(faction>=4)return;
+    d=gp_sector+12+faction*24;deadline=rd32(d+6);rate=rd16(d+14);
+    if(deadline==0xffffffffUL || !rate)return;
+    progress=rd32(d+10)+(uint32_t)elapsed*rate;wr32(d+10,progress);
+    if(progress<deadline)return;
+    complete_building(0);claim_tower(faction);wr16(gp_sector+10,0xffff);
+    for(i=0;i<4;++i) {
+        d=gp_sector+12+(uint16_t)i*24;
+        wr32(d+10,0);wr16(d+14,0);wr32(d+6,0xffffffffUL);wr16(d+4,0);
+    }
+    gp_request[20]=1;
+}
+/* CS0:670B: remove a building's defenders and workers. Destruction kills
+ * workers; it does not release them to the idle population. Task rates and
+ * old health can remain stale behind their disabled timers, as in DOS. */
+static void destroy_building(uint16_t kind) {
+    uint16_t slot,offset,element;
+    uint8_t *d;
+    if(kind>=4)return;
+    slot=rd16(gp_buildings+kind*24+20);offset=rd16(gp_buildings+kind*24+22);
+    while(slot) {
+        --slot;
+        if(gp_sector[offset+slot]!=255)defence_casualty(slot,kind);
+    }
+    if(kind==2 && rd16(gp_sector+0xbe)!=0xffff && rd16(gp_sector+0xc0)>=6) {
+        wr16(gp_sector+GP_POP,rd16(gp_sector+GP_POP)-rd16(gp_sector+0xc4));
+        wr16(gp_sector+0xc4,0);wr16(gp_sector+0xbe,0xffff);
+        wr32(gp_sector+0xca,0);wr32(gp_sector+0xc6,0xffffffffUL);
+    }
+    if(kind==3 && rd16(gp_sector+0xd2)!=0xffff && rd16(gp_sector+0xd4)>=4) {
+        wr16(gp_sector+GP_POP,rd16(gp_sector+GP_POP)-rd16(gp_sector+0xd8));
+        wr16(gp_sector+0xd8,0);wr16(gp_sector+0xd2,0xffff);
+        wr32(gp_sector+0xde,0);wr32(gp_sector+0xda,0xffffffffUL);wr16(gp_sector+0xe4,0);
+    }
+    if(kind==1)for(slot=0;slot<4;++slot) {
+        d=gp_sector+GP_DEPOSITS+slot*16;element=rd16(d+12);
+        if(element<20 && gp_classes[element]==2 && rd32(d+2)!=0xffffffffUL) {
+            wr16(gp_sector+GP_POP,rd16(gp_sector+GP_POP)-rd16(d));
+            wr16(d,0);wr32(d+6,0);wr32(d+2,0xffffffffUL);
+        }
+    }
+    wr16(gp_sector+0x2fc,rd16(gp_sector+0x2fc)-1);
+    gp_sector[0x446]&=(uint8_t)~(1U<<kind);
+}
 void gp_dispatch(void) {
     uint16_t a,b,c,n;
     a=rd16(gp_request+2);b=rd16(gp_request+4);c=rd16(gp_request+6);
@@ -675,5 +777,10 @@ void gp_dispatch(void) {
     case 25:wr16(gp_request+12,damage_defences(a,b));break;
     case 26:reconcile_gatherables();break;
     case 27:gathering_tick(a);break;
+    case 28:wr16(gp_request+12,extract_army(a));break;
+    case 29:return_army();break;
+    case 30:claim_tower(a);break;
+    case 31:tower_tick(a);break;
+    case 32:destroy_building(b);break;
     }
 }

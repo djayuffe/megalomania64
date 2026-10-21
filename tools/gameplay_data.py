@@ -86,6 +86,8 @@ def extract(data):
                     worker_rate='11B9:11E8',population_tick='11B9:1487',mining_tick='11B9:1678',
                     gathering_reconcile='11B9:108C',gathering_tick='0D24:2336',
                     army_arrival='1A17:165F',army_damage='0000:5E55',turret_damage='0000:6154',
+                    army_extract='11B9:1E18',army_return='11B9:1F93',tower_completion='0000:CD19',
+                    ownership_install='0000:5A9F',building_removal='0000:670B',
                     research_tick_file='0xdf50',manufacture_tick_file='0xe420'))
 
 

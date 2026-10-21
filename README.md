@@ -13,7 +13,8 @@ original content remains in the owner's local recovery folder. See
 
 The running disk's gameplay is still the fan engine. A separate native 6502
 rules module now implements and differentially verifies original population,
-mining, construction, research, manufacturing, armies and turret damage. It is
+mining, construction, research, manufacturing, armies, tower capture, building
+removal and turret damage. It is
 not integrated into the playable disk yet; complete battles, AI and the full
 campaign remain to be ported. See
 [gameplay progress and verification](docs/GAMEPLAY_PORT.md). This is an

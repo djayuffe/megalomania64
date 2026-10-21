@@ -36,6 +36,7 @@ def build(cc65,out):
     run([cc65/'bin/ld65','-C',ROOT/'src/gameplay/core.cfg','-m',out/'core.map','-Ln',out/'core.lbl','-o',out/'core.bin',out/'core.o',out/'entry.o',cc65/'lib/none.lib'])
     run(['clang','-O2','-shared','-fPIC','-o',out/'core.dylib',ROOT/'src/gameplay/core.c'])
     (out/'core.prg').write_bytes(b'\x00\x80'+(out/'core.bin').read_bytes())
+    (out/'core-low.prg').write_bytes(b'\x00\x10'+(out/'core.bin.low').read_bytes())
     labels={line.split()[2].lstrip('.'):int(line.split()[1],16) for line in (out/'core.lbl').read_text().splitlines() if line.startswith('al ')}
     return labels
 
@@ -47,6 +48,7 @@ def verify(dos,cc65,out):
     rules=extract((dos/'MEGA.EXE').read_bytes());oracle=Oracle(dos,out/'oracle')
     labels=build(cc65,out);lib=ctypes.CDLL(str((out/'core.dylib').resolve()))
     native=CPU(out/'core.prg');rng=random.Random(0x1991)
+    low=(out/'core.bin.low').read_bytes();native.m[0x1000:0x1000+len(low)]=low
     classes=bytes(rules['element_classes'])
     buildings=b''.join(struct.pack('<12H',*(v['health']+[v['turrets'],v['turret_offset']]))for v in rules['buildings'])
     patterns=b''.join(bytes([len(pattern)]+[v for pair in pattern for v in pair]+[0]*(8-len(pattern)*2))for group in rules['design_patterns']for pattern in group)
@@ -80,14 +82,14 @@ def verify(dos,cc65,out):
             if actual!=expected:
                 differences=[(hex(i),x,y)for i,(x,y)in enumerate(zip(expected,actual))if x!=y]
                 raise AssertionError(f'{backend}, op {op}, a={a}, b={b}, c={c}: sector differs: {differences[:12]}')
-            if op in [4,5,7,12,18,24,25] and get(req,12)!=value:
+            if op in [4,5,7,12,18,24,25,28] and get(req,12)!=value:
                 raise AssertionError(f'{backend}, op {op}, a={a}, seed={seed}: result {get(req,12)} != original {value}')
             if op in [7,17,20,24,25] and get(req,10)!=endseed:raise AssertionError(f'{backend}: PRNG seed differs')
-            if op==20:
+            if op in [20,28,29,30,31]:
                 if backend=='C':actual_army=bytes((ctypes.c_uint8*11).in_dll(lib,'gp_army'))
                 else:actual_army=bytes(native.m[labels['_gp_army']:labels['_gp_army']+11])
                 if actual_army!=oracle.army:raise AssertionError(f'{backend}: unaccepted army differs')
-                if not army[8] and not sector[0x448]&64 and get(req,12)!=oracle.army_left:
+                if op==20 and not army[8] and not sector[0x448]&64 and get(req,12)!=oracle.army_left:
                     raise AssertionError(f'{backend}: unaccepted unit count differs')
             if op==12:
                 if backend=='C':actual_recipe=bytes((ctypes.c_uint8*10).in_dll(lib,'gp_recipe'))
@@ -302,6 +304,49 @@ def verify(dos,cc65,out):
             put32(sector,0x13a,1234);put(sector,0x13e,126 if left else 0)
             sector=check(26,sector)
             for elapsed in [0,1,25,1000]:check(27,sector,a=elapsed)
+    for faction in range(4):
+        for case in range(12):
+            sector=bytearray(SECTOR_BYTES);put(sector,0x3fe,4);put(sector,0xa,65535)
+            put(sector,0x404,[0,100,990,998][case%4]);put(sector,0x406,[0,50,400][case%3])
+            total=0;power=0;army=bytearray(11)
+            for age in [0,4,6,9,10]:
+                count=rng.randrange(1,12);army[age]=count;total+=count
+                sector[0x2c8+faction*11+age]=count
+                strength=count*rules['army_rules']['strength'][age];power+=strength
+                put(sector,0x360+faction*22+age*2,strength)
+                put(sector,0x308+faction*22+age*2,rules['army_rules']['health'][age])
+                if age<10:put(sector,0x10e+age*2,199 if case%2 else 0)
+            put(sector,0x2f4+faction*2,total);put(sector,0x3f4+faction*2,power)
+            check(28,sector,a=faction)
+            check(29,sector,army=army)
+            check(30,sector,a=faction)
+    for faction in range(4):
+        for age in range(10):
+            for elapsed in [0,1,1000,5000]:
+                sector=bytearray(oracle.initialize(min(age*3,27))[6])
+                put(sector,0x418,age);put(sector,0x3fe,4);put(sector,0xa,faction)
+                d=12+faction*24
+                put(sector,d+4,10);put32(sector,d+6,48000);put32(sector,d+10,47990);put(sector,d+14,10)
+                sector[0x2c8+faction*11+10]=10;put(sector,0x2f4+faction*2,10)
+                put(sector,0x308+faction*22+20,rules['army_rules']['health'][10])
+                put(sector,0x360+faction*22+20,10);put(sector,0x3f4+faction*2,10)
+                check(31,sector,a=elapsed)
+    for kind in range(4):
+        for case in range(12):
+            sector=bytearray(SECTOR_BYTES);put(sector,0x3fe,case%4);put(sector,0x404,200);put(sector,0x406,50)
+            sector[0x446]=15;sector[0x447]=15;put(sector,0x2fc,4)
+            sector[0x3b8:0x3c2]=bytes([255]*10)
+            for building in range(4):
+                for slot in range(rules['buildings'][building]['turrets']):
+                    sector=check(22,sector,a=slot,b=building,c=case%10)
+            for slot,element in enumerate([0,4,8,19]):
+                d=0x134+slot*16;put(sector,d,5);put(sector,d+12,element);put(sector,d+14,100)
+                put32(sector,d+2,0xffffffff if case==9 else 3000);put32(sector,d+6,1234);put(sector,d+10,5)
+            put(sector,0xbe,65535 if case==10 else 2);put(sector,0xc0,case%10);put(sector,0xc4,20)
+            put32(sector,0xc6,15000);put32(sector,0xca,1234);put(sector,0xce,20)
+            put(sector,0xd2,65535 if case==11 else 2);put(sector,0xd4,case%10);put(sector,0xd8,30)
+            put32(sector,0xda,9000);put32(sector,0xde,1234);put(sector,0xe2,30);put(sector,0xe4,1)
+            check(32,sector,b=kind)
     # A persistent Aloha sector: allocate inventors, finish an actual design,
     # then pay for and inventory an early-age weapon. Every step passes through
     # both native backends and is compared with the executed original code.
@@ -332,11 +377,15 @@ def verify(dos,cc65,out):
     assert get(sector,0x2f8)==0,'Hostile army survived the chained damage scenario'
     sector=check(21,sector)
     assert get(sector,0xa)==1 and get(sector,0x3fe)==4,'Construction did not resume on neutral land'
+    sector=check(31,sector,a=5000)
+    assert get(sector,0x3fe)==1 and sector[0x446]&1,'Completed tower did not claim the sector'
+    assert get(sector,0x2f6)==0 and get(sector,0x404)==9,'Tower army was not demobilized correctly'
     report=dict(exe_sha256=rules['exe_sha256'],campaign_sectors_verified=448,
                 scenarios=tested,backends=['host C','native NMOS 6502'],per_opcode=per_op,
-                native_code_bytes=(out/'core.bin').stat().st_size,
+                native_code_bytes=(out/'core.bin').stat().st_size+(out/'core.bin.low').stat().st_size,
+                native_code_regions={'0x1000':(out/'core.bin.low').stat().st_size,'0x8000':(out/'core.bin').stat().st_size},
                 chained_scenarios=['Aloha inventors, birth ticks, research completion, resource payment, weapon inventory',
-                                  'Neutral occupation, contested construction, hostile army defeated, construction resumes'],
+                                  'Neutral occupation, contested construction, hostile army defeated, tower completes and installs owner'],
                 source='Audited original DOS near/far routines; complete sector bytes compared',
                 limitations=['not the full engine','not integrated into the running game',
                              'arrival optional DOS global 0x1c78 branch not translated; verified with zero',

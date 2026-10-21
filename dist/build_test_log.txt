@@ -155,10 +155,15 @@ test_army_men_include_weapon_crews (test_gameplay_core.GameplayCoreTest) ... ok
 test_arrival_fills_capacity_with_high_age_units_first (test_gameplay_core.GameplayCoreTest) ... ok
 test_arriving_army_starts_construction_without_capturing_land (test_gameplay_core.GameplayCoreTest) ... ok
 test_birth_uses_idle_population_and_stops_at_cap (test_gameplay_core.GameplayCoreTest) ... ok
+test_completed_tower_claims_land_and_demobilizes_its_army (test_gameplay_core.GameplayCoreTest) ... ok
 test_damage_skips_allies_and_returns_unspent_damage (test_gameplay_core.GameplayCoreTest) ... ok
+test_demobilization_caps_inventory_and_population_independently (test_gameplay_core.GameplayCoreTest) ... ok
 test_deposit_exhaustion_returns_workers_once (test_gameplay_core.GameplayCoreTest) ... ok
+test_destroyed_mine_kills_only_active_deep_miners (test_gameplay_core.GameplayCoreTest) ... ok
 test_destroying_a_turret_removes_crew_and_strength (test_gameplay_core.GameplayCoreTest) ... ok
 test_enemy_arrival_contests_neutral_construction (test_gameplay_core.GameplayCoreTest) ... ok
+test_extracting_an_army_preserves_defender_strength (test_gameplay_core.GameplayCoreTest) ... ok
+test_factory_destruction_kills_workers_without_returning_them (test_gameplay_core.GameplayCoreTest) ... ok
 test_factory_pays_each_unit_and_releases_workers (test_gameplay_core.GameplayCoreTest) ... ok
 test_gatherable_buffer_selects_fast_slow_and_stopped_rates (test_gameplay_core.GameplayCoreTest) ... ok
 test_gathering_converts_raw_material_without_increasing_total_stock (test_gameplay_core.GameplayCoreTest) ... ok
@@ -257,8 +262,8 @@ test_music_tables_are_in_sid_range (test_tools.Tools) ... ok
 test_package_is_reproducible_and_complete (test_tools.Tools) ... ok
 
 ----------------------------------------------------------------------
-Ran 257 tests in 174.171s
+Ran 262 tests in 173.408s
 
 OK
-MegaLoMania64_v5.0.0-dev_Source.zip: 370776 bytes, sha256 60374bc1c0b75855be24eb1625f477bf5f7acf95a5859f41c4ce439ed4d1cd9c
-MegaLoMania64_v5.0.0-dev_Source.zip: 370776 bytes, sha256 60374bc1c0b75855be24eb1625f477bf5f7acf95a5859f41c4ce439ed4d1cd9c
+MegaLoMania64_v5.0.0-dev_Source.zip: 373721 bytes, sha256 67d05c6fd154c6784efa5d8de8ee4ba5d75ebc664817b66091eeae009735bb56
+MegaLoMania64_v5.0.0-dev_Source.zip: 373721 bytes, sha256 67d05c6fd154c6784efa5d8de8ee4ba5d75ebc664817b66091eeae009735bb56
