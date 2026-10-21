@@ -26,6 +26,10 @@ extern uint8_t gp_complexity[14];
 extern uint8_t gp_manufacture[14];
 extern uint8_t gp_research_points[12];
 extern uint8_t gp_technology_points[20];
+extern uint8_t gp_army[11]; /* incoming units, mutated to unaccepted remainder */
+extern uint8_t gp_army_rules[66]; /* 11 health, strength and crew-count words */
+extern uint8_t gp_defence_rules[60]; /* ten health, strength, crew-count words */
+extern uint8_t gp_alliances[4]; /* faction bitsets, including the faction itself */
 /* request: opcode byte0, elapsed/argument word2, slot/kind word4, age word6,
  * count word8, seed word10; result word12; task base word14, scale word16. */
 void gp_dispatch(void);

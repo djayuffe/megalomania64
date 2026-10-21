@@ -33,10 +33,14 @@ class Oracle:
         self.word(0x1c64,island);self.word(0x1c6c,age);self.word(0x1c6e,min(age+3,9));self.word(0x99f0,age)
         self.call(0x1a17,0x964)
         return [bytes(self.u.mem_read(self.base+SECTOR_BASE+i*SECTOR_BYTES,SECTOR_BYTES))for i in range(16)]
-    def apply(self,opcode,sector,request,recipe):
+    def apply(self,opcode,sector,request,recipe,army=None,alliances=None):
         self.u.mem_write(self.base+SECTOR_BASE,bytes(sector))
         self.u.mem_write(self.base+0x4a00,bytes(recipe))
         self.u.mem_write(self.base+0x4982,bytes(recipe))
+        self.u.mem_write(self.base+0x4a20,bytes(army or bytes(11)))
+        self.u.mem_write(self.base+0x9c,bytes(alliances or bytes([1,2,4,8])))
+        self.word(0x2d16,struct.unpack_from('<H',request,30)[0])
+        self.word(0x1c78,0)
         self.word(0x9a10,SECTOR_BASE)
         self.word(0x99f0,struct.unpack_from('<H',request,2)[0])
         self.word(0x99f2,0)
@@ -50,11 +54,19 @@ class Oracle:
         entries=[(0xd24,0x2890),(0x11b9,0x1487),(0x11b9,0x1378),(0x11b9,0x1678),
                  (0xd24,0x2af1),(0xd24,0x2bd5),(0xd24,0x2def),(0x11b9,0xeb1),(0x11b9,0x11e8),
                  (0xd24,0x194b),(0x11b9,0x15d8),(0x11b9,0x183e),(0x1a17,0x599),
-                 (0x1471,0x187),(0,0xce20),(0,0xc950),(0xd24,0x13d7),(0x1471,0)]
+                 (0x1471,0x187),(0,0xce20),(0,0xc950),(0xd24,0x13d7),(0x1471,0),
+                 (0xd24,0xf91),(0x1471,0xfcd),(0x1a17,0x165f),(0x1471,0x5de),
+                 (0xd24,0x1bcd),(0xd24,0xe4e),(0,0x5e55),(0,0x6154),
+                 (0x11b9,0x108c),(0xd24,0x2336)]
+        if opcode in [18,20]:self.word(0x9a14,0x4a20)
+        if opcode==20:self.word(0x9a18,struct.unpack_from('<H',request,24)[0])
+        if opcode==24:self.word(0x1c6c,struct.unpack_from('<H',request,6)[0])
         if opcode==2:self.word(0x99f4,struct.unpack_from('<H',request,4)[0])
         if opcode==8:
             self.word(0x99f4,struct.unpack_from('<H',request,14)[0]);self.word(0x99f8,struct.unpack_from('<H',request,16)[0])
-        self.call(*entries[opcode],near=opcode in [14,15])
+        self.call(*entries[opcode],near=opcode in [14,15,24,25])
         self.recipe=bytes(self.u.mem_read(self.base+0x4982,10))
+        self.army=bytes(self.u.mem_read(self.base+0x4a20,11))
+        self.army_left=self.word(0x4c94)
         result=bytes(self.u.mem_read(self.base+SECTOR_BASE,SECTOR_BYTES))
         return result,self.word(0x99f0),self.word(0x3098),self.word(0x99f2),self.word(0x99f4)

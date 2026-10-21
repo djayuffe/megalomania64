@@ -148,12 +148,25 @@ test_small_outpost_can_recover (test_game.StrategyTest) ... ok
 test_snapshot_range_validation_even_with_valid_checksums (test_game.StrategyTest) ... ok
 test_stage_code_and_invalid_recovery (test_game.StrategyTest) ... ok
 test_variable_research_cost (test_game.StrategyTest) ... ok
+test_alliance_stops_neutral_tower_construction (test_gameplay_core.GameplayCoreTest) ... ok
+test_allied_turret_damage_preserves_original_predicate_return (test_gameplay_core.GameplayCoreTest) ... ok
+test_army_casualty_updates_unit_and_strength_caches (test_gameplay_core.GameplayCoreTest) ... ok
+test_army_men_include_weapon_crews (test_gameplay_core.GameplayCoreTest) ... ok
+test_arrival_fills_capacity_with_high_age_units_first (test_gameplay_core.GameplayCoreTest) ... ok
+test_arriving_army_starts_construction_without_capturing_land (test_gameplay_core.GameplayCoreTest) ... ok
 test_birth_uses_idle_population_and_stops_at_cap (test_gameplay_core.GameplayCoreTest) ... ok
+test_damage_skips_allies_and_returns_unspent_damage (test_gameplay_core.GameplayCoreTest) ... ok
 test_deposit_exhaustion_returns_workers_once (test_gameplay_core.GameplayCoreTest) ... ok
+test_destroying_a_turret_removes_crew_and_strength (test_gameplay_core.GameplayCoreTest) ... ok
+test_enemy_arrival_contests_neutral_construction (test_gameplay_core.GameplayCoreTest) ... ok
 test_factory_pays_each_unit_and_releases_workers (test_gameplay_core.GameplayCoreTest) ... ok
+test_gatherable_buffer_selects_fast_slow_and_stopped_rates (test_gameplay_core.GameplayCoreTest) ... ok
+test_gathering_converts_raw_material_without_increasing_total_stock (test_gameplay_core.GameplayCoreTest) ... ok
 test_large_idle_population_disables_birth_rate (test_gameplay_core.GameplayCoreTest) ... ok
 test_nuclear_age_uses_future_flag (test_gameplay_core.GameplayCoreTest) ... ok
+test_nuclear_arrival_schedules_flight_without_army_units (test_gameplay_core.GameplayCoreTest) ... ok
 test_reallocation_preserves_mining_progress (test_gameplay_core.GameplayCoreTest) ... ok
+test_reinforcing_a_type_preserves_its_damaged_front_unit (test_gameplay_core.GameplayCoreTest) ... ok
 test_research_credit_and_worker_release_happen_once (test_gameplay_core.GameplayCoreTest) ... ok
 test_research_reassignment_preserves_progress_and_recipe (test_gameplay_core.GameplayCoreTest) ... ok
 test_resource_payment_is_atomic (test_gameplay_core.GameplayCoreTest) ... ok
@@ -244,8 +257,8 @@ test_music_tables_are_in_sid_range (test_tools.Tools) ... ok
 test_package_is_reproducible_and_complete (test_tools.Tools) ... ok
 
 ----------------------------------------------------------------------
-Ran 244 tests in 168.956s
+Ran 257 tests in 174.171s
 
 OK
-MegaLoMania64_v5.0.0-dev_Source.zip: 363206 bytes, sha256 b2ead986016a83e6282625292e8c151930d87430797fdc69c34cd121f1698aa2
-MegaLoMania64_v5.0.0-dev_Source.zip: 363206 bytes, sha256 b2ead986016a83e6282625292e8c151930d87430797fdc69c34cd121f1698aa2
+MegaLoMania64_v5.0.0-dev_Source.zip: 370776 bytes, sha256 60374bc1c0b75855be24eb1625f477bf5f7acf95a5859f41c4ce439ed4d1cd9c
+MegaLoMania64_v5.0.0-dev_Source.zip: 370776 bytes, sha256 60374bc1c0b75855be24eb1625f477bf5f7acf95a5859f41c4ce439ed4d1cd9c

@@ -13,6 +13,10 @@ uint8_t gp_complexity[14];
 uint8_t gp_manufacture[14];
 uint8_t gp_research_points[12];
 uint8_t gp_technology_points[20];
+uint8_t gp_army[11];
+uint8_t gp_army_rules[66];
+uint8_t gp_defence_rules[60];
+uint8_t gp_alliances[4];
 
 static uint16_t rd16(const uint8_t *p) {
     return (uint16_t)p[0] | ((uint16_t)p[1] << 8);
@@ -397,6 +401,238 @@ static void assign_research(uint16_t men,uint16_t category,uint16_t age) {
     wr32(gp_sector+0xc6,150UL*(uint16_t)(rd16(gp_sector+0xc2)*10U));
     wr16(gp_sector+0xce,worker_rate(men));
 }
+/* 0D24:0F91: weapon units and the people crewing them are different counts. */
+static uint16_t army_men(const uint8_t *army) {
+    uint16_t men;
+    uint8_t age;
+    men=army[10];
+    for(age=0;age<10;++age)men+=(uint16_t)army[age]*rd16(gp_army_rules+44+(uint16_t)age*2);
+    return men;
+}
+/* 1471:0FCD: remove one unit and its contribution to cached strength. */
+static void army_casualty(uint16_t faction,uint16_t age) {
+    uint16_t power;
+    if(faction>=4 || age>=11)return;
+    --gp_sector[0x2c8+faction*11+age];
+    wr16(gp_sector+0x2f4+faction*2,rd16(gp_sector+0x2f4+faction*2)-1);
+    power=rd16(gp_army_rules+22+age*2);
+    wr16(gp_sector+0x3f4+faction*2,rd16(gp_sector+0x3f4+faction*2)-power);
+    wr16(gp_sector+0x360+faction*22+age*2,rd16(gp_sector+0x360+faction*22+age*2)-power);
+}
+/* 11B9:141C: neutral tower building uses the selected army's manpower;
+ * these workers are not taken from the idle population of an owned tower. */
+static void tower_workers(uint16_t faction,uint16_t men) {
+    uint8_t *d;
+    if(faction>=4)return;
+    d=gp_sector+12+faction*24;
+    wr16(d+4,men);wr32(d+6,48000UL);wr16(d+14,worker_rate(men));
+}
+/* 1471:05DE: exactly one active, non-allied army can construct a tower in
+ * neutral territory. Merely moving an army into a sector does not capture it. */
+static void choose_tower_builders(void) {
+    uint16_t selected,old;
+    uint8_t faction;
+    if(rd16(gp_sector+0x3fe)!=4 || (gp_sector[0x446]&1))return;
+    selected=0xffff;
+    for(faction=0;faction<4;++faction) {
+        if((gp_request[30]&(1U<<faction)) && rd16(gp_sector+0x2f4+(uint16_t)faction*2)) {
+            if(selected!=0xffff) {selected=0xffff;break;}
+            selected=faction;
+        }
+    }
+    old=rd16(gp_sector+10);
+    if(selected!=0xffff && !(gp_alliances[selected]&(uint8_t)~(1U<<selected))) {
+        wr16(gp_sector+10,selected);
+        tower_workers(selected,army_men(gp_sector+0x2c8+selected*11));
+    }else if(old!=0xffff) {
+        tower_workers(old,0);wr16(gp_sector+10,0xffff);
+    }
+}
+/* 1A17:165F: admit high-age units first, then unarmed men; keep rejected
+ * units in the caller's array. Health belongs to the leading unit of a type.
+ * A nuclear launch schedules its flight instead of entering the army array. */
+static void army_arrive(uint16_t faction) {
+    uint8_t age,old,accepted;
+    uint16_t count,power,left;
+    uint8_t *units;
+    if(faction>=4 || (gp_sector[0x448]&64))return;
+    if(gp_army[8]) {
+        if(gp_sector[0x444])return;
+        gp_sector[0x444]=(uint8_t)(100+random_bounded(40));
+        wr16(gp_sector+0x43e,faction);wr16(gp_sector+0x440,rd16(gp_request+24));
+        return;
+    }
+    units=gp_sector+0x2c8+faction*11;left=0;
+    age=9;
+    while(1) {
+        if(gp_army[age]) {
+            old=units[age];count=rd16(gp_sector+0x2f4+faction*2);
+            accepted=gp_army[age];left+=accepted;
+            if(count+accepted>250)accepted=(uint8_t)(250-count);
+            wr16(gp_sector+0x2f4+faction*2,count+accepted);
+            units[age]+=accepted;
+            if(accepted) {
+                left-=accepted;gp_army[age]-=accepted;
+                power=(uint16_t)accepted*rd16(gp_army_rules+22+(uint16_t)age*2);
+                wr16(gp_sector+0x360+faction*22+(uint16_t)age*2,
+                     rd16(gp_sector+0x360+faction*22+(uint16_t)age*2)+power);
+                wr16(gp_sector+0x3f4+faction*2,rd16(gp_sector+0x3f4+faction*2)+power);
+                if(!old)wr16(gp_sector+0x308+faction*22+(uint16_t)age*2,
+                             rd16(gp_army_rules+(uint16_t)age*2));
+            }
+        }
+        if(age==10)break;
+        if(age==0)age=10;else --age;
+    }
+    choose_tower_builders();wr16(gp_request+12,left);
+}
+/* 0D24:1BCD and 0D24:0E4E: per-turret health, strength and crew loss. */
+static void defence_install(uint16_t slot,uint16_t building,uint16_t age) {
+    uint16_t location,hp_at,power_at,owner,old_power,power;
+    uint8_t empty;
+    if(building>=4 || age>=10 || slot>=rd16(gp_buildings+building*24+20))return;
+    location=rd16(gp_buildings+building*24+22)+slot;
+    empty=gp_sector[location]==255;
+    if(empty)wr16(gp_sector+0x2fe,rd16(gp_sector+0x2fe)+1);
+    gp_sector[location]=(uint8_t)age;
+    wr16(gp_sector+0x300+building*2,rd16(gp_sector+0x300+building*2)+1);
+    /* Four, two, one and three turret slots, in building order. */
+    hp_at=0x3c2;power_at=0x3de;
+    if(building>=1) {hp_at+=8;power_at+=8;}
+    if(building>=2) {hp_at+=4;power_at+=4;}
+    if(building>=3) {hp_at+=2;power_at+=2;}
+    wr16(gp_sector+hp_at+slot*2,rd16(gp_defence_rules+age*2));
+    old_power=rd16(gp_sector+power_at+slot*2);
+    power=rd16(gp_defence_rules+20+age*2);
+    wr16(gp_sector+power_at+slot*2,power);
+    owner=rd16(gp_sector+0x3fe);
+    if(owner>4)return;
+    wr16(gp_sector+0x3f4+owner*2,rd16(gp_sector+0x3f4+owner*2)-(empty?0:old_power)+power);
+    wr16(gp_sector+0x3f2,rd16(gp_sector+0x3f2)-(empty?0:old_power)+power);
+}
+static void defence_casualty(uint16_t slot,uint16_t building) {
+    uint16_t location,age,power_at,power,owner,crew;
+    if(building>=4 || slot>=rd16(gp_buildings+building*24+20))return;
+    location=rd16(gp_buildings+building*24+22)+slot;age=gp_sector[location];
+    if(age>=10)return;
+    wr16(gp_sector+0x2fe,rd16(gp_sector+0x2fe)-1);
+    wr16(gp_sector+0x300+building*2,rd16(gp_sector+0x300+building*2)-1);
+    gp_sector[location]=255;
+    crew=rd16(gp_defence_rules+40+age*2);
+    wr16(gp_sector+GP_POP,rd16(gp_sector+GP_POP)-crew);
+    power_at=0x3de;
+    if(building>=1)power_at+=8;
+    if(building>=2)power_at+=4;
+    if(building>=3)power_at+=2;
+    power=rd16(gp_sector+power_at+slot*2);owner=rd16(gp_sector+0x3fe);
+    if(owner>4)return;
+    wr16(gp_sector+0x3f4+owner*2,rd16(gp_sector+0x3f4+owner*2)-power);
+    wr16(gp_sector+0x3f2,rd16(gp_sector+0x3f2)-power);
+}
+/* CS0:5E55: choose an enemy faction, then a present weapon class, uniformly.
+ * Neither draw is weighted by unit count. The original retains its initial
+ * faction list and retries draws that hit an army depleted during this call. */
+static uint16_t damage_armies(uint16_t damage,uint16_t attacker,uint16_t first_age) {
+    uint8_t factions[4],ages[11],faction_count,age_count,faction,age;
+    uint16_t total,hp,at;
+    if(!damage || attacker>=4)return damage;
+    faction_count=0;total=0;
+    faction=4;
+    while(faction) {
+        --faction;
+        if(faction!=attacker && (gp_request[30]&(1U<<faction))
+           && !(gp_alliances[attacker]&(1U<<faction))) {
+            hp=rd16(gp_sector+0x2f4+(uint16_t)faction*2);
+            if(hp) {total+=hp;factions[faction_count++]=faction;}
+        }
+    }
+    while(damage && total) {
+        do {faction=factions[random_bounded(faction_count)];}
+        while(!rd16(gp_sector+0x2f4+(uint16_t)faction*2));
+        age_count=0;
+        if(gp_sector[0x2c8+(uint16_t)faction*11+10])ages[age_count++]=10;
+        for(age=(uint8_t)first_age;age<=rd16(gp_request+28) && age<10;++age)
+            if(gp_sector[0x2c8+(uint16_t)faction*11+age])ages[age_count++]=age;
+        if(!age_count)return damage; /* reject inconsistent caller state */
+        age=ages[random_bounded(age_count)];
+        at=0x308+(uint16_t)faction*22+(uint16_t)age*2;hp=rd16(gp_sector+at);
+        if(damage<hp) {wr16(gp_sector+at,hp-damage);damage=0;}
+        else {
+            damage-=hp;wr16(gp_sector+at,rd16(gp_army_rules+(uint16_t)age*2));
+            army_casualty(faction,age);--total;
+        }
+    }
+    return damage;
+}
+/* CS0:6154: draw one of all ten turret positions, retrying empty positions.
+ * Shutdown sectors and allied owners are immune to this damage pass. */
+static uint16_t damage_defences(uint16_t damage,uint16_t attacker) {
+    uint16_t owner,hp,slot;
+    uint8_t building;
+    if(!damage || attacker>=4 || (gp_sector[0x448]&32))return damage;
+    owner=rd16(gp_sector+0x3fe);
+    /* The original early exit returns the alliance predicate (1), rather
+     * than restoring the incoming damage budget. Keep this observed quirk. */
+    if(owner<4 && (gp_alliances[owner]&(1U<<attacker)))return 1;
+    while(damage && rd16(gp_sector+0x2fe)) {
+        do {slot=random_bounded(10);}while(gp_sector[0x3b8+slot]==255);
+        hp=rd16(gp_sector+0x3c2+slot*2);
+        if(damage<hp) {wr16(gp_sector+0x3c2+slot*2,hp-damage);return 0;}
+        damage-=hp;
+        building=0;
+        if(slot>=4) {slot-=4;building=1;
+            if(slot>=2) {slot-=2;building=2;
+                if(slot>=1) {slot-=1;building=3;}
+            }
+        }
+        defence_casualty(slot,building);
+    }
+    return damage;
+}
+/* 11B9:108C: gatherables keep total stock separately from the deposit's
+ * remaining raw material. Spending can reduce that remaining amount directly.
+ * A small gathered buffer selects a fast, slow or stopped conversion rate. */
+static void reconcile_gatherables(void) {
+    uint8_t slot,*d;
+    uint16_t element,left,stock,workers;
+    int16_t buffer;
+    for(slot=0;slot<4;++slot) {
+        d=gp_sector+GP_DEPOSITS+(uint16_t)slot*16;element=rd16(d+12);left=rd16(d+14);
+        if(element>=20 || gp_classes[element] || !left)continue;
+        stock=rd16(gp_sector+GP_STOCKS+element*2);buffer=(int16_t)(stock-left);
+        if(buffer<0) {
+            wr16(d+14,stock);
+            if(!stock) {wr32(d+6,0);wr32(d+2,0xffffffffUL);continue;}
+            buffer=0;
+        }
+        workers=800;
+        if(buffer>20)workers=130;
+        if(buffer>40)workers=0;
+        wr32(d+2,2400UL);wr16(d+10,worker_rate(workers));
+    }
+}
+/* 0D24:2336: conversion depletes the raw deposit, leaving total stock
+ * unchanged. Reconciliation then adjusts every gatherable's future rate. */
+static void gathering_tick(uint16_t elapsed) {
+    uint8_t slot,*d;
+    uint16_t element,left,rate;
+    uint32_t deadline,progress;
+    for(slot=0;slot<4;++slot) {
+        d=gp_sector+GP_DEPOSITS+(uint16_t)slot*16;element=rd16(d+12);
+        deadline=rd32(d+2);rate=rd16(d+10);
+        if(element>=20 || gp_classes[element] || deadline==0xffffffffUL || !rate || !deadline)continue;
+        progress=rd32(d+6)+(uint32_t)elapsed*rate;left=rd16(d+14);
+        while(progress>=deadline) {
+            progress-=deadline;--left;
+            if(!left) {
+                progress=0;wr16(d+10,0);wr32(d+2,0xffffffffUL);
+                gp_request[20]|=(uint8_t)(1U<<slot);break;
+            }
+        }
+        wr16(d+14,left);wr32(d+6,progress);
+    }
+    reconcile_gatherables();
+}
 void gp_dispatch(void) {
     uint16_t a,b,c,n;
     a=rd16(gp_request+2);b=rd16(gp_request+4);c=rd16(gp_request+6);
@@ -429,5 +665,15 @@ void gp_dispatch(void) {
     case 15:research_tick(a);break;
     case 16:advance_age();break;
     case 17:assign_research(a,b,c);break;
+    case 18:wr16(gp_request+12,army_men(gp_army));break;
+    case 19:army_casualty(b,c);break;
+    case 20:army_arrive(a);break;
+    case 21:choose_tower_builders();break;
+    case 22:defence_install(a,b,c);break;
+    case 23:defence_casualty(a,b);break;
+    case 24:wr16(gp_request+12,damage_armies(a,b,c));break;
+    case 25:wr16(gp_request+12,damage_defences(a,b));break;
+    case 26:reconcile_gatherables();break;
+    case 27:gathering_tick(a);break;
     }
 }

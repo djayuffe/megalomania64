@@ -13,8 +13,9 @@ original content remains in the owner's local recovery folder. See
 
 The running disk's gameplay is still the fan engine. A separate native 6502
 rules module now implements and differentially verifies original population,
-mining, construction, research and manufacturing. It is not integrated into the
-playable disk yet; combat, AI and the full campaign remain to be ported. See
+mining, construction, research, manufacturing, armies and turret damage. It is
+not integrated into the playable disk yet; complete battles, AI and the full
+campaign remain to be ported. See
 [gameplay progress and verification](docs/GAMEPLAY_PORT.md). This is an
 unfinished development build, not a completed original-game port. Sections below
 describe historical v4 releases and their limitations at that time.

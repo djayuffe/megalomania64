@@ -68,6 +68,12 @@ def extract(data):
     return dict(exe_sha256=EXE_SHA256,islands=islands,element_classes=classes,
                 buildings=[dict(health=list(struct.unpack('<10H',block(word(0x4c26+kind*2),20))),
                                 turrets=word(0x4b62+kind*2),turret_offset=word(0x2ce4+kind*2))for kind in range(4)],
+                army_rules=dict(health=list(struct.unpack('<11H',block(0x4b92,22))),
+                                strength=list(struct.unpack('<11H',block(0x4ba8,22))),
+                                crew=list(struct.unpack('<11H',block(0x4bd4,22)))),
+                defence_rules=dict(health=list(struct.unpack('<10H',block(0x4b6a,20))),
+                                   strength=list(struct.unpack('<10H',block(0x4b7e,20))),
+                                   crew=list(struct.unpack('<10H',block(0x4bea,20)))),
                 material_groups=ranges,design_patterns=patterns,
                 speed=list(struct.unpack('<3H',block(0x44,6))),
                 task_bases=dict(zip(['tower','building','birth','mining','research','manufacture','gathering'],struct.unpack('<7H',block(0x4594,14)))),
@@ -78,6 +84,8 @@ def extract(data):
                 dates=list(struct.unpack('<10h',block(0x23bc,20))),
                 evidence=dict(sector_initializer='1A17:0964',deposits_file='0x1c590',
                     worker_rate='11B9:11E8',population_tick='11B9:1487',mining_tick='11B9:1678',
+                    gathering_reconcile='11B9:108C',gathering_tick='0D24:2336',
+                    army_arrival='1A17:165F',army_damage='0000:5E55',turret_damage='0000:6154',
                     research_tick_file='0xdf50',manufacture_tick_file='0xe420'))
 
 

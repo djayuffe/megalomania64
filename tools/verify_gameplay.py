@@ -55,14 +55,17 @@ def verify(dos,cc65,out):
     manufacture=struct.pack('<7H',*rules['manufacture_complexity'])
     research_points=struct.pack('<6H',*rules['research_points'])
     technology_points=struct.pack('<10H',*rules['technology_points'])
+    army_rules=struct.pack('<33H',*(rules['army_rules']['health']+rules['army_rules']['strength']+rules['army_rules']['crew']))
+    defence_rules=struct.pack('<30H',*(rules['defence_rules']['health']+rules['defence_rules']['strength']+rules['defence_rules']['crew']))
     tested=0;per_op={}
-    def check(op,sector,a=0,b=0,c=0,recipe=None,seed=0,base=0,scale=0,run=0,human=0,max_age=9):
+    def check(op,sector,a=0,b=0,c=0,recipe=None,seed=0,base=0,scale=0,run=0,human=0,max_age=9,army=None,alliances=None,active=15,origin=0):
         nonlocal tested
         request=bytearray(32);request[0]=op
-        for offset,value in [(2,a),(4,b),(6,c),(8,run),(10,seed),(14,base),(16,scale),(26,human),(28,max_age)]:put(request,offset,value)
+        for offset,value in [(2,a),(4,b),(6,c),(8,run),(10,seed),(14,base),(16,scale),(24,origin),(26,human),(28,max_age),(30,active)]:put(request,offset,value)
         recipe=recipe or bytes([255,0])*5
-        expected,value,endseed,hi,rate=oracle.apply(op,sector,request,recipe)
-        for prefix,data in [('gp_sector',sector),('gp_request',request),('gp_recipe',recipe),('gp_classes',classes),('gp_buildings',buildings),('gp_patterns',patterns),('gp_groups',groups),('gp_complexity',complexity),('gp_manufacture',manufacture),('gp_research_points',research_points),('gp_technology_points',technology_points)]:
+        army=army or bytes(11);alliances=alliances or bytes([1,2,4,8])
+        expected,value,endseed,hi,rate=oracle.apply(op,sector,request,recipe,army,alliances)
+        for prefix,data in [('gp_sector',sector),('gp_request',request),('gp_recipe',recipe),('gp_classes',classes),('gp_buildings',buildings),('gp_patterns',patterns),('gp_groups',groups),('gp_complexity',complexity),('gp_manufacture',manufacture),('gp_research_points',research_points),('gp_technology_points',technology_points),('gp_army',army),('gp_army_rules',army_rules),('gp_defence_rules',defence_rules),('gp_alliances',alliances)]:
             arr=(ctypes.c_uint8*len(data)).in_dll(lib,prefix);arr[:]=data
             addr=labels['_'+prefix];native.m[addr:addr+len(data)]=data
         lib.gp_dispatch()
@@ -77,9 +80,15 @@ def verify(dos,cc65,out):
             if actual!=expected:
                 differences=[(hex(i),x,y)for i,(x,y)in enumerate(zip(expected,actual))if x!=y]
                 raise AssertionError(f'{backend}, op {op}, a={a}, b={b}, c={c}: sector differs: {differences[:12]}')
-            if op in [4,5,7,12] and get(req,12)!=value:
+            if op in [4,5,7,12,18,24,25] and get(req,12)!=value:
                 raise AssertionError(f'{backend}, op {op}, a={a}, seed={seed}: result {get(req,12)} != original {value}')
-            if op in [7,17] and get(req,10)!=endseed:raise AssertionError(f'{backend}: PRNG seed differs')
+            if op in [7,17,20,24,25] and get(req,10)!=endseed:raise AssertionError(f'{backend}: PRNG seed differs')
+            if op==20:
+                if backend=='C':actual_army=bytes((ctypes.c_uint8*11).in_dll(lib,'gp_army'))
+                else:actual_army=bytes(native.m[labels['_gp_army']:labels['_gp_army']+11])
+                if actual_army!=oracle.army:raise AssertionError(f'{backend}: unaccepted army differs')
+                if not army[8] and not sector[0x448]&64 and get(req,12)!=oracle.army_left:
+                    raise AssertionError(f'{backend}: unaccepted unit count differs')
             if op==12:
                 if backend=='C':actual_recipe=bytes((ctypes.c_uint8*10).in_dll(lib,'gp_recipe'))
                 else:actual_recipe=bytes(native.m[labels['_gp_recipe']:labels['_gp_recipe']+10])
@@ -218,6 +227,81 @@ def verify(dos,cc65,out):
                 put(sector,0xc4,5);put(sector,0xc2,20);put32(sector,0xca,1234)
                 for element in range(20):put(sector,0x174+element*2,100 if case==0 else rng.choice([0,0,2,8,16]))
                 check(17,sector,a=20,b=category,c=age,seed=rng.randrange(65536))
+    for age in range(11):
+        for count in [0,1,2,25,250]:
+            army=bytearray(11);army[age]=count
+            check(18,clean,army=army)
+    for faction in range(4):
+        for age in range(11):
+            sector=bytearray(SECTOR_BYTES)
+            sector[0x2c8+faction*11+age]=2;put(sector,0x2f4+faction*2,2)
+            power=rules['army_rules']['strength'][age]
+            put(sector,0x3f4+faction*2,power*2);put(sector,0x360+faction*22+age*2,power*2)
+            check(19,sector,b=faction,c=age)
+    for faction in range(4):
+        for count in [0,1,240,249,250]:
+            for mixed in [False,True]:
+                sector=bytearray(SECTOR_BYTES);put(sector,0x3fe,0);put(sector,0xa,65535)
+                put(sector,0x2f4+faction*2,count);sector[0x2c8+faction*11]=count
+                army=bytearray([0]*11);army[0]=20;army[10]=10
+                if mixed:army[9]=3;army[6]=5;army[4]=7
+                check(20,sector,a=faction,army=army)
+    for active in [0,1,3,15]:
+        for contenders in [0,1,2,3,5,8,15]:
+            for allied in [False,True]:
+                sector=bytearray(SECTOR_BYTES);put(sector,0x3fe,4);put(sector,0xa,1)
+                for faction in range(4):
+                    if contenders&(1<<faction):put(sector,0x2f4+faction*2,10);sector[0x2c8+faction*11+10]=10
+                check(21,sector,active=active,alliances=bytes([3,3,4,8])if allied else None)
+    for faction in range(4):
+        for blocked in [0,1,2]:
+            sector=bytearray(SECTOR_BYTES);put(sector,0x3fe,0);put(sector,0xa,65535)
+            if blocked==1:sector[0x444]=23
+            if blocked==2:sector[0x448]=64
+            army=bytearray(11);army[8]=1
+            check(20,sector,a=faction,army=army,seed=1991,origin=7)
+    for building in range(4):
+        for slot in range(rules['buildings'][building]['turrets']):
+            for age in range(10):
+                for replace in [False,True]:
+                    sector=bytearray(SECTOR_BYTES);put(sector,0x3fe,2);put(sector,0x404,100)
+                    location=rules['buildings'][building]['turret_offset']+slot
+                    sector[location]=0 if replace else 255
+                    sector=check(22,sector,a=slot,b=building,c=age)
+                    check(23,sector,a=slot,b=building)
+    for attacker in range(4):
+        for case in range(20):
+            sector=bytearray(SECTOR_BYTES)
+            for faction in range(4):
+                total=0;power=0
+                for age in [0,2,4,6,9,10]:
+                    count=rng.randrange(4);total+=count
+                    sector[0x2c8+faction*11+age]=count
+                    hp=rules['army_rules']['health'][age]
+                    put(sector,0x308+faction*22+age*2,max(1,hp//2))
+                    strength=rules['army_rules']['strength'][age]*count;power+=strength
+                    put(sector,0x360+faction*22+age*2,strength)
+                put(sector,0x2f4+faction*2,total);put(sector,0x3f4+faction*2,power)
+            check(24,sector,a=[0,1,10,100,1000][case%5],b=attacker,c=0,seed=rng.randrange(65536),
+                  alliances=bytes([3,3,4,8])if case%2 else None)
+    for owner in range(5):
+        for case in range(12):
+            sector=bytearray(SECTOR_BYTES);put(sector,0x3fe,owner);put(sector,0x404,100)
+            sector[0x3b8:0x3c2]=bytes([255]*10)
+            if case==10:sector[0x448]=32
+            for building in range(4):
+                for slot in range(rules['buildings'][building]['turrets']):
+                    if (slot+building+case)%3:sector=check(22,sector,a=slot,b=building,c=(building+case)%10)
+            check(25,sector,a=[0,1,30,300][case%4],b=case%4,seed=rng.randrange(65536))
+    for element in [0,1,2,3,4,8]:
+        for stock,left in [(0,0),(0,100),(20,100),(100,100),(120,100),(121,100),(140,100),(141,100),(200,1)]:
+            sector=bytearray(SECTOR_BYTES)
+            for slot in range(4):put(sector,0x140+slot*16,65535)
+            put(sector,0x140,element);put(sector,0x142,left);put(sector,0x174+element*2,stock)
+            put32(sector,0x136,2400 if left else 0xffffffff)
+            put32(sector,0x13a,1234);put(sector,0x13e,126 if left else 0)
+            sector=check(26,sector)
+            for elapsed in [0,1,25,1000]:check(27,sector,a=elapsed)
     # A persistent Aloha sector: allocate inventors, finish an actual design,
     # then pay for and inventory an early-age weapon. Every step passes through
     # both native backends and is compared with the executed original code.
@@ -235,12 +319,28 @@ def verify(dos,cc65,out):
     assert bytes(sector[0x174:0x19c])!=stocks_before,'Aloha weapon cost was not paid'
     sector=check(6,sector,a=1,b=2,c=0)
     assert get(sector,0xe6+40)==1,'Aloha weapon was not inventoried'
+    # Neutral occupation is contested, then resumed after the hostile army
+    # is defeated. Arrival never directly changes tower ownership.
+    sector=bytearray(oracle.initialize(0)[6])
+    army=bytearray(11);army[0]=10
+    sector=check(20,sector,a=1,army=army)
+    assert get(sector,0xa)==1 and get(sector,0x3fe)==4
+    army=bytearray(11);army[10]=5
+    sector=check(20,sector,a=2,army=army)
+    assert get(sector,0xa)==65535,'Enemy occupation did not contest construction'
+    sector=check(24,sector,a=1000,b=1,c=0,max_age=3,seed=1991)
+    assert get(sector,0x2f8)==0,'Hostile army survived the chained damage scenario'
+    sector=check(21,sector)
+    assert get(sector,0xa)==1 and get(sector,0x3fe)==4,'Construction did not resume on neutral land'
     report=dict(exe_sha256=rules['exe_sha256'],campaign_sectors_verified=448,
                 scenarios=tested,backends=['host C','native NMOS 6502'],per_opcode=per_op,
                 native_code_bytes=(out/'core.bin').stat().st_size,
-                chained_scenarios=['Aloha inventors, birth ticks, research completion, resource payment, weapon inventory'],
-                source='Audited original DOS far routines; complete sector bytes compared',
-                limitations=['not the full engine','not integrated into the running game','no combat, AI or complete campaign-playthrough claim'])
+                chained_scenarios=['Aloha inventors, birth ticks, research completion, resource payment, weapon inventory',
+                                  'Neutral occupation, contested construction, hostile army defeated, construction resumes'],
+                source='Audited original DOS near/far routines; complete sector bytes compared',
+                limitations=['not the full engine','not integrated into the running game',
+                             'arrival optional DOS global 0x1c78 branch not translated; verified with zero',
+                             'no full battle, AI or complete campaign-playthrough claim'])
     (out/'verification.json').write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps(report,indent=2))
 
