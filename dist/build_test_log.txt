@@ -148,6 +148,17 @@ test_small_outpost_can_recover (test_game.StrategyTest) ... ok
 test_snapshot_range_validation_even_with_valid_checksums (test_game.StrategyTest) ... ok
 test_stage_code_and_invalid_recovery (test_game.StrategyTest) ... ok
 test_variable_research_cost (test_game.StrategyTest) ... ok
+test_birth_uses_idle_population_and_stops_at_cap (test_gameplay_core.GameplayCoreTest) ... ok
+test_deposit_exhaustion_returns_workers_once (test_gameplay_core.GameplayCoreTest) ... ok
+test_factory_pays_each_unit_and_releases_workers (test_gameplay_core.GameplayCoreTest) ... ok
+test_large_idle_population_disables_birth_rate (test_gameplay_core.GameplayCoreTest) ... ok
+test_nuclear_age_uses_future_flag (test_gameplay_core.GameplayCoreTest) ... ok
+test_reallocation_preserves_mining_progress (test_gameplay_core.GameplayCoreTest) ... ok
+test_research_credit_and_worker_release_happen_once (test_gameplay_core.GameplayCoreTest) ... ok
+test_research_reassignment_preserves_progress_and_recipe (test_gameplay_core.GameplayCoreTest) ... ok
+test_resource_payment_is_atomic (test_gameplay_core.GameplayCoreTest) ... ok
+test_stock_does_not_imply_deposit_access (test_gameplay_core.GameplayCoreTest) ... ok
+test_unaffordable_research_leaves_all_workers_in_place (test_gameplay_core.GameplayCoreTest) ... ok
 test_fire_skips_the_intro_too (test_intro.Intro) ... ok
 test_intro_opens_with_the_original_orchestra_hit (test_intro.Intro) ... ok
 test_intro_source_data_and_layout (test_intro.Intro) ... ok
@@ -233,8 +244,8 @@ test_music_tables_are_in_sid_range (test_tools.Tools) ... ok
 test_package_is_reproducible_and_complete (test_tools.Tools) ... ok
 
 ----------------------------------------------------------------------
-Ran 233 tests in 174.938s
+Ran 244 tests in 168.956s
 
 OK
-MegaLoMania64_v5.0.0-dev_Source.zip: 342398 bytes, sha256 9272956a5e67733f4bfae1ac817f2f8eb5989d6e0b3631c728f30728927bf935
-MegaLoMania64_v5.0.0-dev_Source.zip: 342398 bytes, sha256 9272956a5e67733f4bfae1ac817f2f8eb5989d6e0b3631c728f30728927bf935
+MegaLoMania64_v5.0.0-dev_Source.zip: 363206 bytes, sha256 b2ead986016a83e6282625292e8c151930d87430797fdc69c34cd121f1698aa2
+MegaLoMania64_v5.0.0-dev_Source.zip: 363206 bytes, sha256 b2ead986016a83e6282625292e8c151930d87430797fdc69c34cd121f1698aa2
