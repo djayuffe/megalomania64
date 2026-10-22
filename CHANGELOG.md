@@ -1,5 +1,19 @@
 # Endringslogg
 
+## Army formation, retreat and bank-safe interface (22 October 2026)
+
+- Original strength/crew-based army formation, equipment refunds, nuclear fallback
+  and emergency mobilization; original emergency/home reinforcement in the AI.
+- Original retreat predicates and human/computer casualty percentages.
+- Four interface views for allocations, armies/inventory, facilities/turrets and
+  alliances/resources. Drawing keeps banked code and strings visible.
+- Resident movement, equipment and repair orchestration prevents overlay loads
+  from evicting an active return address; save CRC runs before shadow backup.
+- 301 tests, 22,148 DOS C/6502 scenarios and 448 sector initializations pass.
+  PAL/NTSC intro handoff, panels, audio, saves and corruption recovery pass.
+  Intro source/assets/content remain frozen. Expedition/roaming AI, negotiation,
+  deployment interaction timing and full presentation fidelity remain gaps.
+
 ## Further original strategy and AI ports (22 October 2026)
 
 - Original ground reachability and aircraft separation, whole-group alliances

@@ -1,8 +1,8 @@
 {
   "version": "5.0.0-dev",
   "date": "2026-10-22",
-  "update": "Original movement, deployment, alliance groups, equipment purchases and personality-based AI economy/defence/repair",
-  "automated_tests": 299,
+  "update": "Original army formation, retreat losses, emergency/home reinforcement, bank-safe repair and four game information views",
+  "automated_tests": 301,
   "focused_mutants_killed": 20,
   "prg_sha256": "7254bb35a77c5588acc4cbe5f51ec2146cd8a7fbe31be0ed8b036391617e2f07",
   "fallback_d64_sha256": "940eff171ee6068223e3f5a5bee9c06ddadffc773456c9813e7de028cce01660",
@@ -110,7 +110,7 @@
     "scope": "Earlier intro/audio validation; retained historical evidence, not remeasured in this native gameplay run"
   },
   "native_gameplay": {
-    "original_rule_scenarios": 15988,
+    "original_rule_scenarios": 22148,
     "original_sector_initializations": 448,
     "backends": [
       "host C",
@@ -139,8 +139,9 @@
       "pool exhaustion, defeat save and restart",
       "compressed effect and voice caches with NMI playback",
       "code bank preserved",
-      "corrupt newest save falls back to older slot",
-      "two corrupt saves preserve current game"
+      "all four game information views and army-row portrait exclusion",
+      "damaged newest save falls back to previous valid save",
+      "two invalid saves rejected without world/code loss"
     ],
     "synthetic_checks": [
       "AI researches, equips, attacks and defeats idle opponent",
@@ -150,7 +151,7 @@
       "nuclear destruction, retaliation and interception",
       "victory, defeat and final completion"
     ],
-    "private_disk_sha256": "a93d822a93ac387e3324918f9b8ae3b61d033baa141109612d018548d9c77148",
+    "private_disk_sha256": "f2e071a4876df77ecc357356b272602d88f7d6ab5565271e30690b1b649f56a1",
     "formats": {
       "rules": "NGR4",
       "rule_payload_bytes": 1026,
@@ -158,7 +159,9 @@
       "terrain": "NGF1",
       "save": "NGSV version 2",
       "ai_economy": "NGI1",
-      "ai_tactics": "NGT1"
+      "ai_tactics": "NGT1",
+      "NGARMY": "NGA2",
+      "NGUI": "NGU1"
     },
     "memory": {
       "intro_retained_bytes": 0,
@@ -192,18 +195,18 @@
         },
         "UIRODATA": {
           "start": 13312,
-          "end": 14079,
-          "bytes": 768
+          "end": 13514,
+          "bytes": 203
         },
         "GRAPHICS": {
           "start": 26880,
-          "end": 28659,
-          "bytes": 1780
+          "end": 28478,
+          "bytes": 1599
         },
         "BSS": {
           "start": 28672,
-          "end": 32613,
-          "bytes": 3942
+          "end": 32611,
+          "bytes": 3940
         },
         "STARTUP": {
           "start": 32768,
@@ -212,23 +215,23 @@
         },
         "CODE": {
           "start": 32780,
-          "end": 49557,
-          "bytes": 16778
+          "end": 49082,
+          "bytes": 16303
         },
         "RODATA": {
-          "start": 49558,
-          "end": 49573,
-          "bytes": 16
+          "start": 49083,
+          "end": 49130,
+          "bytes": 48
         },
         "DATA": {
-          "start": 49574,
-          "end": 49592,
+          "start": 49131,
+          "end": 49149,
           "bytes": 19
         },
         "BATTLE": {
           "start": 54272,
-          "end": 60773,
-          "bytes": 6502
+          "end": 61090,
+          "bytes": 6819
         },
         "AI": {
           "start": 61184,
@@ -237,13 +240,23 @@
         },
         "CAMPAIGN": {
           "start": 61184,
-          "end": 65162,
-          "bytes": 3979
+          "end": 63800,
+          "bytes": 2617
+        },
+        "INTERFACE": {
+          "start": 61184,
+          "end": 64966,
+          "bytes": 3783
+        },
+        "MILITARY": {
+          "start": 61184,
+          "end": 64922,
+          "bytes": 3739
         },
         "RARE": {
           "start": 61184,
-          "end": 64152,
-          "bytes": 2969
+          "end": 64761,
+          "bytes": 3578
         },
         "TACTICS": {
           "start": 61184,
@@ -252,11 +265,11 @@
         }
       },
       "overlays": [
-        "NGRARE, NGCAMP, NGAI and NGTACT share EF00-FFF9 with audio; resident wrappers switch overlays after leaf routines return"
+        "NGRARE, NGCAMP, NGAI, NGTACT, NGARMY and NGUI share EF00-FFF9 with audio; resident wrappers switch overlays after leaf routines return"
       ]
     },
-    "native_files": 99,
-    "rule_evidence": "Private verification: gameplay/gaps-final/verification.json; complete sector/plan/alliance/route results and RNG compared with DOS on host C and native NMOS 6502",
+    "native_files": 101,
+    "rule_evidence": "Private verification: gameplay/parity-final/verification.json; complete sector/army/plan/alliance/route results and RNG compared with DOS on host C and native NMOS 6502",
     "per_opcode": {
       "0": 13,
       "1": 68,
@@ -309,10 +322,17 @@
       "49": 144,
       "50": 120,
       "51": 1536,
-      "52": 576
+      "52": 576,
+      "53": 432,
+      "54": 512,
+      "55": 1920,
+      "56": 1920,
+      "57": 96,
+      "58": 320,
+      "59": 960
     },
     "remaining_gaps": [
-      "AI tactical army decisions, negotiation acceptance/proposals, deployment interaction timing and interface remain C64 adaptations",
+      "AI expedition/roaming decisions, negotiation acceptance/proposals, deployment interaction timing and interface remain C64 adaptations",
       "original VGA palette/presentation and Paula synthesis are adapted to C64",
       "physical hardware timing, human listening and campaign balance across every island remain unverified"
     ]

@@ -22,6 +22,13 @@ void gp_economy_allocate(void);
 void gp_economy_scan(void);
 void gp_defence_plan(void);
 void gp_repair_plan(void);
+uint16_t gp_sos(void);
+uint16_t gp_reinforce(void);
+uint16_t gp_max_army(uint16_t first,uint16_t last);
+uint16_t gp_retreat(uint16_t faction);
+uint16_t gp_hostile(uint16_t faction);
+void gp_travel_losses(uint16_t faction);
+uint16_t gp_make_army(uint16_t strength,uint16_t people,uint16_t minimum_age,uint16_t fallback);
 extern uint8_t gp_routes[16]; /* 0 sea, 1 traversable, 3 terminal, 4 reached */
 extern uint8_t gp_classes[20];
 /* Four building types: ten age-specific health words, turret count word,

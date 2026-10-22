@@ -970,6 +970,9 @@ static uint16_t routes(uint16_t source) {
 /* DOS 1A17:1383 (atomic) and 12B4 (up to count): inventory first,
  * then construct early designs directly from resources. Failed atomic buys
  * preserve both inventory and stock. A partial buy keeps the inventory used. */
+#if defined(__CC65__) && defined(NATIVE_GAME)
+#pragma code-name (push, "BATTLE")
+#endif
 static uint16_t equipment(uint16_t count,uint16_t category,uint16_t age,uint8_t partial) {
     uint16_t at,have,need,n,stock;uint8_t i,e,cost;
     if(category>=3 || age>=10)return 0;
@@ -991,6 +994,7 @@ static uint16_t equipment(uint16_t count,uint16_t category,uint16_t age,uint8_t 
     wr16(gp_sector+at,0);return count;
 }
 #if defined(__CC65__) && defined(NATIVE_GAME)
+#pragma code-name (pop)
 #pragma code-name (push, "BATTLE")
 #endif
 static void ai_defence(void) {
@@ -1035,10 +1039,36 @@ static void leave_group(uint16_t a) {
 extern void gp_ensure_campaign(void);
 extern void gp_ensure_ai(void);
 extern void gp_ensure_tactics(void);
+extern void gp_ensure_military(void);
 #else
 #define gp_ensure_campaign() ((void)0)
 #define gp_ensure_ai() ((void)0)
 #define gp_ensure_tactics() ((void)0)
+#define gp_ensure_military() ((void)0)
+#endif
+#if defined(__CC65__) && defined(NATIVE_GAME)
+#pragma code-name (push, "BATTLE")
+#endif
+static void military_dispatch(void) {
+    uint16_t result;gp_ensure_military();
+    result=gp_make_army(rd16(gp_request+2),rd16(gp_request+4),rd16(gp_request+6),rd16(gp_request+8));wr16(gp_request+12,result);
+}
+#if defined(__CC65__) && defined(NATIVE_GAME)
+#pragma code-name (pop)
+#endif
+#if defined(__CC65__) && defined(NATIVE_GAME)
+#pragma code-name (push, "CODE")
+#endif
+static void reinforce_dispatch(void) {
+    uint16_t result;gp_ensure_military();result=gp_reinforce();
+    if(result) {wr16(gp_request+24,65535);army_arrive(rd16(gp_sector+0x3fe));}
+    wr16(gp_request+12,result);
+}
+#if defined(__CC65__) && defined(NATIVE_GAME)
+#pragma code-name (pop)
+#endif
+#if defined(__CC65__) && defined(NATIVE_GAME)
+#pragma code-name ("GRAPHICS")
 #endif
 void gp_dispatch(void) {
     uint16_t a,b,c,n;
@@ -1104,7 +1134,14 @@ void gp_dispatch(void) {
     case 50:gp_ensure_ai();gp_economy_scan();break;
     case 51:gp_ensure_tactics();gp_defence_plan();ai_defence();break;
     case 52:gp_ensure_tactics();gp_repair_plan();ai_repair();break;
-    case 45:case 46:gp_ensure_campaign();wr16(gp_request+12,equipment(a,b,c,gp_request[0]==46));break;
+    case 53:military_dispatch();break;
+    case 54:gp_ensure_military();gp_travel_losses(a);break;
+    case 55:gp_ensure_military();wr16(gp_request+12,gp_hostile(a));break;
+    case 56:gp_ensure_military();wr16(gp_request+12,gp_retreat(a));break;
+    case 58:gp_ensure_military();wr16(gp_request+12,gp_sos());break;
+    case 59:reinforce_dispatch();break;
+    case 57:gp_ensure_military();wr16(gp_request+12,gp_max_army(c,gp_request[28]));break;
+    case 45:case 46:wr16(gp_request+12,equipment(a,b,c,gp_request[0]==46));break;
     case 39:wr16(gp_sector+0x3fe,a);complete_building(0);wr16(gp_sector+GP_POP,b);set_free(b);break;
     }
 }

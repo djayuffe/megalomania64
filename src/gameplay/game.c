@@ -68,6 +68,9 @@ static uint16_t route_mask_impl(uint8_t from,uint8_t faction) {
     }
     get(s);ng_rule(42,from,0,0);return rw(gp_request+12);
 }
+#if defined(__CC65__) && defined(NATIVE_GAME)
+#pragma code-name (push, "CODE")
+#endif
 static uint8_t move_impl(uint8_t from,uint8_t to,uint8_t faction) {
     uint8_t success,air,i,ground[11];
     if(from>=16 || to>=16 || from==to || faction>=4 || !ng_terrain[to] || ng_ruined[to])return 0;
@@ -76,11 +79,13 @@ static uint8_t move_impl(uint8_t from,uint8_t to,uint8_t faction) {
     if(air && !gp_sector[0x2c8+(uint16_t)faction*11+6] && !gp_sector[0x2c8+(uint16_t)faction*11+7] && !gp_sector[0x2c8+(uint16_t)faction*11+8] && !gp_sector[0x2c8+(uint16_t)faction*11+9])return 0;
     ng_rule(28,faction,0,0);ng_cache();
     for(i=0;i<11;++i) {ground[i]=0;if(air && (i<6 || i>9)) {ground[i]=gp_army[i];gp_army[i]=0;}}
+    ng_rule(56,faction,0,0);if(rw(gp_request+12))ng_rule(54,faction,0,0);
     get(to);ng_rule(20,faction,0,0);success=rw(gp_request+12)==0;ng_cache();
     for(i=0;i<11;++i)gp_army[i]+=ground[i];
     get(from);ng_rule(20,faction,0,0);ng_cache();ng_event|=16;return success;
 }
 #if defined(__CC65__) && defined(NATIVE_GAME)
+#pragma code-name (pop)
 #pragma code-name (pop)
 #endif
 #if defined(__CC65__) && defined(NATIVE_GAME)
@@ -123,9 +128,6 @@ uint8_t ng_defend(uint8_t age,uint8_t building,uint8_t slot) {
 }
 static uint8_t repair_equipment(uint8_t age,uint8_t building);
 uint8_t ng_repair(uint8_t age,uint8_t building) {
-#if defined(__CC65__) && defined(NATIVE_GAME)
-    gp_ensure_campaign();
-#endif
     return repair_equipment(age,building);
 }
 uint8_t ng_launch(uint8_t from,uint8_t to,uint8_t faction,uint8_t retaliate) {
@@ -161,7 +163,17 @@ void ng_negotiate(uint8_t other) {
     ng_rule(43,h,other,0);sync_pacts();ng_event|=32;
 }
 void ng_clock(uint16_t elapsed) {ww(ng_state+NG_CLOCK,rw(ng_state+NG_CLOCK)+elapsed);}
+static void outcome_impl(void);
 void ng_outcome(void) {
+#if defined(__CC65__) && defined(NATIVE_GAME)
+    gp_ensure_rare();
+#endif
+    outcome_impl();
+}
+#if defined(__CC65__) && defined(NATIVE_GAME)
+#pragma code-name (push, "RARE")
+#endif
+static void outcome_impl(void) {
     uint8_t s,f,h,alive;h=ng_state[NG_HUMAN];alive=0;
     for(f=0;f<4;++f) {ng_presence[f]=0;gp_owned[f]=0;gp_retired[f]=0;gp_army_sectors[f]=0;}
     for(s=0;s<16;++s)if(ng_terrain[s] && !ng_ruined[s]) {
@@ -175,6 +187,7 @@ void ng_outcome(void) {
     else if(!(alive&~gp_alliances[h]))ng_state[NG_STATUS]=ng_state[NG_ISLAND]==27?NG_COMPLETE:NG_WON;
 }
 #if defined(__CC65__) && defined(NATIVE_GAME)
+#pragma code-name (pop)
 #pragma code-name (push, "RARE")
 #endif
 static void new_impl(void) {
@@ -200,7 +213,7 @@ static uint8_t defend_impl(uint8_t age,uint8_t building,uint8_t slot) {
 #if defined(NATIVE_GAME)
 #pragma code-name (pop)
 #endif
-#pragma code-name (push, "CAMPAIGN")
+#pragma code-name (push, "CODE")
 #endif
 static uint8_t repair_equipment(uint8_t age,uint8_t building) {
     if(age>=10 || building>=4 || !(gp_sector[0x446]&(1<<building)) || r(0x3d6+(uint16_t)building*2)>=rw(gp_buildings+(uint16_t)building*24+r(0x418)*2) || !pay(0,age))return 0;
@@ -286,7 +299,13 @@ static void ai(uint16_t elapsed) {
         }
 
     }
-    ng_rule(51,0,0,world_first);ng_rule(52,0,0,0);
+    ng_rule(51,0,0,world_first);
+    ng_rule(58,0,0,0);
+    if(rw(gp_request+12)) {
+        ng_rule(57,0,0,world_first);
+        if(rw(gp_request+12))ng_rule(20,f,0,0);
+    }else ng_rule(59,0,0,0);
+    ng_rule(52,0,0,0);
     age=world_last+1;
     while(age>world_first) {--age;if(age==8 || !(r(0x126)&(1<<age)))continue;
 

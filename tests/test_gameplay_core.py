@@ -23,7 +23,7 @@ class GameplayCoreTest(unittest.TestCase):
         library = Path(cls.temporary.name) / 'core.so'
         subprocess.run([compiler, '-std=c99', '-Wall', '-Wextra', '-Werror',
                         '-shared', '-fPIC', '-o', str(library),
-                        str(ROOT / 'src/gameplay/core.c'), str(ROOT / 'src/gameplay/ai.c'), str(ROOT / 'src/gameplay/tactics.c')], check=True,
+                        str(ROOT / 'src/gameplay/core.c'), str(ROOT / 'src/gameplay/ai.c'), str(ROOT / 'src/gameplay/tactics.c'), str(ROOT / 'src/gameplay/military.c')], check=True,
                        capture_output=True)
         cls.lib = ctypes.CDLL(str(library))
 

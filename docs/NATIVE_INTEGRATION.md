@@ -82,6 +82,7 @@ emulation. Pass an explicit D64 path to run the older fan game.
 | Space / 1,2,3 | Pause / simulation speed 1x, 3x, 9x |
 | F1 | Cycle AI difficulty 1–3 |
 | Y / P | Toggle hotseat / switch active human faction in hotseat |
+| ? / Tab | Cycle allocation, army/inventory, facility/turret and alliance/resource views |
 | F5 / F7 | Save / load newest valid save |
 | N | Cycle unfinished islands during preparation; continue after victory; restart after defeat/completion |
 | + / - | Add/remove ten people from the proposed deployment (minimum one) |
@@ -99,13 +100,13 @@ battles. Build mines, labs and factories as technology permits. Research beyond
 age 5 requires a laboratory. Install researched defences with I. Use category 0, select a shield age and
 facility, then press 8 to repair; early shields cost resources and later
 shields consume factory inventory. A full-health building consumes nothing. Pause while
-setting allocations if desired. The HUD displays ownership, people, armies,
+setting allocations if desired. Press ? or Tab to cycle the allocation, army/inventory, facility/turret and alliance/resource views. The HUD displays ownership, people, armies,
 research, resources and the current selection.
 
 The AI allocates workers, researches designs, equips defenders and armies,
 manufactures late weapons, expands, attacks, and launches available nuclear
 weapons. Economy plans, worker quotas, research/manufacturing goals, turret
-upgrades and repair follow recovered personality rules. Difficulty changes its
+upgrades and repair follow recovered personality rules. Emergency defence and normal home reinforcement use the original tower-health threshold, strength ratios and equipment rollback; expedition target selection remains adapted. Difficulty changes its
 decision interval. Alliances merge whole groups and persist until departure;
 attacking an ally leaves the group. Hotseat disables AI. Movement is immediate.
 Ground troops cross connected friendly sectors and stop at empty/hostile land.
@@ -130,28 +131,27 @@ sprites and island portraits remain available; layout and palette differ from DO
 | `$3280–$36FF` | Input code, driver state, music tables and strings |
 | `$3700–$3FFF` | Cursor sprites and charset; `$3F80` also stages save metadata |
 | `$4000–$68FF` | Sixteen compact sectors, 656 bytes each |
-| `$6900–$6FFF` | Drawing and stream helpers |
+| `$6900–$6FFF` | Resident rule dispatcher and drawing driver |
 | `$7000–$7FFF` | Working sector, rule tables and globals |
 | `$8000–$C1FF` | Native code/data |
 | `$C200–$C3FF` | C software stack |
 | `$C400–$D3FF` | Resident SID music |
 | `$D400–$EEFF` | Combat and game orchestration code under I/O/KERNAL |
-| `$EF00–$FFF9` | Rare rules, campaign/equipment/movement, AI economy, AI tactics or streamed audio cache |
+| `$EF00–$FFF9` | Rare rules, campaign, AI economy, AI tactics, army formation, interface or streamed audio cache |
 
-C code runs with `$01=$34`. IRQ/NMI wrappers expose I/O/KERNAL, preserve the
+C code runs with `$01=$34`. Interface drawing uses `$35` to expose colour RAM while retaining RAM at `$EF00`; its text helper preserves this mapping so banked strings remain readable. IRQ/NMI wrappers expose I/O/KERNAL, preserve the
 CPU port, and restore the interrupted mapping. Hardware and disk wrappers do
 the same. Audio, rare-rule and campaign overlays invalidate one another's cache. Resident
 code switches overlays only after the previous overlay has returned. Leaf overlays call only resident rules or their own overlay. Resident wrappers
 apply tactical plans after the decision routine returns, so an equipment or
-rare-rule load cannot evict the executing decision code. The campaign overlay
-also contains equipment and movement helpers. No x86 instructions run on the C64.
+rare-rule load cannot evict the executing decision code. Equipment purchases, movement orchestration and shield-repair orchestration remain resident so a nested rule load cannot evict their return address. The campaign overlay contains reachability and preparation helpers. No x86 instructions run on the C64.
 
 Compact sectors preserve fields used by the translated rules within the island's
 legal age window (at most four ages). DOS rendering fields and out-of-window
 inventories are omitted. Python and C codecs are compared for all legal windows
 and all sixteen slots, including active tower construction.
 
-`NGTABLE` has `NGR4` and 1,026 rule bytes, including shield strengths, original repair-cap tables, faction permutations and personality tables. `NGCODE`/`NGRARE`/`NGCAMP`/`NGAI`/`NGTACT`/`NGAUX` use `NGC1`/`NGX1`/`NGY1`/`NGI1`/`NGT1`/`NGA1`,
+`NGTABLE` has `NGR4` and 1,026 rule bytes, including shield strengths, original repair-cap tables, faction permutations and personality tables. `NGCODE`/`NGRARE`/`NGCAMP`/`NGAI`/`NGTACT`/`NGARMY`/`NGUI`/`NGAUX` use `NGC1`/`NGX1`/`NGY1`/`NGI1`/`NGT1`/`NGA2`/`NGU1`/`NGA1`,
 a little-endian uncompressed length and RLE code. `NMAPnn` uses `NGW4`, age bounds, the original two-to-four-faction count and two-byte computer deployment population,
 sixteen terrain IDs, a compressed 96-byte picture, twelve colours and compressed
 10,496-byte world. `NARTnn` uses `NGF1`, a compressed 2,048-byte charset,
@@ -191,7 +191,7 @@ python3 tools/verify_native.py \
 ```
 
 Use `--model ntsc` for NTSC. VICE checks intro handoff, content loads, sprite and
-audio bytes, deployment/movement/return, research allocation, rotating save/load,
+audio bytes before drawing reloads the cache, all four information views, deployment/movement/return, research allocation, rotating save/load,
 victory/next island, code integrity and a software-stack guard. Separate tests
 exercise AI defeating an idle opponent, tower destruction/capture, hotseat
 elimination, diplomacy, nuclear destruction, retaliation and interception.
@@ -204,5 +204,20 @@ segment bounds, game ownership, cleared bytes and reclaimed bootstrap RAM.
 The AI economy (`NGAI`) and tactics (`NGTACT`) overlays occupy the same
 `$EF00–$FFF9` window, with cache identities distinct from audio, rare rules and
 campaign code. Reclaimed bootstrap RAM holds resident movement wrappers.
-The `$3400–$36FF` resident text stream also holds the CRC byte routine. Private
+The `$3400–$36FF` stream holds resident strings. The CRC byte routine is resident in the combat bank and runs before that bank becomes the save-recovery shadow. Private
 `build.json` records all current sizes; the frozen intro PRG remains unchanged.
+
+
+Army formation (`NGARMY`) translates DOS `16B4:22A3` and emergency
+mobilization `16B4:26AB`: requested strength and crew minima, high-age-first
+purchases, the 250-unit cap, early-resource/late-inventory refunds, and nuclear
+fallback. Operations 54–56 distinguish hostile destinations from dangerous
+retreat origins; leaving a friendly/allied tower remains safe during combat.
+Retreat losses reproduce the human 10–50% and computer 5–10% draws, with at
+least one casualty from each present weapon class. Emergency and normal home
+defence (`16B4:06DD`/`0DB1`) are exercised by the running AI.
+
+The interface is an independent leaf bank (`NGUI`). Drawing invalidates the
+sample cache, so audio verification observes decoded sample bytes before the
+next drawing load. The SID music remains resident. Native VICE checks cycle
+all four views and then exercise movement, repair and saves across bank changes.

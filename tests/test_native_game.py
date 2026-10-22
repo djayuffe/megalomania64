@@ -19,7 +19,7 @@ class NativeGameTest(unittest.TestCase):
         header=folder/'memory.h';header.write_text('#include <stdint.h>\nextern uint8_t world_memory[10496];\n')
         stub=folder/'memory.c';stub.write_text('#include <stdint.h>\nuint8_t world_memory[10496];\n')
         library=folder/'game.so'
-        subprocess.run([compiler,'-std=c99','-Wall','-Wextra','-Werror','-shared','-fPIC','-DWORLD_ADDRESS=world_memory','-include',str(header),*[str(ROOT/f'src/gameplay/{name}.c')for name in ['core','ai','tactics','world','game','campaign']],str(stub),'-o',str(library)],check=True,capture_output=True)
+        subprocess.run([compiler,'-std=c99','-Wall','-Wextra','-Werror','-shared','-fPIC','-DWORLD_ADDRESS=world_memory','-include',str(header),*[str(ROOT/f'src/gameplay/{name}.c')for name in ['core','ai','tactics','military','world','game','campaign']],str(stub),'-o',str(library)],check=True,capture_output=True)
         cls.lib=ctypes.CDLL(str(library))
 
     @classmethod
@@ -79,6 +79,21 @@ class NativeGameTest(unittest.TestCase):
         self.load_sector(1);self.assertEqual(self.read(0x2f4),10)
         self.assertEqual(self.lib.ng_move(1,0,0),1)
         self.load_sector(0);self.assertEqual(self.read(0x2f4),10)
+
+    def test_retreat_losses_apply_at_hostile_origin(self):
+        self.buffers['army'][10]=100;self.lib.ng_rule(20,0,0,0)
+        self.word(0x3fe,1);self.save_sector(0)
+        self.s[:]=bytes(0x449);self.word(0x3fe,0);self.s[0x448]=128;self.save_sector(1)
+        self.assertEqual(self.lib.ng_move(0,1,0),1)
+        self.load_sector(1);self.assertGreaterEqual(self.read(0x2f4),50);self.assertLessEqual(self.read(0x2f4),90)
+
+    def test_retreat_from_allied_tower_has_no_losses_during_combat(self):
+        self.buffers['alliances'][:]=[3,3,4,8]
+        self.buffers['army'][10]=100;self.lib.ng_rule(20,0,0,0)
+        self.buffers['army'][0]=5;self.lib.ng_rule(20,2,0,0);self.word(0x3fe,1);self.save_sector(0)
+        self.s[:]=bytes(0x449);self.word(0x3fe,0);self.s[0x448]=128;self.save_sector(1)
+        self.assertEqual(self.lib.ng_move(0,1,0),1)
+        self.load_sector(1);self.assertEqual(self.read(0x2f4),100)
 
     def test_diplomacy_persists_until_departure(self):
         presence=(ctypes.c_uint16*4).in_dll(self.lib,'ng_presence');presence[:]=[200,100,0,0]

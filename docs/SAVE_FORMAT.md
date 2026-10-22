@@ -1,3 +1,14 @@
+# Save formats
+
+The native port uses two `NSAVE0`/`NSAVE1` files with `NGSV` version 2,
+a 128-byte metadata block and sixteen compact sectors. CRC16 covers the
+complete snapshot. See [native persistence](NATIVE_INTEGRATION.md) for its
+layout, validation and recovery behavior. Metadata byte 40 selects the game
+information view (0–3); older version-2 saves leave it zero. The wire format
+and existing saves remain compatible.
+
+The specification below describes the historical fallback game.
+
 # Disk save format v4 — engineering specification
 
 ## File and DOS sequence

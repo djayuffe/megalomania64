@@ -46,13 +46,18 @@ def verify(emulator,disk,native,out,model,handoff=False,expect_load=None,expect_
             def settle():
                 cmd('delete');cmd(f'watch store {labels["_runtime_drawn"]:04x}');cmd('x');cmd('delete')
                 cmd(f'watch store {report["hardware"]["native_frames"]:04x}');cmd('x');cmd('x');cmd('delete')
-            def key(value):
+            def key(value,audio_clip=None):
                 cmd('delete');cmd(f'watch store {labels["_runtime_last_key"]:04x}')
                 cmd(f'> 0277 {ord(value):02x}');cmd('> 00c6 01');cmd('step $2000000');cmd('delete')
                 if memory(labels['_runtime_last_key'],1)!=value.encode('latin1'):
                     print(cmd('r').decode('latin1'));print(cmd('m 0000 001b').decode('latin1'))
                     memory(0xd400,(native/'runtime.bin.bank').stat().st_size,'failed_code_bank')
                     raise AssertionError(f'key {ord(value)} not handled')
+                if audio_clip is not None:
+                    cmd(f'break {labels["_runtime_draw"]:04x}');cmd('x');cmd('delete')
+                    clip=(native/f'files/NSND{audio_clip:02d}').read_bytes();n=int.from_bytes(clip[4:6],'little')
+                    expected,_=unpack(clip,(n+1)//2,7)
+                    assert memory(0xef00,len(expected),'audio_cache')==expected,'decoded audio cache differs before interface bank switch'
                 settle()
             def sectors(name):
                 raw=memory(0x4000,SLOT*16,name)
@@ -100,11 +105,16 @@ def verify(emulator,disk,native,out,model,handoff=False,expect_load=None,expect_
                 assert memory(0xc200,32,'stack_guard')==bytes([0xa5])*32,'software stack overflow'
                 result=dict(model=model,ready=True,recovery='fallback to previous valid save'if expect_load else'invalid saves rejected without state loss')
                 (out/'verification.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,indent=2));connection.sendall(b'quit\n');return
+            for panel,title in [(1,b'ARMY / STOCK'),(2,b'FACILITIES HP'),(3,b'FACTION / PACT'),(0,b'IDLE')]:
+                key('?');assert memory(state+40,1)==bytes([panel]),'information view did not change'
+                screen=memory(0x0400,1000,'panel_screen')
+                expected=title
+                assert screen[225:225+len(expected)]==expected,'information view title did not render'
+                if panel==1:assert screen[625]==ord('9') and screen[665]==ord('U'),'portrait overwrote army rows'
+                cmd(f'screenshot "{out}/panel-{panel}.png" 2')
             key('U');after=sectors('deployed_world');assert after[selected][0x2c8+10]==10,'unarmed deployment failed'
-            key('\r');key('S');key('\r')
+            key('\r');key('S');key('\r',audio_clip=0)
             moved=sectors('moved_world');assert moved[selected+4][0x2c8+10]==10 and moved[selected][0x2c8+10]==0,'army transfer failed'
-            effect=(native/'files/NSND00').read_bytes();n=int.from_bytes(effect[4:6],'little');expected,_=unpack(effect,(n+1)//2,7)
-            assert memory(0xef00,len(expected),'effect_cache')==expected,'effect cache differs from source'
             key('\r');key('W');key('\r')
             key('H');after=sectors('returned_world');assert after[selected][0x2c8+10]==0,'army return failed'
             damaged=sectors('before_repair');record=damaged[selected]
@@ -117,10 +127,7 @@ def verify(emulator,disk,native,out,model,handoff=False,expect_load=None,expect_
             key('C');key('C')
             key('R');after=sectors('research_world');assert word(after[selected],0xc4)==1,'inventor assignment failed'
             key('K');after=sectors('released_world');assert word(after[selected],0xc4)==0,'inventor release failed'
-            cmd(f'> {labels["_ng_event"]:04x} 01');key('Z')
-            clip=(native/'files/NSND11').read_bytes();n=int.from_bytes(clip[4:6],'little')
-            expected,_=unpack(clip,(n+1)//2,7)
-            assert memory(0xef00,len(expected),'voice_cache')==expected,'voice cache differs from decoded source'
+            cmd(f'> {labels["_ng_event"]:04x} 01');key('Z',audio_clip=11)
             key('P');key('P');key(' ')
             snapshot=memory(0x4000,SLOT*16,'saved_world')
             key(chr(135));assert memory(state+8,2)==b'\1\0','disk save failed';key('U');assert memory(0x4000,SLOT*16,'changed_world')!=snapshot
@@ -161,7 +168,7 @@ def verify(emulator,disk,native,out,model,handoff=False,expect_load=None,expect_
             assert memory(0xc200,32,'final_stack_guard')==bytes([0xa5])*32,'restart overflowed software stack'
             (out/'vic.txt').write_bytes(cmd('m d000 d02e'))
             cmd(f'screenshot "{out}/native.png" 2')
-            result=dict(model=model,handoff=handoff,ready=True,checks=['clean RAM bootstrap and frozen intro handoff','reclaimed bootstrap graphics loader','original terrain glyphs','original deployment population, randomized faction order, campaign pool and island selection','rules and compressed world','army sprites','resident SID score','deploy, move and return','research allocation','live personality-based AI economy overlay','shield repair and payment','player switching','CRC save/load round trip','victory and next island','pool exhaustion, defeat save and restart','compressed effect and voice caches with NMI playback','code bank preserved'])
+            result=dict(model=model,handoff=handoff,ready=True,checks=['clean RAM bootstrap and frozen intro handoff','reclaimed bootstrap graphics loader','original terrain glyphs','original deployment population, randomized faction order, campaign pool and island selection','rules and compressed world','army sprites','resident SID score','four information views without portrait overlap','deploy, move and return','research allocation','live personality-based AI economy and military overlays','shield repair and payment','player switching','CRC save/load round trip','victory and next island','pool exhaustion, defeat save and restart','compressed effect and voice caches with NMI playback','code bank preserved'])
             (out/'verification.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,indent=2))
             connection.sendall(b'quit\n')
         finally:

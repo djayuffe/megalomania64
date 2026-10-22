@@ -103,7 +103,7 @@ class NativeWorld(unittest.TestCase):
         header=folder/'memory.h';header.write_text('#include <stdint.h>\nextern uint8_t world_memory[10496];\n')
         stub=folder/'memory.c';stub.write_text('#include <stdint.h>\nuint8_t world_memory[10496];\n')
         lib=folder/'world.so'
-        subprocess.run([compiler,'-shared','-fPIC','-Wall','-Wextra','-Werror','-DWORLD_ADDRESS=world_memory','-include',str(header),str(ROOT/'src/gameplay/core.c'),str(ROOT/'src/gameplay/ai.c'),str(ROOT/'src/gameplay/tactics.c'),str(ROOT/'src/gameplay/world.c'),str(stub),'-o',str(lib)],check=True,capture_output=True)
+        subprocess.run([compiler,'-shared','-fPIC','-Wall','-Wextra','-Werror','-DWORLD_ADDRESS=world_memory','-include',str(header),str(ROOT/'src/gameplay/core.c'),str(ROOT/'src/gameplay/ai.c'),str(ROOT/'src/gameplay/tactics.c'),str(ROOT/'src/gameplay/military.c'),str(ROOT/'src/gameplay/world.c'),str(stub),'-o',str(lib)],check=True,capture_output=True)
         cls.lib=ctypes.CDLL(str(lib))
 
     @classmethod

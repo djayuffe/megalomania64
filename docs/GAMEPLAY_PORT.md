@@ -98,7 +98,7 @@ technology dates, health tables and research/manufacturing tables. Original per-
 whose indexed read and +1 are checked in the executable. Original game
 tables remain in the owner's private recovery folder.
 
-The local verifier compares all 448 campaign-sector initializations plus 15,988
+The local verifier compares all 448 campaign-sector initializations plus 22,148
 rule/world-strategy scenarios on host C and native 6502. This includes
 battle scheduling, building damage, tower loss, defence recall and ordinary
 nuclear detonation. Chained scenarios cover Aloha research/resource payment and
@@ -294,3 +294,13 @@ is selected men minus one, matching `CS0:126D/12C8`; the final battle uses
 saved people divided by ten, then subtracts one. The current front end reserves
 the human start before computer placement; the DOS alternating deployment UI
 and remembered computer starts across island re-entry still need translation.
+
+
+Army formation and retreat rules (operations 53–59) now cover DOS
+`16B4:22A3`, `0D24:1582`, `11B9:1C9C`, `1471:0278`, `16B4:26AB`,
+`16B4:06DD` and `16B4:0DB1`. Formation consumes available inventory before
+resources, refunds failed attempts and supports the original nuclear fallback.
+The native AI invokes the emergency and normal home reinforcement routines;
+expedition and roaming decisions remain an outstanding fidelity gap.
+The private military differential run covers 6,160 scenarios on both C and
+6502, including unchanged sector bytes, returned forces, results and PRNG state.

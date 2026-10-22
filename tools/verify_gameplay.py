@@ -31,12 +31,13 @@ def build(cc65,out):
         result=subprocess.run(list(map(str,args)),cwd=ROOT,capture_output=True,text=True)
         if result.returncode:raise RuntimeError(result.stdout+result.stderr)
     run([cc65/'bin/cc65','-t','none','-O','-Cl','-o',out/'core.s',ROOT/'src/gameplay/core.c'])
-    run([cc65/'bin/cc65','-t','none','-O','-Cl','-o',out/'ai.s',ROOT/'src/gameplay/ai.c',ROOT/'src/gameplay/tactics.c'])
+    run([cc65/'bin/cc65','-t','none','-O','-Cl','-o',out/'ai.s',ROOT/'src/gameplay/ai.c'])
     run([cc65/'bin/cc65','-t','none','-O','-Cl','-o',out/'tactics.s',ROOT/'src/gameplay/tactics.c'])
-    for name,source in [('core',out/'core.s'),('ai',out/'ai.s'),('tactics',out/'tactics.s'),('entry',ROOT/'src/gameplay/entry.s')]:
+    run([cc65/'bin/cc65','-t','none','-O','-o',out/'military.s',ROOT/'src/gameplay/military.c'])
+    for name,source in [('core',out/'core.s'),('ai',out/'ai.s'),('tactics',out/'tactics.s'),('military',out/'military.s'),('entry',ROOT/'src/gameplay/entry.s')]:
         run([cc65/'bin/ca65','-t','none','-o',out/(name+'.o'),source])
-    run([cc65/'bin/ld65','-C',ROOT/'src/gameplay/core.cfg','-m',out/'core.map','-Ln',out/'core.lbl','-o',out/'core.bin',out/'core.o',out/'ai.o',out/'tactics.o',out/'entry.o',cc65/'lib/none.lib'])
-    run(['clang','-O2','-shared','-fPIC','-o',out/'core.dylib',ROOT/'src/gameplay/core.c',ROOT/'src/gameplay/ai.c',ROOT/'src/gameplay/tactics.c'])
+    run([cc65/'bin/ld65','-C',ROOT/'src/gameplay/core.cfg','-m',out/'core.map','-Ln',out/'core.lbl','-o',out/'core.bin',out/'core.o',out/'ai.o',out/'tactics.o',out/'military.o',out/'entry.o',cc65/'lib/none.lib'])
+    run(['clang','-O2','-shared','-fPIC','-o',out/'core.dylib',ROOT/'src/gameplay/core.c',ROOT/'src/gameplay/ai.c',ROOT/'src/gameplay/tactics.c',ROOT/'src/gameplay/military.c'])
     (out/'core.prg').write_bytes(b'\x00\x80'+(out/'core.bin').read_bytes())
     (out/'core-low.prg').write_bytes(b'\x00\x10'+(out/'core.bin.low').read_bytes())
     labels={line.split()[2].lstrip('.'):int(line.split()[1],16) for line in (out/'core.lbl').read_text().splitlines() if line.startswith('al ')}
@@ -52,6 +53,7 @@ def verify(dos,cc65,out,focus=None):
     native=CPU(out/'core.prg');rng=random.Random(0x1991)
     low=(out/'core.bin.low').read_bytes();native.m[0x1000:0x1000+len(low)]=low
     bank=(out/'core.bin.bank').read_bytes();native.m[0xd400:0xd400+len(bank)]=bank
+    military=(out/"core.bin.military").read_bytes();native.m[0x6000:0x6000+len(military)]=military
     native.m[1]=0x34
     classes=bytes(rules['element_classes'])
     buildings=b''.join(struct.pack('<12H',*(v['health']+[v['turrets'],v['turret_offset']]))for v in rules['buildings'])
@@ -74,7 +76,7 @@ def verify(dos,cc65,out,focus=None):
         if op==42:
             expected=bytes(sector);value=oracle.route_mask(routes,a);endseed=seed;hi=rate=0
         else:expected,value,endseed,hi,rate=oracle.apply(op,sector,request,recipe,army,alliances,retired,field_armies,owned,personality,plan)
-        if (focus=='future' and retired is None) or (focus=='repair' and op!=40) or (focus=='strategy' and op<41) or (focus=='repair-ai' and op!=52):return bytearray(expected)
+        if (focus=='future' and retired is None) or (focus=='repair' and op!=40) or (focus=='strategy' and op<41) or (focus=='repair-ai' and op!=52) or (focus=='military' and op<53):return bytearray(expected)
         for prefix,data in [('gp_personality',personality),('gp_plan',plan),('gp_routes',routes or bytes(16)),('gp_repair_caps',b''.join(struct.pack('<10H',*v)for v in rules['repair_caps'])),('gp_shield_rules',struct.pack('<10H',*rules['shield_rules'])),('gp_owned',owned or bytes(4)),('gp_retired',retired or bytes(4)),('gp_army_sectors',field_armies or bytes(4)),('gp_sector',sector),('gp_request',request),('gp_recipe',recipe),('gp_classes',classes),('gp_buildings',buildings),('gp_patterns',patterns),('gp_groups',groups),('gp_complexity',complexity),('gp_manufacture',manufacture),('gp_research_points',research_points),('gp_technology_points',technology_points),('gp_army',army),('gp_army_rules',army_rules),('gp_defence_rules',defence_rules),('gp_alliances',alliances),('gp_combat_rules',struct.pack('<5H',*rules['combat_rules']))]:
             arr=(ctypes.c_uint8*len(data)).in_dll(lib,prefix);arr[:]=data
             addr=labels['_'+prefix];native.m[addr:addr+len(data)]=data
@@ -92,10 +94,10 @@ def verify(dos,cc65,out,focus=None):
                 raise AssertionError(f'{backend}, op {op}, a={a}, b={b}, c={c}, human={human}, island={origin}, retired={retired}, armies={field_armies}: sector differs: {differences[:12]}')
             if op in [33,34,37] and get(req,18)!=sum(struct.unpack('<4H',oracle.saved)):
                 raise AssertionError(f'{backend}: automatic shutdown saved population differs')
-            if op in [4,5,7,12,18,24,25,28,34,38,40,41,42,45,46] and get(req,12)!=value:
+            if op in [4,5,7,12,18,24,25,28,34,38,40,41,42,45,46,53,55,56,57,58,59] and get(req,12)!=value:
                 raise AssertionError(f'{backend}, op {op}, a={a}, seed={seed}: result {get(req,12)} != original {value}')
-            if op in [7,17,20,24,25,33,34,35,49,50,51,52] and get(req,10)!=endseed:raise AssertionError(f'{backend}, op {op}: PRNG {get(req,10)} != DOS {endseed}; age={get(sector,0x418)}, buildings={sector[0x446]}, hp={get(sector,0x3d6)}, personality={personality.hex()}, request={request.hex()}')
-            if op in [20,28,29,30,31]:
+            if op in [7,17,20,24,25,33,34,35,49,50,51,52,54,59] and get(req,10)!=endseed:raise AssertionError(f'{backend}, op {op}: PRNG {get(req,10)} != DOS {endseed}; age={get(sector,0x418)}, buildings={sector[0x446]}, hp={get(sector,0x3d6)}, personality={personality.hex()}, request={request.hex()}')
+            if op in [20,28,29,30,31,53,54,57]:
                 if backend=='C':actual_army=bytes((ctypes.c_uint8*11).in_dll(lib,'gp_army'))
                 else:actual_army=bytes(native.m[labels['_gp_army']:labels['_gp_army']+11])
                 if actual_army!=oracle.army:raise AssertionError(f'{backend}: unaccepted army differs')
@@ -570,10 +572,49 @@ def verify(dos,cc65,out,focus=None):
                             sector[0x19c+design*10:0x19c+design*10+10]=bytes([0,2]+[255,0]*4)
                         put(sector,0x174,50 if supply else 0)
                         check(52,sector,seed=0x1991,personality=struct.pack('<28H',*persona))
+    for supply in [0,1,2]:
+        for people in [0,10,50,998]:
+            for strength in [0,1,25,100,500,5000]:
+                for minimum in [0,6,10]:
+                    for fallback in [65535,8]:
+                        sector=bytearray(SECTOR_BYTES);put(sector,0x3fe,1);put(sector,0x404,people);put(sector,0x406,people)
+                        put(sector,0x126,1023 if supply else 0);put(sector,0x174,100 if supply else 0)
+                        for age in range(10):
+                            put(sector,0x10e+age*2,(2 if supply==2 else 0)if age>=4 else 0)
+                            sector[0x264+age*10:0x264+age*10+10]=bytes([0,2]+[255,0]*4)
+                        check(53,sector,a=strength,b=people//3,c=minimum,run=fallback)
+    for faction in range(4):
+        for human in range(4):
+            for seed in range(32):
+                check(54,bytearray(SECTOR_BYTES),a=faction,human=human,seed=seed,army=bytes([0,1,2,5,10,20,40,80,100,200,250]))
+        for owner in range(5):
+            for active in [1,5,15]:
+                for allied in [1<<faction,15]:
+                    for present in range(16):
+                        sector=bytearray(SECTOR_BYTES);put(sector,0x3fe,owner)
+                        for f in range(4):put(sector,0x2f4+f*2,10 if present&(1<<f) else 0)
+                        alliances=bytearray([1,2,4,8]);alliances[faction]=allied
+                        for op in [55,56]:check(op,sector,a=faction,active=active,alliances=alliances)
+    for first,last in [(0,3),(3,6),(6,9),(9,9)]:
+        for people in [0,1,10,50,250,998]:
+            for stock in [0,1,10,200]:
+                sector=bytearray(SECTOR_BYTES);put(sector,0x404,people);put(sector,0x406,people)
+                for age in range(10):put(sector,0x10e+age*2,stock)
+                check(57,sector,c=first,max_age=last)
+    for persona in rules['personalities']:
+        for hp in [1,14,15,100]:
+            for strength in [0,1,20,100,500]:
+                for free in [0,5,100,500]:
+                    sector=bytearray(SECTOR_BYTES);put(sector,0x3fe,1);put(sector,0x404,free);put(sector,0x406,free)
+                    put(sector,0x3d6,hp);put(sector,0x418,0);sector[0x446]=1;put(sector,0x2fc,1)
+                    put(sector,0x2f4,1 if strength else 0);put(sector,0x3f4,strength)
+                    for age in range(10):put(sector,0x10e+age*2,10)
+                    check(58,sector,personality=struct.pack('<28H',*persona))
+                    for seed in [0,1,1991]:check(59,sector,seed=seed,personality=struct.pack('<28H',*persona))
     report=dict(focus=focus,exe_sha256=rules['exe_sha256'],campaign_sectors_verified=448,
                 scenarios=tested,backends=['host C','native NMOS 6502'],per_opcode=per_op,
-                native_code_bytes=(out/'core.bin').stat().st_size+(out/'core.bin.low').stat().st_size+(out/'core.bin.bank').stat().st_size,
-                native_code_regions={'0x1000':(out/'core.bin.low').stat().st_size,'0x8000':(out/'core.bin').stat().st_size,'0xd400':(out/'core.bin.bank').stat().st_size},
+                native_code_bytes=sum((out/name).stat().st_size for name in ['core.bin','core.bin.low','core.bin.bank','core.bin.military']),
+                native_code_regions={'0x1000':(out/'core.bin.low').stat().st_size,'0x8000':(out/'core.bin').stat().st_size,'0xd400':(out/'core.bin.bank').stat().st_size,'0x6000':(out/'core.bin.military').stat().st_size},
                 chained_scenarios=['Aloha inventors, birth ticks, research completion, resource payment, weapon inventory',
                                   'Neutral occupation, contested construction, hostile army defeated, tower completes and installs owner'],
                 source='Audited original DOS near/far routines; complete sector bytes compared',
@@ -587,7 +628,7 @@ def verify(dos,cc65,out,focus=None):
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--dos',type=Path,required=True);p.add_argument('--cc65',type=Path,required=True);p.add_argument('--out',type=Path,required=True)
-    p.add_argument('--focus',choices=['future','repair','strategy','repair-ai'],help='compare only the selected rule family; run other oracle chains as setup')
+    p.add_argument('--focus',choices=['future','repair','strategy','repair-ai','military'],help='compare only the selected rule family; run other oracle chains as setup')
     a=p.parse_args()
     if a.out.resolve().is_relative_to(ROOT):p.error('keep original-derived evidence outside checkout')
     verify(a.dos,a.cc65,a.out,a.focus)

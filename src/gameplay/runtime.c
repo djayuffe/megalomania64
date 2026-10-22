@@ -31,9 +31,10 @@ uint8_t runtime_ready,runtime_last_key,runtime_drawn;
 #define ages ng_ages
 #define populations ng_people
 #define rule ng_rule
-static uint8_t source=255,cursor,dirty=1,frame_rate,loaded_clip=255,picture_inks[12],io_message;
+static uint8_t source=255,cursor,dirty=1,frame_rate,loaded_clip=255;
+uint8_t picture_inks[12],io_message;
 static uint16_t stamps[16],last_service;
-static uint8_t board_glyphs[144],board_inks[144];
+uint8_t board_glyphs[144],board_inks[144];
 static char file[9]="NMAP01";
 static uint16_t rd(uint16_t at) {return gp_sector[at]|((uint16_t)gp_sector[at+1]<<8);}
 static void wr(uint16_t at,uint16_t value) {gp_sector[at]=(uint8_t)value;gp_sector[at+1]=(uint8_t)(value>>8);}
@@ -42,14 +43,14 @@ static void save(void) {ng_cache();}
 #ifdef __CC65__
 #pragma code-name (push, "LOWCODE")
 #endif
-static void text(uint16_t at,const char *s,uint8_t ink) {
-    uint8_t c,bank;bank=REG(1);REG(1)=0x36;
+void text(uint16_t at,const char *s,uint8_t ink) {
+    uint8_t c,bank;bank=REG(1);REG(1)=0x35;
     while((c=(uint8_t)*s++)!=0) {SCR[at]=c;COL[at++]=ink;}
     REG(1)=bank;
 }
-static void number(uint16_t at,uint16_t n,uint8_t ink) {
+void number(uint16_t at,uint16_t n,uint8_t ink) {
     uint16_t divisor;
-    uint8_t digit,bank;bank=REG(1);REG(1)=0x36;
+    uint8_t digit,bank;bank=REG(1);REG(1)=0x35;
     for(divisor=1000;divisor;divisor/=10) {
         digit=(uint8_t)(n/divisor);n%=divisor;
         SCR[at]=48+digit;COL[at++]=ink;
@@ -59,7 +60,7 @@ static void number(uint16_t at,uint16_t n,uint8_t ink) {
 #ifdef __CC65__
 #pragma code-name (pop)
 #endif
-static void clear(void) {uint16_t i;uint8_t bank;bank=REG(1);REG(1)=0x36;for(i=0;i<1000;++i) {SCR[i]=32;COL[i]=1;}REG(1)=bank;}
+static void clear(void) {uint16_t i;uint8_t bank;bank=REG(1);REG(1)=0x35;for(i=0;i<1000;++i) {SCR[i]=32;COL[i]=1;}REG(1)=bank;}
 #ifdef __CC65__
 #pragma code-name (push, "RUNTIME")
 #endif
@@ -146,12 +147,13 @@ static uint8_t graphics_load(void) {
 #endif
 #ifdef __CC65__
 #pragma code-name (push, "BATTLE")
+#pragma rodata-name (push, "RODATA")
 #endif
 static void ensure_overlay(uint8_t kind) {
     uint16_t size;uint8_t ok;
     if(loaded_clip==kind)return;
-    if(!hw_open(kind==254?"NGRARE":kind==253?"NGCAMP":kind==252?"NGAI":"NGTACT")) {runtime_ready=2;while(1);}
-    ok=signature(kind==254?"NGX1":kind==253?"NGY1":kind==252?"NGI1":"NGT1");size=read_word();
+    if(!hw_open(kind==254?"NGRARE":kind==253?"NGCAMP":kind==252?"NGAI":kind==251?"NGTACT":kind==250?"NGARMY":"NGUI")) {runtime_ready=2;while(1);}
+    ok=signature(kind==254?"NGX1":kind==253?"NGY1":kind==252?"NGI1":kind==251?"NGT1":kind==250?"NGA2":"NGU1");size=read_word();
     ok=ok && size && size<=4346 && unpack((uint8_t *)0xef00,size);
     hw_close();if(!ok) {runtime_ready=2;while(1);}loaded_clip=kind;
 }
@@ -159,7 +161,9 @@ void gp_ensure_rare(void) {ensure_overlay(254);}
 void gp_ensure_campaign(void) {ensure_overlay(253);}
 void gp_ensure_ai(void) {ensure_overlay(252);}
 void gp_ensure_tactics(void) {ensure_overlay(251);}
+void gp_ensure_military(void) {ensure_overlay(250);}
 #ifdef __CC65__
+#pragma rodata-name (pop)
 #pragma code-name (pop)
 #pragma code-name (push, "AUXCODE")
 #endif
@@ -197,47 +201,8 @@ static uint8_t load_island(uint8_t resume) {
 #pragma code-name (pop)
 #pragma code-name (push, "GRAPHICS")
 #endif
-static void draw(void) {
-    uint8_t i,owner,ink,k;uint16_t at;
-    REG(1)=0x36;REG(0xd020)=0;REG(0xd021)=0;
-    text(0,"MEGA-LO-MANIA 64",7);text(18,ng_state[NG_HOTSEAT]?"HOTSEAT    ":"HUMAN VS AI",3);SCR[30]=48+ng_state[NG_DIFFICULTY];COL[30]=3;number(34,island+1,3);
-    for(i=0;i<16;++i) {
-        owner=owners[i];ink=owner<4?(uint8_t)(2+owner):5;
-        at=121+(uint16_t)(i>>2)*160+(i&3)*6;
-        for(k=0;k<9;++k) {SCR[at+(k/3)*40+k%3]=board_glyphs[(uint16_t)i*9+k];COL[at+(k/3)*40+k%3]=ng_ruined[i]?11:board_inks[(uint16_t)i*9+k];}
-        if(tiles[i]) {number(at+120,populations[i],ink);
-        SCR[at+4]=owner<4?49+owner:32;COL[at+4]=ink;
-        SCR[at+44]=48+ages[i];COL[at+44]=3;}
-        if(i==selected) {SCR[at]=62;COL[at]=7;}
-    }
-    get(selected);if(ng_state[NG_PHASE])number(625,ng_state[NG_DEPLOY]|((uint16_t)ng_state[NG_DEPLOY+1]<<8),7);text(105,"PLAYER",7);number(112,player+1,7);
-    text(185,"SECTOR",1);number(192,selected+1,1);
-    text(225,"IDLE",1);number(232,rd(GP_FREE),7);
-    text(265,"DESIGN",1);number(272,design,3);
-    text(305,"TYPE",1);number(312,category,3);
-    text(345,"DEPOSIT",1);number(353,deposit+1,3);
-    at=0x134 + (uint16_t)deposit*16;
-    text(385,"MINERS",1);number(392,rd(at),7);
-    text(425,"STOCK",1);k=(uint8_t)rd(at+12);number(432,k<20?rd(0x174 + (uint16_t)k*2):0,7);
-    text(465,"INVENTORS",1);number(474,rd(0xc4),7);
-    text(505,"FACTORY",1);number(514,rd(0xd8),7);
-    text(545,"BLD / SLOT",1);SCR[556]=48+building;COL[556]=7;SCR[559]=48+ng_state[NG_TURRET];COL[559]=7;
-    text(585,"ARMY",1);number(592,rd(0x2f4+(uint16_t)player*2),7);
-    text(760,"                                      ",6);
-    text(760,io_message==1?"SAVED":io_message==2?"SAVE FAILED":io_message==3?"LOADED":io_message==4?"LOAD FAILED":ng_state[NG_STATUS]==NG_COMPLETE?"CAMPAIGN COMPLETE":ng_state[NG_STATUS]==NG_WON?"VICTORY - N NEXT":ng_state[NG_STATUS]==NG_LOST?"DEFEAT - N RESTART":paused?"PAUSED ":"RUNNING",7);
-    text(800,ng_state[NG_PHASE]?"PREP: N ISLAND +/- MEN ENTER START":"WASD/JOY MOVE ENTER/FIRE SEND ARMY",1);
-    text(840,"M/J MINE R/K RESEARCH B/V BUILD F/G MAKE",1);
-    text(880,"C TYPE E AGE T BUILDING Z SLOT X ARM",1);
-    text(920,"F5 SAVE F7 LOAD Y HOTSEAT N NEXT",1);
-    text(960,"U/H TROOPS I/O DEFEND 8 REPAIR Q NUKE",3);
-    for(i=0;i<12;++i) {at=625+(uint16_t)(i/6)*40+i%6;SCR[at]=128+i;COL[at]=picture_inks[i];}
-    /* Original army and tower art; selected sector sets their VIC position. */
-    REG(0xd015)=7;REG(0xd01c)=6;REG(0xd017)=0;REG(0xd01d)=0;
-    REG(0xd000)=32+(selected%4)*48;REG(0xd001)=74+(selected/4)*32;
-    REG(0xd002)=242;REG(0xd003)=187;REG(0xd004)=282&255;REG(0xd005)=187;REG(0xd010)=4;
-    REG(0x07f8)=0xdc;REG(0x07f9)=0xc5 + ((hw_frames()>>3)&3);REG(0x07fa)=0xc9;
-    REG(0xd027)=7;REG(0xd028)=player+2;REG(0xd029)=player+2;
-    REG(1)=0x34;dirty=0;++runtime_drawn;
+void runtime_draw(void) {
+    ensure_overlay(249);ng_draw();dirty=0;++runtime_drawn;
 }
 #ifdef __CC65__
 #pragma code-name (pop)
@@ -249,7 +214,7 @@ static void draw(void) {
 static char save_file[7]="NSAVE0";
 static uint8_t probe_header[12],probe_valid;
 #ifdef __CC65__
-#pragma code-name (push, "UIRODATA")
+#pragma code-name (push, "BATTLE")
 #endif
 static uint16_t crc_byte(uint16_t crc,uint8_t value) {
     uint8_t i;crc^=(uint16_t)value<<8;
@@ -335,6 +300,7 @@ static void command(uint8_t key) {
     else if(key==' ')paused^=1;
     else if(key>='1' && key<='3')speed=key=='1'?1:key=='2'?3:9;
     else if(key=='P' && ng_state[NG_HOTSEAT] && ng_state[NG_ACTIVE]) {do {player=(player+1)%4;}while(!(ng_state[NG_ACTIVE]&(1<<player)));}
+    else if(key==9 || key=='?')ng_state[NG_PANEL]=(ng_state[NG_PANEL]+1)%4;
     else if(key=='Y')ng_state[NG_HOTSEAT]^=1;
     else if(key==133)ng_state[NG_DIFFICULTY]=ng_state[NG_DIFFICULTY]%3+1;
     else if(key==135)io_message=persistence(1)?1:2;
@@ -409,6 +375,6 @@ void runtime_main(void) {
     while(1) {
         key=hw_key();if(key) {command(key);runtime_last_key=key;}service(hw_frames());
         if(ng_event) {key=ng_event;ng_event=0;audio((key&8)?7:(key&1)?11:(key&4)?13:(key&2)?7:(key&32)?12:0);}
-        if(dirty)draw();
+        if(dirty)runtime_draw();
     }
 }
