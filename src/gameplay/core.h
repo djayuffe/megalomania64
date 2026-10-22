@@ -29,8 +29,11 @@ extern uint8_t gp_technology_points[20];
 extern uint8_t gp_army[11]; /* incoming units, mutated to unaccepted remainder */
 extern uint8_t gp_army_rules[66]; /* 11 health, strength and crew-count words */
 extern uint8_t gp_defence_rules[60]; /* ten health, strength, crew-count words */
-extern uint8_t gp_alliances[4];
-extern uint8_t gp_combat_rules[10]; /* army %, turret %, tick divisor: five words */ /* faction bitsets, including the faction itself */
+extern uint8_t gp_alliances[4]; /* faction bitsets, including the faction itself */
+extern uint8_t gp_repair_caps[80]; /* original double-indexed shield health caps */
+extern uint8_t gp_shield_rules[20]; /* repair points for ten shield ages */
+extern uint8_t gp_owned[4],gp_retired[4],gp_army_sectors[4]; /* derived whole-world counts */
+extern uint8_t gp_combat_rules[10]; /* army %, turret %, tick divisor: five words */
 /* request: opcode byte0, elapsed/argument word2, slot/kind word4, age word6,
  * count word8, seed word10; result word12; task base word14, scale word16. */
 void gp_dispatch(void);

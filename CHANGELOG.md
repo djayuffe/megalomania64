@@ -1,5 +1,21 @@
 # Endringslogg
 
+## Frozen intro, reclaimed RAM and remaining campaign rules (21 October 2026)
+
+- Intro frozen with a checked hash manifest. Handoff clears 63,232 bytes and
+  reclaims the 256-byte bootstrap for game helpers; no intro buffers remain live.
+- Original 61 SMALLMAP terrain descriptors recovered; board graphics now use
+  their 22x22 shapes in a bounded game charset rather than text boxes.
+- Original per-island opponent counts, campaign preparation, within-epoch
+  island selection, shared deployment pool,
+  chosen starting sector, saved people and final-battle deployment.
+- DOS-verified explicit/automatic future shutdown and initial tower creation,
+  including original facility-mask and owned-sector indexing quirks.
+- Recovered shield repair strengths and original healing/clamp routine; player
+  and AI can spend researched shields to repair buildings.
+- Separate campaign/rare/audio overlays, updated save metadata version 2, and
+  game-owned memory/segment reporting. DOS AI/UI remain C64 adaptations.
+
 ## Native gameplay integration (21 October 2026)
 
 - Original battle scheduler, facility damage, tower loss, defence recall and

@@ -38,7 +38,7 @@ class GameplayCoreTest(unittest.TestCase):
                            ('groups', 20), ('complexity', 14), ('manufacture', 14),
                            ('research_points', 12), ('technology_points', 20),
                            ('army', 11), ('army_rules', 66), ('defence_rules', 60),
-                           ('alliances', 4)]:
+                           ('alliances', 4), ('repair_caps',80), ('shield_rules',20), ('owned',4), ('retired',4), ('army_sectors',4)]:
             array = (ctypes.c_uint8 * size).in_dll(self.lib, 'gp_' + name)
             array[:] = bytes(size)
             self.buffers[name] = array
@@ -52,12 +52,14 @@ class GameplayCoreTest(unittest.TestCase):
             self.write('army_rules', 22 + age * 2, 1 + age)
             self.write('army_rules', 44 + age * 2, 2 if age == 4 else 1)
         for age in range(10):
+            self.write('shield_rules',age*2,50+age*25)
             self.write('defence_rules', age * 2, 20 + age)
             self.write('defence_rules', 20 + age * 2, 2 + age)
             self.write('defence_rules', 40 + age * 2, 0 if age >= 8 else 1)
         for building, (turrets, offset) in enumerate([(4, 0x3b8), (2, 0x3bc), (1, 0x3be), (3, 0x3bf)]):
             for age in range(10):
                 self.write('buildings', building * 24 + age * 2, 100 + age * 10)
+                self.write('repair_caps', building * 20 + age * 2, 100 + age * 10)
             self.write('buildings', building * 24 + 20, turrets)
             self.write('buildings', building * 24 + 22, offset)
         for slot in range(4):

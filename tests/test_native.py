@@ -142,3 +142,19 @@ class NativeWorld(unittest.TestCase):
         glyphs,inks=picture(data)
         self.assertEqual(glyphs,bytes([255])*96);self.assertEqual(inks,[5]*12)
         with self.assertRaises(ValueError):picture(data[:-1])
+
+class NativeHandoff(unittest.TestCase):
+    def test_intro_is_frozen(self):
+        from check_intro import verify
+        self.assertGreater(verify(),0)
+
+    def test_boot_erases_all_intro_ram_but_preserves_kernal_workspace(self):
+        with tempfile.TemporaryDirectory()as tmp:
+            path=Path(tmp)/'boot.prg';a=Assembler(ROOT/'src/gameplay/boot.asm');a.assemble(path)
+            c=CPU(path);c.m[0x900:]=bytes([0xa5])*(65536-0x900);c.ram_io[:]=bytes([0xa5])*4096
+            c.m[0xba]=9;c.m[0x200:0x300]=bytes([0x5a])*256;c.pc=0x80d
+            c.run_until(a.sym['boot_cleared'],max_steps=400000)
+            self.assertEqual(bytes(c.read(at)for at in range(0x900,65536)),bytes(65536-0x900))
+            self.assertEqual(c.m[0xba],9)
+            self.assertEqual(c.m[0x200:0x300],bytes([0x5a])*256)
+            self.assertEqual(c.s,255)

@@ -137,6 +137,8 @@ class CPU:
    elif name=='SED':self.set(D,True)
    elif name=='TAX':self.x=self.nz(self.a)
    elif name=='TAY':self.y=self.nz(self.a)
+   elif name=='TXS':self.s=self.x
+   elif name=='TSX':self.x=self.nz(self.s)
    elif name=='TXA':self.a=self.nz(self.x)
    elif name=='TYA':self.a=self.nz(self.y)
    elif name=='INX':self.x=self.nz(self.x+1)

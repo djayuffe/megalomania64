@@ -25,7 +25,8 @@ def extract(data):
         return data[DS_FILE+offset:DS_FILE+offset+length]
     # Check the operations that establish 16 sectors, 1097-byte records, and
     # the resource scale. Pointer-like bytes alone are not accepted as evidence.
-    checks={0x1c574:'8106109a490483060c9a01833e0c9a',
+    checks={0x89fb:'c706149a8220',
+            0x1c574:'8106109a490483060c9a01833e0c9a',
             0x1c5ad:'c706189aac45c706149a924d',
             0x1c668:'33d2bb1900f7e3d1e0',
             0x88c9:'33d2bb0300f7f3a3f099',
@@ -51,7 +52,9 @@ def extract(data):
             sectors.append(dict(index=slot,tile=tile,land=bool(tile),deposits=deposits))
         if index<26 and cursor!=word(0x4d92+(index+1)*2):
             raise ValueError('campaign resource boundaries disagree')
-        islands.append(dict(index=index,start_age=index//3,max_age=min(9,index//3+3),
+        factions=block(0x2082+index,1)[0]+1 if index<27 else 4
+        if not 2<=factions<=4 or factions>sum(s['land']for s in sectors):raise ValueError('invalid island faction count')
+        islands.append(dict(index=index,factions=factions,start_age=index//3,max_age=min(9,index//3+3),
                             resource_pointer=pointer,sectors=sectors))
     ranges=[list(struct.unpack('<HH',block(0x45c0+i*4,4)))for i in range(10)]
     patterns=[]
@@ -65,7 +68,7 @@ def extract(data):
                 raise ValueError('invalid design requirement')
             ages.append(requirements)
         patterns.append(ages)
-    return dict(exe_sha256=EXE_SHA256,islands=islands,element_classes=classes,combat_rules=list(struct.unpack('<5H',block(0x45a2,10))),
+    return dict(exe_sha256=EXE_SHA256,islands=islands,element_classes=classes,combat_rules=list(struct.unpack('<5H',block(0x45a2,10))),shield_rules=list(struct.unpack('<10H',block(0x4bbe,20))),repair_caps=[list(struct.unpack('<10H',block(word(0x4c26+kind*4),20)))for kind in range(4)],
                 buildings=[dict(health=list(struct.unpack('<10H',block(word(0x4c26+kind*2),20))),
                                 turrets=word(0x4b62+kind*2),turret_offset=word(0x2ce4+kind*2))for kind in range(4)],
                 army_rules=dict(health=list(struct.unpack('<11H',block(0x4b92,22))),

@@ -4,8 +4,8 @@ The private native D81 integrates the translated rules into a playable C64 game
 with battles, computer opponents, hotseat, diplomacy, nuclear weapons, campaign
 progression and resilient disk saves. The fallback D64 still uses the older fan
 engine. AI choices, campaign starting allocation and interface are C64 policy;
-they are not translations of the DOS AI or UI. Special future-shutdown branches
-are not fully reproduced. See [native integration](NATIVE_INTEGRATION.md).
+they are not translations of the DOS AI or UI. Explicit and automatic future shutdown, saved people, deployment pools and
+within-epoch island selection are now integrated. See [native integration](NATIVE_INTEGRATION.md).
 
 ## Implemented and checked against the DOS executable
 
@@ -45,7 +45,10 @@ where relevant.
 | Facility targeting and damage | `0000:6366` |
 | Tower-loss civilian and defender redistribution | `0000:68F4` |
 | Intact turret recall and inventory/crew return | `1471:033C` |
-| Ordinary nuclear detonation | `0000:6EC4` |
+| Nuclear detonation and automatic future protection | `0000:6EC4`, `0000:668F` |
+| Shutdown and saved-population limits | `0000:6B6C` |
+| Initial tower and deployment population | `0000:74C8` |
+| Shield repair and building-health clamp | `0D24:1669` |
 
 The original population cap is 998. Worker productivity subtracts one worker for
 every 32 assigned. Mining deposits and construction/research/manufacturing tasks
@@ -88,10 +91,11 @@ original timer representation.
 The table extractor checks the exact executable hash and instruction signatures
 before following pointers. It recovers all 28 island layouts, deposits for their
 16 sectors, 20 element classes, 30 design templates, material groups, task bases,
-technology dates, health tables and research/manufacturing tables. Original game
+technology dates, health tables and research/manufacturing tables. Original per-island faction counts (two to four) are recovered from DS:2082,
+whose indexed read and +1 are checked in the executable. Original game
 tables remain in the owner's private recovery folder.
 
-The local verifier compares all 448 campaign-sector initializations plus 5,115
+The local verifier compares all 448 campaign-sector initializations plus more than 7,500
 complete-sector scenarios on host C and native 6502. This includes
 battle scheduling, building damage, tower loss, defence recall and ordinary
 nuclear detonation. Chained scenarios cover Aloha research/resource payment and
@@ -202,13 +206,19 @@ AI, diplomacy, nuclear flight/defences, victory/campaign transitions and saves.
 Its compact world storage, banked code, pictures and streaming audio coexist in
 64 KB. These integrations are described in `NATIVE_INTEGRATION.md`.
 
-Exact DOS campaign deployment pools, within-epoch island selection, saved-people
-allocation, future-shutdown special branches and the original interface are
-not reproduced. The native campaign advances linearly, starts each faction with
-100 colonists, and uses adapted shutdown and travel policies. AI choices are
-new C64 code. The optional arrival branch controlled by DOS global `$1C78` is
-excluded from comparisons. Original VGA colours and presentation remain adapted
-to the C64. Real hardware timing and human balance across every island require
+Campaign preparation now provides a shared deployment pool, unfinished islands
+within three-island epochs, starting-sector choice, saved future populations and
+the final battle. Initial tower creation, explicit shutdown and automatic
+shutdown on fatal tower damage or nuclear impact are checked against DOS.
+Automatic shutdown preserves the original owned-count indexing quirk: when
+owned-sector count is 0 or 1, the original indexes army-sector counts by that
+count, rather than by faction. Its facility masks 1/2/3 are also retained.
+
+AI decisions, computer starting deployment, diplomacy, travel and the interface
+remain C64 adaptations. Original VGA presentation is converted to VIC character
+colours. The optional arrival `$1C78` branch only resumes DOS pause/UI globals;
+additional sector/RNG comparisons enable it. Native pause handling uses the C64
+interface. Real hardware timing and human balance across every island require
 further playtesting.
 
 Operations 33–37 run the complete ordinary battle budget scheduler, building
@@ -217,3 +227,18 @@ request offset 6 is the island's first age and offset 24 is its island index.
 Original 16-bit arithmetic and the observed tower-loss zero-capacity quirk are
 preserved. Native runtime rare routines use a disk overlay shared with audio;
 the standalone verification module keeps all routines resident.
+
+Operation 38 explicitly shuts down a sector and returns saved people at offset
+12 (human free people +1, computer minimum 100, all capped at 500). Operation 39
+creates the initial tower for faction at offset 2 and population at offset 4.
+Automatic shutdown reports saved people at offset 18. Whole-world `gp_owned`,
+`gp_retired` and `gp_army_sectors` arrays supply the original global counts.
+
+Operation 40 repairs building at offset 4 with shield age at offset 6, returning
+0 when already at maximum health and 1 after repair. The native equipment layer
+checks ownership, research and presence, then pays resources (early shields) or
+factory inventory (later shields). The original shield strengths and double-indexed health caps are retained.
+For labs/factories the DOS routine indexes beyond the four-pointer table and
+reads its caps from DS:0000. The native UI, like the original caller, only
+permits repair below normal building health, so an oversized repair cannot
+be applied repeatedly. AI can repair its tower too.

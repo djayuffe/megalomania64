@@ -18,6 +18,9 @@ uint8_t gp_army_rules[66];
 uint8_t gp_defence_rules[60];
 uint8_t gp_alliances[4];
 uint8_t gp_combat_rules[10];
+uint8_t gp_repair_caps[80];
+uint8_t gp_shield_rules[20];
+uint8_t gp_owned[4],gp_retired[4],gp_army_sectors[4];
 
 static uint16_t rd16(const uint8_t *p) {
     return (uint16_t)p[0] | ((uint16_t)p[1] << 8);
@@ -753,22 +756,19 @@ static void recall_defence_impl(uint16_t slot,uint16_t building) {
 }
 /* CS0:6EC4 normal detonation: kill all armies, remove facilities and mark
  * the land uninhabitable. DOS retains the old owner/population behind this flag. */
+static uint8_t automatic_shutdown(void);
 static void nuclear_explode_impl(void) {
     uint8_t f,age,k;
     for(f=0;f<4;++f)for(age=0;age<11;++age)
         while(gp_sector[0x2c8+(uint16_t)f*11+age])army_casualty(f,age);
     for(k=1;k<4;++k)if(gp_sector[0x446]&(1<<k))destroy_building(k);
-    if(gp_sector[0x448]&32)return;
+    if((gp_sector[0x448]&32) || automatic_shutdown())return;
     if(gp_sector[0x446]&1)destroy_building(0);
     gp_sector[0x448]=(gp_sector[0x448]&127)|64;gp_sector[0x445]=1;
 }
-/* CS0:68F4: cease civilian tasks, evacuate surviving defenders and make the
- * sector neutral. DOS uses 16-bit intermediates in its proportional transfer,
- * including its observed zero-capacity result for armies of <=250 units. */
-static void tower_loss_impl(uint16_t attacker) {
-    uint8_t k,j,age,mask,*d;
-    uint16_t total,counts[4],count,capacity,share,n,at,crew;
-    if(attacker>=4)return;
+/* 0D24:3D7F: release civilian tasks without losing accumulated progress. */
+static void stop_tasks(void) {
+    uint8_t k,*d;uint16_t at;
     if(rd16(gp_sector+0xbe)!=65535)assign_research(0,rd16(gp_sector+0xbe),rd16(gp_sector+0xc0));
     if(rd16(gp_sector+0xd2)!=65535)assign_factory(0,rd16(gp_sector+0xd2),rd16(gp_sector+0xd4),rd16(gp_sector+0xd6));
     for(k=0;k<4;++k) {
@@ -776,6 +776,49 @@ static void tower_loss_impl(uint16_t attacker) {
         if(at<20 && gp_classes[at] && rd32(d+2)!=0xffffffffUL)assign_miners(k,0);
     }
     for(k=1;k<4;++k)if(rd32(gp_sector+0x6c+(uint16_t)(k-1)*24+6)!=0xffffffffUL)assign_builders(k,0);
+}
+/* CS0:6B6C. Preserve the original facility mask quirk (1,2,3 rather
+ * than 2,4,8), recall defenders, and return the clamped saved population. */
+static uint16_t shutdown_impl(void) {
+    uint8_t k,j;uint16_t owner,n;
+    owner=rd16(gp_sector+0x3fe);if(owner>=4 || gp_sector[0x448]&32)return 0;
+    stop_tasks();
+    for(k=0;k<4;++k) {j=(uint8_t)rd16(gp_buildings+(uint16_t)k*24+20);
+        while(j) {--j;recall_defence_impl(j,k);}
+    }
+    for(k=1;k<4;++k)if(gp_sector[0x446]&k)destroy_building(k);
+    n=rd16(gp_sector+GP_FREE)+1;
+    if(owner!=rd16(gp_request+26) && n<100)n=100;
+    if(n>500)n=500;
+    gp_sector[0x448]|=32;wr16(gp_sector+0x400,owner);
+    wr16(gp_sector+0x3fe,4);wr16(gp_sector+0x418,9);
+    return n;
+}
+/* CS0:668F: only one retired sector per computer faction.
+ * The original compares owned-sector count to 1, then indexes field-army
+ * counts by that count (not by faction). Preserve this observed quirk. */
+static uint8_t automatic_shutdown(void) {
+    uint16_t owner,n;owner=rd16(gp_sector+0x3fe);
+    if(owner>=4 || owner==rd16(gp_request+26) || rd16(gp_request+24)==27 || !(gp_sector[0x448]&16) || gp_retired[owner] || (gp_owned[owner]<2 && !gp_army_sectors[gp_owned[owner]]))return 0;
+    n=shutdown_impl();wr16(gp_request+18,n);return 1;
+}
+/* 0D24:1669: one shield repairs a selected facility, capped at age health. */
+static uint16_t repair_impl(uint16_t building,uint16_t age) {
+    uint16_t at,n,maximum;
+    if(building>=4 || age>=10)return 0;
+    at=0x3d6+building*2;maximum=rd16(gp_repair_caps+building*20+rd16(gp_sector+0x418)*2);
+    if(rd16(gp_sector+at)==maximum)return 0;
+    n=rd16(gp_sector+at)+rd16(gp_shield_rules+age*2);
+    wr16(gp_sector+at,n>maximum?maximum:n);return 1;
+}
+/* CS0:68F4: cease civilian tasks, evacuate surviving defenders and make the
+ * sector neutral. DOS uses 16-bit intermediates in its proportional transfer,
+ * including its observed zero-capacity result for armies of <=250 units. */
+static void tower_loss_impl(uint16_t attacker) {
+    uint8_t k,j,age,mask;
+    uint16_t total,counts[4],count,capacity,share,n,at,crew;
+    if(attacker>=4)return;
+    stop_tasks();
     for(k=0;k<4;++k)for(j=0;j<rd16(gp_buildings+(uint16_t)k*24+20);++j) {
         at=rd16(gp_buildings+(uint16_t)k*24+22)+j;age=gp_sector[at];
         if(age<10) {
@@ -818,7 +861,8 @@ static uint16_t damage_buildings_impl(uint16_t damage,uint16_t attacker) {
         do {kind=(uint8_t)random_bounded(4);}while(!(gp_sector[0x446]&(1<<kind)));
         at=0x3d6+(uint16_t)kind*2;hp=rd16(gp_sector+at);
         if(damage<hp) {wr16(gp_sector+at,hp-damage);return 0;}
-        damage-=hp;destroy_building(kind);gp_request[20]|=2;
+        damage-=hp;if(!kind && automatic_shutdown())break;
+        destroy_building(kind);gp_request[20]|=2;
         if(!kind) {tower_loss_impl(attacker);break;}
     }
     return damage;
@@ -831,6 +875,8 @@ extern void gp_ensure_rare(void);
 #endif
 static void recall_defence(uint16_t slot,uint16_t building) {gp_ensure_rare();recall_defence_impl(slot,building);}
 static void nuclear_explode(void) {gp_ensure_rare();nuclear_explode_impl();}
+static uint16_t repair_building(uint16_t b,uint16_t a) {gp_ensure_rare();return repair_impl(b,a);}
+static uint16_t shutdown_sector(void) {gp_ensure_rare();return shutdown_impl();}
 static void tower_loss(uint16_t faction) {gp_ensure_rare();tower_loss_impl(faction);}
 static uint16_t damage_buildings(uint16_t damage,uint16_t attacker) {
     if(!damage || !(gp_sector[0x446]&1))return damage;
@@ -931,5 +977,8 @@ void gp_dispatch(void) {
     case 35:tower_loss(a);break;
     case 36:recall_defence(a,b);break;
     case 37:nuclear_explode();break;
+    case 38:wr16(gp_request+12,shutdown_sector());break;
+    case 40:wr16(gp_request+12,repair_building(b,c));break;
+    case 39:wr16(gp_sector+0x3fe,a);complete_building(0);wr16(gp_sector+GP_POP,b);set_free(b);break;
     }
 }

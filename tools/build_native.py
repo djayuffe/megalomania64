@@ -6,6 +6,8 @@ from asm6502 import Assembler
 from gameplay_data import extract,SECTOR_BYTES
 from native_world import encode,SLOT
 from scene_format import pack,unpack
+from check_intro import verify as verify_intro
+from native_graphics import terrain_tiles,resource,palette,convert as terrain_convert
 
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -58,21 +60,23 @@ def picture(data):
     return bytes(glyphs),inks
 
 def build(dos,content,cc65,out,disk):
+    verify_intro(content)
     out=out.resolve();disk=disk.resolve()
     if out.is_relative_to(ROOT)or disk.is_relative_to(ROOT):raise ValueError('native content must stay outside checkout')
     out.mkdir(parents=True,exist_ok=True);files=out/'files';files.mkdir(exist_ok=True)
-    rules=extract((dos/'MEGA.EXE').read_bytes())
+    exe=(dos/'MEGA.EXE').read_bytes();rules=extract(exe)
+    terrain=terrain_tiles(exe,resource(dos/'SMALLMAP.DAT'));colors=palette(dos/'ISLANDS.LBM')
     support=assemble(ROOT/'src/gameplay/hardware.asm',out/'support.prg',dict(RUNTIME_MAIN=0x8000,ZP_STACK=2))
     if support.sym['native_key_end']>0x3300:raise ValueError('joystick code overlaps control data')
     if support.sym['support_loader_end']>0x1000 or support.sym['support_end']>0x2b00:raise ValueError('native support overlaps rules code')
     exports={f'_{name}':support.sym[name]for name in ['hw_open','hw_read','hw_close','hw_key','hw_frames','hw_play','hw_error','clip_voice','hw_store','hw_restore','hw_shadow','hw_crc']}
     exports['_hw_eof']=support.sym['ld_eof']
-    cfg='MEMORY { ZP: start=$0002,size=$001a,type=rw; RAM: start=$7000,size=$1000,type=rw; LOW: start=$1000,size=$1700,type=rw,file="%O.low"; HIGH: start=$8000,size=$4200,type=rw,file=%O; EXTRA: start=$2b00,size=$0640,type=rw,file="%O.extra"; RARE: start=$ef00,size=$10fa,type=rw,file="%O.rare"; BANK: start=$d400,size=$1b00,type=rw,file="%O.bank"; GFX: start=$6900,size=$0700,type=rw,file="%O.gfx"; TEXT: start=$3400,size=$0300,type=rw,file="%O.text"; }\n'
-    cfg+='SEGMENTS { ZEROPAGE:load=ZP,type=zp; STARTUP:load=HIGH,type=ro; CODE:load=HIGH,type=ro; BATTLE:load=BANK,type=ro; RARE:load=RARE,type=ro; LOWCODE:load=LOW,type=ro; GRAPHICS:load=GFX,type=ro; RUNTIME:load=EXTRA,type=ro; UIRODATA:load=TEXT,type=ro; RODATA:load=HIGH,type=ro; DATA:load=HIGH,type=rw; BSS:load=RAM,type=bss,define=yes; }\n'
+    cfg='MEMORY { ZP: start=$0002,size=$001a,type=rw; RAM: start=$7000,size=$1000,type=rw; LOW: start=$1000,size=$1700,type=rw,file="%O.low"; HIGH: start=$8000,size=$4200,type=rw,file=%O; EXTRA: start=$2b00,size=$0640,type=rw,file="%O.extra"; CAMP: start=$ef00,size=$10fa,type=rw,file="%O.camp"; RARE: start=$ef00,size=$10fa,type=rw,file="%O.rare"; BANK: start=$d400,size=$1b00,type=rw,file="%O.bank"; GFX: start=$6900,size=$0700,type=rw,file="%O.gfx"; AUX: start=$0800,size=$0100,type=rw,file="%O.aux"; TEXT: start=$3400,size=$0300,type=rw,file="%O.text"; }\n'
+    cfg+='SEGMENTS { ZEROPAGE:load=ZP,type=zp; STARTUP:load=HIGH,type=ro; CODE:load=HIGH,type=ro; BATTLE:load=BANK,type=ro; RARE:load=RARE,type=ro; CAMPAIGN:load=CAMP,type=ro; LOWCODE:load=LOW,type=ro; GRAPHICS:load=GFX,type=ro; RUNTIME:load=EXTRA,type=ro; AUXCODE:load=AUX,type=ro; UIRODATA:load=TEXT,type=ro; RODATA:load=HIGH,type=ro; DATA:load=HIGH,type=rw; BSS:load=RAM,type=bss,define=yes; }\n'
     cfg+='SYMBOLS {'+''.join(f'{name}:type=export,value=${value:04x};'for name,value in exports.items())+'}\n'
     (out/'runtime.cfg').write_text(cfg)
     objects=[]
-    for name in ['core','world','game','runtime']:
+    for name in ['core','world','game','campaign','runtime']:
         run([cc65/'bin/cc65','-t','none','-O','-Cl','-D','NATIVE_GAME=1','-o',out/(name+'.s'),ROOT/f'src/gameplay/{name}.c'])
         run([cc65/'bin/ca65','-t','none','-o',out/(name+'.o'),out/(name+'.s')]);objects.append(out/(name+'.o'))
     run([cc65/'bin/ca65','-t','none','-o',out/'entry.o',ROOT/'src/gameplay/entry.s'])
@@ -82,10 +86,12 @@ def build(dos,content,cc65,out,disk):
     for name,suffix,address in [('NGLOW','.low',0x1000),('NGHIGH','',0x8000),('NGEXTRA','.extra',0x2b00),('NGDRAW','.gfx',0x6900),('NGTEXT','.text',0x3400)]:
         (files/name).write_bytes(struct.pack('<H',address)+(out/('runtime.bin'+suffix)).read_bytes())
     boot=assemble(ROOT/'src/gameplay/boot.asm',files/'NGSTART')
+    aux=(out/'runtime.bin.aux').read_bytes();(files/'NGAUX').write_bytes(b'NGA1'+struct.pack('<H',len(aux))+pack(aux))
     bank=(out/'runtime.bin.bank').read_bytes()
     (files/'NGCODE').write_bytes(b'NGC1'+struct.pack('<H',len(bank))+pack(bank))
+    camp=(out/'runtime.bin.camp').read_bytes();(files/'NGCAMP').write_bytes(b'NGY1'+struct.pack('<H',len(camp))+pack(camp))
     rare=(out/'runtime.bin.rare').read_bytes();(files/'NGRARE').write_bytes(b'NGX1'+struct.pack('<H',len(rare))+pack(rare))
-    data=bytearray(b'NGR1')
+    data=bytearray(b'NGR2')
     for values in [rules['element_classes']]:data+=bytes(values)
     for v in rules['buildings']:data+=struct.pack('<12H',*(v['health']+[v['turrets'],v['turret_offset']]))
     for group in rules['design_patterns']:
@@ -95,14 +101,16 @@ def build(dos,content,cc65,out,disk):
         data+=struct.pack('<'+'H'*len(rules[name]),*rules[name])
     for name in ['army_rules','defence_rules']:
         for field in ['health','strength','crew']:data+=struct.pack('<'+'H'*len(rules[name][field]),*rules[name][field])
-    data+=struct.pack('<5H',*rules['combat_rules']);data+=bytes([1,2,4,8]);(files/'NGTABLE').write_bytes(data)
+    data+=struct.pack('<5H',*rules['combat_rules']);data+=struct.pack('<10H',*rules['shield_rules']);data+=b''.join(struct.pack('<10H',*v)for v in rules['repair_caps']);data+=bytes([1,2,4,8]);(files/'NGTABLE').write_bytes(data)
     for island in rules['islands']:
         raw=b''.join(encode(record(s,island['start_age'],rules['element_classes']),island['start_age'],island['max_age'])for s in island['sectors'])
         assert len(raw)==SLOT*16
-        header=b'NGW2'+bytes([island['start_age'],island['max_age']])+bytes(s['tile']for s in island['sectors'])
+        header=b'NGW3'+bytes([island['start_age'],island['max_age'],island['factions']])+bytes(s['tile']for s in island['sectors'])
         card,inks=picture((content/f'ISL{island["index"]+1:02d}.bin').read_bytes())
         header+=pack(card)+bytes(inks)
         (files/f'NMAP{island["index"]+1:02d}').write_bytes(header+pack(raw))
+        font,mapping,inks,used=terrain_convert(terrain,[s['tile']for s in island['sectors']],colors,(ROOT/'assets/charset.bin').read_bytes(),card)
+        (files/f'NART{island["index"]+1:02d}').write_bytes(b'NGF1'+pack(font)+mapping+inks)
     army=(ROOT/'assets/orig/army_frames.bin').read_bytes();builds=(ROOT/'assets/orig/build_icons.bin').read_bytes()
     for age in range(10):(files/f'NSPR{age:02d}').write_bytes(b'NGP1'+pack(army[age*256:age*256+256]+builds[age*64:age*64+64]))
     effects=(content/'EFFECTS.bin').read_bytes();part,at=unpack(effects,9000,4);tail,at=unpack(effects,3072,at);pcm=part+tail
@@ -122,7 +130,12 @@ def build(dos,content,cc65,out,disk):
     for path in sorted(files.iterdir()):command+=['-write',path,path.name.lower()]
     run(command)
     immutable=int(re.search(r'^DATA\s+([0-9A-F]+)',(out/'runtime.map').read_text(),re.M)[1],16)-0x8000
-    report=dict(immutable_high_bytes=immutable,disk=str(disk),slot_bytes=SLOT,world_bytes=SLOT*16,native_files=len(list(files.iterdir())),runtime_main=labels['_runtime_main'],hardware={name:support.sym[name]for name in ['hw_key','hw_frames','hw_play','native_frames','mu_ready','smp_left']},boot_error=boot.sym['boot_error'],limitations=['C64 AI, campaign allocation, diplomacy and interface are adaptations; special DOS future-shutdown branches and human campaign balance are not fully verified'])
+    segments={name:dict(start=int(start,16),end=int(end,16),bytes=int(size,16))for name,start,end,size in re.findall(r'^([A-Z]+)\s+([0-9A-F]{6})\s+([0-9A-F]{6})\s+([0-9A-F]{6})\s+', (out/'runtime.map').read_text(),re.M)}
+    report=dict(immutable_high_bytes=immutable,disk=str(disk),slot_bytes=SLOT,world_bytes=SLOT*16,native_files=len(list(files.iterdir())),runtime_main=labels['_runtime_main'],hardware={name:support.sym[name]for name in ['hw_key','hw_frames','hw_play','native_frames','mu_ready','smp_left']},boot_error=boot.sym['boot_error'],
+                intro_frozen=True,intro_retained_bytes=0,cleared_intro_ram_bytes=0x10000-0x900,reclaimed_bootstrap_bytes=256,
+                game_owned_ram=dict(start=0x800,end=0xffff,bytes=0xf800),segments=segments,
+                overlays=['NGRARE and NGCAMP share EF00-FFF9 with audio; only resident code loads or switches overlays'],
+                limitations=['C64 AI decisions, travel, opponent deployment and interface are adaptations; human campaign balance and physical hardware remain unverified'])
     (out/'build.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps(report,indent=2))
 
 if __name__=='__main__':

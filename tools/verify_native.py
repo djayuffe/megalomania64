@@ -66,15 +66,26 @@ def verify(emulator,disk,native,out,model,handoff=False,expect_load=None,expect_
                 cmd(f'load "{root}/dist/MegaLoMania64.prg" 0');entry=main_symbols['native_start']
             else:
                 cmd(f'load "{native.resolve()}/files/NGSTART" 0');entry=0x080d
-            cmd('> c200 '+'a5 '*32)
             cmd(f'break {report["runtime_main"]:04x}');cmd(f'break {report["boot_error"]:04x}')
             result=cmd(f'g {entry:04x}');assert f'(C:${report["runtime_main"]:04x})'.encode()in result,'boot did not enter runtime'
+            cmd('> c200 '+'a5 '*32)
             cmd('delete');cmd(f'watch store {labels["_runtime_ready"]:04x}');cmd('x');cmd('delete')
             assert memory(labels['_runtime_ready'],1)==b'\1','native content load failed'
             state=labels['_ng_state'];cmd(f'> {state+23:04x} 01')
-            settle();before=sectors('initial_world')
+            settle()
+            if memory(state+126,1)==b'\1':
+                key('+');assert memory(state+118,2)==bytes([30,0])
+                key('-');assert memory(state+118,2)==bytes([20,0])
+                for expected_island in [1,2,0]:
+                    key('N');assert memory(state+12,1)==bytes([expected_island])
+                key('\r');assert memory(state+116,2)==bytes([80,0])
+            before=sectors('initial_world')
             selected=next(i for i,s in enumerate(before)if word(s,0x3fe)==0)
-            assert word(before[selected],0x404)>=99
+            assert word(before[selected],0x404)>=20
+            art=(native/'files/NART01').read_bytes();font,_=unpack(art,2048,4)
+            assert memory(0x3800,2048,'terrain_font')==font,'original terrain font differs from disk'
+            aux=(native/'runtime.bin.aux').read_bytes()
+            assert memory(0x0800,len(aux),'reclaimed_bootstrap')==aux,'bootstrap RAM was not reclaimed for game code'
             sprites=memory(0x3140,320,'sprites')
             assert sprites[:256]==(Path(__file__).resolve().parents[1]/'assets/orig/army_frames.bin').read_bytes()[:256]
             assert memory(report['hardware']['mu_ready'],1)==b'\1','SID score did not load'
@@ -96,6 +107,14 @@ def verify(emulator,disk,native,out,model,handoff=False,expect_load=None,expect_
             assert memory(0xef00,len(expected),'effect_cache')==expected,'effect cache differs from source'
             key('\r');key('W');key('\r')
             key('H');after=sectors('returned_world');assert after[selected][0x2c8+10]==0,'army return failed'
+            damaged=sectors('before_repair');record=damaged[selected]
+            record[0x122]|=1;record[0x19c:0x1a6]=bytes([0,1]+[255,0]*4)
+            record[0x174:0x176]=(500).to_bytes(2,'little');record[0x3d6:0x3d8]=(50).to_bytes(2,'little')
+            fixture=out/'repair-sector.prg';fixture.write_bytes((0x4000+selected*SLOT).to_bytes(2,'little')+encode(record,0,3))
+            cmd(f'load "{fixture}" 0');key('C');key('8')
+            repaired=sectors('repaired_world')[selected]
+            assert word(repaired,0x3d6)==100 and word(repaired,0x174)==499,'shield repair/payment failed'
+            key('C');key('C')
             key('R');after=sectors('research_world');assert word(after[selected],0xc4)==1,'inventor assignment failed'
             key('K');after=sectors('released_world');assert word(after[selected],0xc4)==0,'inventor release failed'
             cmd(f'> {labels["_ng_event"]:04x} 01');key('Z')
@@ -119,14 +138,21 @@ def verify(emulator,disk,native,out,model,handoff=False,expect_load=None,expect_
             fixture=out/'defeated-sector.prg';fixture.write_bytes((0x4000+enemy*SLOT).to_bytes(2,'little')+encode(current[enemy],0,3))
             cmd(f'load "{fixture}" 0');cmd(f'watch store {state+15:04x}');cmd('x');cmd('delete')
             assert memory(state+15,1)==b'\1','victory was not detected'
-            key('N');after=sectors('island_two_world');assert memory(state+12,1)==b'\1'
+            key('N');key('\r');after=sectors('island_two_world');assert memory(state+12,1)==b'\1'
             assert memory(0x8000,len(code),'code_after')==code,'island load corrupted code'
             assert memory(0xd400,len(code_bank),'bank_after')==code_bank,'banked code was not preserved'
             assert memory(0xc200,32,'stack_guard')==bytes([0xa5])*32,'software stack overflow'
             assert memory(labels['_runtime_ready'],1)==b'\1'
+            # An exhausted deployment pool creates a legitimate zero-faction
+            # defeat screen. It must remain saveable and restartable.
+            cmd(f'> {state+116:04x} 00 00');cmd(f'> {state+15:04x} 01')
+            key('N');assert memory(state+15,1)==b'\2' and memory(state+14,1)==b'\0'
+            key(chr(135));key(chr(136));assert memory(state+15,1)==b'\2','defeat save failed to load'
+            key('P');key('N');assert memory(state+126,1)==b'\1' and memory(state+116,2)==bytes([100,0])
+            assert memory(0xc200,32,'final_stack_guard')==bytes([0xa5])*32,'restart overflowed software stack'
             (out/'vic.txt').write_bytes(cmd('m d000 d02e'))
             cmd(f'screenshot "{out}/native.png" 2')
-            result=dict(model=model,handoff=handoff,ready=True,checks=['disk bootstrap','rules and compressed world','army sprites','resident SID score','deploy, move and return','research allocation','player switching','CRC save/load round trip','victory and next island','compressed effect and voice caches with NMI playback','code bank preserved'])
+            result=dict(model=model,handoff=handoff,ready=True,checks=['clean RAM bootstrap and frozen intro handoff','reclaimed bootstrap graphics loader','original terrain glyphs','campaign preparation, pool and island selection','rules and compressed world','army sprites','resident SID score','deploy, move and return','research allocation','shield repair and payment','player switching','CRC save/load round trip','victory and next island','pool exhaustion, defeat save and restart','compressed effect and voice caches with NMI playback','code bank preserved'])
             (out/'verification.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,indent=2))
             connection.sendall(b'quit\n')
         finally:

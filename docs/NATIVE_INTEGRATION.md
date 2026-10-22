@@ -7,12 +7,33 @@ otherwise the older fan engine starts. Original content stays outside the repo.
 The native game includes economic simulation, research, construction,
 manufacturing, armies, battles, tower capture, defence, nuclear flight,
 retaliation/interception, diplomacy, computer opponents, hotseat play, victory,
-defeat, progression through 28 islands, and disk save/load. Up to four factions
-start with 100 colonists each. AI decisions, starting allocation, diplomacy and
-campaign selection are C64 adaptations; they do not reproduce the DOS policy or
-interface. Future shutdown is adapted, and special DOS shutdown branches are
-not covered by the differential verifier. Human balance across all 28 islands
-and real C64 disk timing remain unverified.
+defeat, campaign preparation through 28 islands, and disk save/load. A shared
+100-person deployment pool starts the campaign; choose how many people to send
+(default 20), an unfinished island in the current three-island epoch, and a
+starting sector. Unspent people carry forward and the next epoch adds 100.
+The final battle deploys one tenth of each faction's saved people. Computer
+starting populations (20), AI decisions, diplomacy and interface remain C64
+adaptations. Original explicit and automatic future-shutdown routines now have
+DOS comparisons, including saved-population bounds and arithmetic quirks.
+Human balance across all 28 islands and real C64 disk timing remain unverified.
+
+## Frozen intro and clean handoff
+
+The intro is complete and frozen by user request. `docs/INTRO_FROZEN.json`
+records hashes of its source, timing/conversion tools, embedded artwork,
+compiled entry PRG and 33 private intro/audio streams.
+`python3 tools/check_intro.py --content ../recovery/content` verifies them;
+the native builder also checks the frozen entry and content. The packaged fallback PRG and intro code remain unchanged.
+
+At `NGSTART`, interrupts, sprites and SID output are stopped. The bootstrap
+clears **63,232 bytes at `$0900–$FFFF`**, including RAM under I/O, BASIC and
+KERNAL. It restores KERNAL IRQ/NMI vectors before loading independent gameplay
+segments. Device number, hardware stack and KERNAL workspace are preserved.
+Once execution has left the loader, **`$0800–$08FF` becomes gameplay code** too.
+The game owns the complete 62 KiB address range `$0800–$FFFF`; screen/workspace
+below it remain available to their usual hardware roles. This is an ownership
+budget, not 62 KiB of free graphics space: rules, world, music and graphics share
+it. No intro picture, scene decoder or credit buffer stays resident for the intro.
 
 ## Build and run
 
@@ -41,7 +62,7 @@ emulation. Pass an explicit D64 path to run the older fan game.
 | Key | Action |
 |---|---|
 | WASD / port 2 joystick | Select sector |
-| Enter / fire | Mark army source, then select destination |
+| Enter / fire | Start prepared island; during play mark army source, then destination |
 | U / H | Deploy ten idle people / demobilize army at its own tower |
 | M / J | Add/remove miner on selected deposit |
 | R / K | Add/remove inventor on selected design |
@@ -50,6 +71,7 @@ emulation. Pass an explicit D64 path to run the older fan game.
 | B / V | Add/remove construction worker on selected facility |
 | F / G | Add/remove factory worker; production uses an unlimited queue |
 | X | Arm one researched attack unit |
+| 8 | Repair selected facility using selected shield design (category 0) |
 | I / O | Install/recall selected defence design at selected facility/slot |
 | Z | Cycle turret slot (0–3; facility capacity still applies) |
 | Q, then Enter | Mark nuclear launch source, then launch at selected target |
@@ -60,16 +82,22 @@ emulation. Pass an explicit D64 path to run the older fan game.
 | F1 | Cycle AI difficulty 1–3 |
 | Y / P | Toggle hotseat / switch active human faction in hotseat |
 | F5 / F7 | Save / load newest valid save |
-| N | Advance after victory; restart campaign after defeat/final completion |
+| N | Cycle unfinished islands during preparation; continue after victory; restart after defeat/completion |
+| + / - | Add/remove ten people from the proposed deployment (minimum one) |
 
-Start by selecting your tower. Choose attack designs with C/E and allocate
+Start in preparation: choose an island with N, choose people with +/-, select
+a land sector with WASD/joystick, and press Enter. Keep people for the other
+islands in the epoch. Running out of deployable people ends the campaign.
+During play, start by selecting your tower. Choose attack designs with C/E and allocate
 inventors with R; repeated presses allocate more. Assign miners where resources
 are available. When research completes, X equips a unit. Early designs pay
 resources immediately; age 4 and later designs require factory inventory.
 Deploy U for additional unarmed troops, then Enter, select adjacent land and
 Enter to move. Uncontested occupation constructs a tower; enemies trigger
 battles. Build mines, labs and factories as technology permits. Research beyond
-age 5 requires a laboratory. Install researched defences with I. Pause while
+age 5 requires a laboratory. Install researched defences with I. Use category 0, select a shield age and
+facility, then press 8 to repair; early shields cost resources and later
+shields consume factory inventory. A full-health building consumes nothing. Pause while
 setting allocations if desired. The HUD displays ownership, people, armies,
 research, resources and the current selection.
 
@@ -79,16 +107,18 @@ weapons. Difficulty changes its decision interval. Truces expire after 600
 simulation ticks; attacking an ally breaks the pact. Hotseat disables AI.
 Movement is immediate. Ground troops require adjacent land; age 6/7/9 air
 units can cross water to any land sector, leaving ground troops at the source.
-This travel policy is adapted for C64. Artwork uses converted original sprites and small island
-pictures with C64 character-cell colours; board layout and palette differ from
-DOS. Music remains resident while effects and voices stream from disk.
+This travel policy is adapted for C64. The board uses the original 61 terrain
+tiles recovered from `SMALLMAP.DAT`: executable descriptors give their 22×22
+pixels, source offsets and stride. The C64 conversion retains their shapes with
+black plus one foreground colour per character cell. Original army/building
+sprites and island portraits remain available; layout and palette differ from DOS. Music remains resident while effects and voices stream from disk.
 
 ## Memory and loading
 
 | RAM | Use |
 |---|---|
 | `$0400–$07FF` | Screen and sprite pointers |
-| `$0801–$08FF` | Standalone BASIC/ROM bootstrap |
+| `$0800–$08FF` | Bootstrap initially; `NGAUX` graphics/menu helpers after handoff |
 | `$0900–$0FFF` | SID/sample drivers and bounded sequential loader |
 | `$1000–$26FF` | Core and world codec |
 | `$2700–$2AFF` | Startup, IRQ/NMI and KERNAL wrappers |
@@ -103,22 +133,26 @@ DOS. Music remains resident while effects and voices stream from disk.
 | `$C200–$C3FF` | C software stack |
 | `$C400–$D3FF` | Resident SID music |
 | `$D400–$EEFF` | Combat and game orchestration code under I/O/KERNAL |
-| `$EF00–$FFF9` | Rare-rule overlay or streamed audio cache |
+| `$EF00–$FFF9` | Rare rules, campaign overlay or streamed audio cache |
 
 C code runs with `$01=$34`. IRQ/NMI wrappers expose I/O/KERNAL, preserve the
 CPU port, and restore the interrupted mapping. Hardware and disk wrappers do
-the same. Audio and rare-rule overlays invalidate one another's cache. A rare
-rule returns before a sound is loaded. No x86 instructions run on the C64.
+the same. Audio, rare-rule and campaign overlays invalidate one another's cache. Resident
+code switches overlays only after the previous overlay has returned. Campaign
+menu code touches data only; it cannot evict itself by calling a rare rule. No x86 instructions run on the C64.
 
 Compact sectors preserve fields used by the translated rules within the island's
 legal age window (at most four ages). DOS rendering fields and out-of-window
 inventories are omitted. Python and C codecs are compared for all legal windows
 and all sixteen slots, including active tower construction.
 
-`NGTABLE` has `NGR1` and 606 rule bytes. `NGCODE`/`NGRARE` use `NGC1`/`NGX1`,
-a little-endian uncompressed length and RLE code. `NMAPnn` uses `NGW2`, age bounds,
+`NGTABLE` has `NGR2` and 706 rule bytes, including shield strengths and original repair-cap tables. `NGCODE`/`NGRARE`/`NGCAMP`/`NGAUX` use `NGC1`/`NGX1`/`NGY1`/`NGA1`,
+a little-endian uncompressed length and RLE code. `NMAPnn` uses `NGW3`, age bounds, the original two-to-four-faction count,
 sixteen terrain IDs, a compressed 96-byte picture, twelve colours and compressed
-10,496-byte world. `NSPRnn` uses `NGP1` and 320 compressed sprite bytes. `NSNDnn`
+10,496-byte world. `NARTnn` uses `NGF1`, a compressed 2,048-byte charset,
+144 board glyph codes and 144 colours. Each island needs at most 144 unique
+terrain glyphs; the 164-slot game pool excludes text, portrait and save-staging
+glyphs. All original terrain data stays in the private disk. `NSPRnn` uses `NGP1` and 320 compressed sprite bytes. `NSNDnn`
 uses `NGS1`, a nibble count, voice flag and compressed PCM. Every stream write
 has an exact bound; truncation fails. Required content failures stop at an error
 screen; audio failures disable that clip. Code files have two-byte load addresses;
@@ -128,8 +162,9 @@ full clips, and the existing intro. Generated content is excluded from releases.
 ## Saves
 
 F5 alternates `NSAVE0` and `NSAVE1`. Each PRG contains address `$3F80`, 128 bytes
-of versioned `NGSV` metadata, and the 10,496-byte world. Metadata includes island,
-players, settings, RNG, clock, alliances, truces, AI timers and sequence number.
+of version-2 `NGSV` metadata, and the 10,496-byte world. Metadata includes island,
+players, settings, RNG, clock, alliances, truces, AI timers, completed-island bits, deployment pool/selection, preparation state
+and sequence number. Older native version-1 saves are rejected.
 CRC16-CCITT (seed `$FFFF`, checksum bytes treated as zero) covers all 10,624 bytes.
 The completed write is verified by KERNAL. A failed write preserves the other
 slot. Load probes exact length, header and CRC, chooses the newest sequence
@@ -157,4 +192,5 @@ exercise AI defeating an idle opponent, tower destruction/capture, hotseat
 elimination, diplomacy, nuclear destruction, retaliation and interception.
 `--expect-load WORLD.bin` and `--expect-reject` exercise damaged save recovery.
 Evidence stays in private output directories. See [rule verification](GAMEPLAY_PORT.md)
-for the original-executable comparisons and their limits.
+for the original-executable comparisons and their limits. `build.json` records
+segment bounds, game ownership, cleared bytes and reclaimed bootstrap RAM.

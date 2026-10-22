@@ -41,7 +41,7 @@ def build(cc65,out):
     return labels
 
 
-def verify(dos,cc65,out):
+def verify(dos,cc65,out,focus=None):
     out=out.resolve()
     if out.is_relative_to(ROOT):raise ValueError('keep original-derived evidence outside checkout')
     (out/'verification.json').unlink(missing_ok=True)
@@ -62,14 +62,15 @@ def verify(dos,cc65,out):
     army_rules=struct.pack('<33H',*(rules['army_rules']['health']+rules['army_rules']['strength']+rules['army_rules']['crew']))
     defence_rules=struct.pack('<30H',*(rules['defence_rules']['health']+rules['defence_rules']['strength']+rules['defence_rules']['crew']))
     tested=0;per_op={}
-    def check(op,sector,a=0,b=0,c=0,recipe=None,seed=0,base=0,scale=0,run=0,human=0,max_age=9,army=None,alliances=None,active=15,origin=0):
+    def check(op,sector,a=0,b=0,c=0,recipe=None,seed=0,base=0,scale=0,run=0,human=0,max_age=9,army=None,alliances=None,active=15,origin=0,retired=None,field_armies=None,owned=None):
         nonlocal tested
         request=bytearray(32);request[0]=op
         for offset,value in [(2,a),(4,b),(6,c),(8,run),(10,seed),(14,base),(16,scale),(24,origin),(26,human),(28,max_age),(30,active)]:put(request,offset,value)
         recipe=recipe or bytes([255,0])*5
         army=army or bytes(11);alliances=alliances or bytes([1,2,4,8])
-        expected,value,endseed,hi,rate=oracle.apply(op,sector,request,recipe,army,alliances)
-        for prefix,data in [('gp_sector',sector),('gp_request',request),('gp_recipe',recipe),('gp_classes',classes),('gp_buildings',buildings),('gp_patterns',patterns),('gp_groups',groups),('gp_complexity',complexity),('gp_manufacture',manufacture),('gp_research_points',research_points),('gp_technology_points',technology_points),('gp_army',army),('gp_army_rules',army_rules),('gp_defence_rules',defence_rules),('gp_alliances',alliances),('gp_combat_rules',struct.pack('<5H',*rules['combat_rules']))]:
+        expected,value,endseed,hi,rate=oracle.apply(op,sector,request,recipe,army,alliances,retired,field_armies,owned)
+        if (focus=='future' and retired is None) or (focus=='repair' and op!=40):return bytearray(expected)
+        for prefix,data in [('gp_repair_caps',b''.join(struct.pack('<10H',*v)for v in rules['repair_caps'])),('gp_shield_rules',struct.pack('<10H',*rules['shield_rules'])),('gp_owned',owned or bytes(4)),('gp_retired',retired or bytes(4)),('gp_army_sectors',field_armies or bytes(4)),('gp_sector',sector),('gp_request',request),('gp_recipe',recipe),('gp_classes',classes),('gp_buildings',buildings),('gp_patterns',patterns),('gp_groups',groups),('gp_complexity',complexity),('gp_manufacture',manufacture),('gp_research_points',research_points),('gp_technology_points',technology_points),('gp_army',army),('gp_army_rules',army_rules),('gp_defence_rules',defence_rules),('gp_alliances',alliances),('gp_combat_rules',struct.pack('<5H',*rules['combat_rules']))]:
             arr=(ctypes.c_uint8*len(data)).in_dll(lib,prefix);arr[:]=data
             addr=labels['_'+prefix];native.m[addr:addr+len(data)]=data
         lib.gp_dispatch()
@@ -83,8 +84,10 @@ def verify(dos,cc65,out):
                 addr=labels['_gp_request'];req=bytes(native.m[addr:addr+32])
             if actual!=expected:
                 differences=[(hex(i),x,y)for i,(x,y)in enumerate(zip(expected,actual))if x!=y]
-                raise AssertionError(f'{backend}, op {op}, a={a}, b={b}, c={c}: sector differs: {differences[:12]}')
-            if op in [4,5,7,12,18,24,25,28,34] and get(req,12)!=value:
+                raise AssertionError(f'{backend}, op {op}, a={a}, b={b}, c={c}, human={human}, island={origin}, retired={retired}, armies={field_armies}: sector differs: {differences[:12]}')
+            if op in [33,34,37] and get(req,18)!=sum(struct.unpack('<4H',oracle.saved)):
+                raise AssertionError(f'{backend}: automatic shutdown saved population differs')
+            if op in [4,5,7,12,18,24,25,28,34,38,40] and get(req,12)!=value:
                 raise AssertionError(f'{backend}, op {op}, a={a}, seed={seed}: result {get(req,12)} != original {value}')
             if op in [7,17,20,24,25,33,34,35] and get(req,10)!=endseed:raise AssertionError(f'{backend}: PRNG seed differs')
             if op in [20,28,29,30,31]:
@@ -411,7 +414,45 @@ def verify(dos,cc65,out):
         army=bytearray(11);army[age if age!=8 else 7]=3;army[10]=5
         base=check(20,base,a=1,army=army)
         check(37,base,a=1,human=3)
-    report=dict(exe_sha256=rules['exe_sha256'],campaign_sectors_verified=448,
+    for age in [0,3,6,9]:
+        for people in [1,99,100,499,998]:
+            for human in [0,3]:
+                base=bytearray(oracle.initialize(min(age*3,27))[6])
+                put(base,0x3fe,0);put(base,0x404,people);put(base,0x406,people)
+                base[0x448]=144;base[0x446]=1;base[0x3b8:0x3c2]=bytes([255])*10
+                base=check(22,base,a=0,b=0,c=age)
+                check(38,base,human=human)
+    for age in range(10):
+        for people in [1,20,100,998]:
+            check(39,oracle.initialize(min(age*3,27))[6],a=age%4,b=people)
+    for faction in range(4):
+        base=check(39,oracle.initialize(27)[6],a=faction,b=100)
+        base[0x448]=144
+        for retired_count in [0,1]:
+            for armies in [0,1]:
+                retired=bytearray(4);retired[faction]=retired_count
+                field=bytearray(4);field[faction]=armies
+                for owned_count in [0,1,2]:
+                    owned=bytearray(4);owned[faction]=owned_count
+                    for human in [faction,(faction+1)%4]:
+                        for island in [0,27]:
+                            check(34,base,a=5000,b=(faction+1)%4,human=human,origin=island,retired=retired,field_armies=field,owned=owned)
+                            check(37,base,a=(faction+1)%4,human=human,origin=island,retired=retired,field_armies=field,owned=owned)
+    # The optional arrival branch only resumes the DOS pause/UI globals.
+    # Enabling it must not alter sector, acceptance or RNG semantics.
+    for faction in [1,2,3]:
+        base=check(39,oracle.initialize(0)[6],a=0,b=100)
+        army=bytearray(11);army[0]=10
+        check(20,base,a=faction,army=army,human=0,base=1)
+    for age in range(10):
+        for building in range(4):
+            base=check(39,oracle.initialize(min(age*3,27))[6],a=0,b=100)
+            base[0x446]=15;put(base,0x2fc,4)
+            maximum=rules['buildings'][building]['health'][age]
+            for hp in [0,1,maximum//2,maximum-1,maximum]:
+                put(base,0x3d6+building*2,hp)
+                for shield in range(10):check(40,base,b=building,c=shield)
+    report=dict(focus=focus,exe_sha256=rules['exe_sha256'],campaign_sectors_verified=448,
                 scenarios=tested,backends=['host C','native NMOS 6502'],per_opcode=per_op,
                 native_code_bytes=(out/'core.bin').stat().st_size+(out/'core.bin.low').stat().st_size+(out/'core.bin.bank').stat().st_size,
                 native_code_regions={'0x1000':(out/'core.bin.low').stat().st_size,'0x8000':(out/'core.bin').stat().st_size,'0xd400':(out/'core.bin.bank').stat().st_size},
@@ -419,8 +460,8 @@ def verify(dos,cc65,out):
                                   'Neutral occupation, contested construction, hostile army defeated, tower completes and installs owner'],
                 source='Audited original DOS near/far routines; complete sector bytes compared',
                 limitations=['C64 AI, interface and campaign allocation are native adaptations',
-                             'arrival optional DOS global 0x1c78 branch not translated; verified with zero',
-                             'future shutdown special branches are not covered by DOS comparisons',
+                             'optional arrival pause/UI branch enabled in additional comparisons; native pause UI is adapted',
+                             'automatic future shutdown counts are supplied by the native whole-world cache',
                              'rule comparisons do not establish human balance across all islands'])
     (out/'verification.json').write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps(report,indent=2))
@@ -428,6 +469,7 @@ def verify(dos,cc65,out):
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--dos',type=Path,required=True);p.add_argument('--cc65',type=Path,required=True);p.add_argument('--out',type=Path,required=True)
+    p.add_argument('--focus',choices=['future','repair'],help='compare only future shutdown cases; run the remaining oracle chains as setup')
     a=p.parse_args()
     if a.out.resolve().is_relative_to(ROOT):p.error('keep original-derived evidence outside checkout')
-    verify(a.dos,a.cc65,a.out)
+    verify(a.dos,a.cc65,a.out,a.focus)

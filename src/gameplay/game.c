@@ -4,6 +4,7 @@
 #ifdef __CC65__
 #pragma code-name ("BATTLE")
 #endif
+static uint8_t retired_owner[16];
 uint8_t ng_state[NG_STATE_BYTES],ng_terrain[16],ng_owners[16],ng_ages[16],ng_ruined[16],ng_event;
 uint16_t ng_people[16],ng_units[16][4],ng_strength[16][4],ng_presence[4];
 static uint16_t rw(const uint8_t *p) {return p[0]|((uint16_t)p[1]<<8);}
@@ -14,10 +15,13 @@ void ng_rule(uint8_t op,uint16_t a,uint16_t b,uint16_t c) {
     uint8_t i;for(i=0;i<32;++i)gp_request[i]=0;
     gp_request[0]=op;ww(gp_request+2,a);ww(gp_request+4,b);ww(gp_request+6,c);
     ww(gp_request+10,rw(ng_state+NG_SEED));
-    gp_request[24]=op==33?ng_state[NG_ISLAND]:ng_state[NG_ORIGIN];
+    gp_request[24]=op>=33?ng_state[NG_ISLAND]:ng_state[NG_ORIGIN];
     gp_request[26]=ng_state[NG_HOTSEAT]?(uint8_t)r(0x3fe):ng_state[NG_HUMAN];
     gp_request[28]=world_last;gp_request[30]=ng_state[NG_ACTIVE];
     gp_dispatch();ww(ng_state+NG_SEED,rw(gp_request+10));
+    if((op==33 || op==34 || op==37) && rw(gp_request+18)) {
+        i=(uint8_t)r(0x400);ww(ng_state+NG_RESERVE+(uint16_t)i*2,rw(ng_state+NG_RESERVE+(uint16_t)i*2)+rw(gp_request+18));
+    }
     if(op==33 && gp_request[20])ng_event|=1;
     if(op==15 && gp_request[20])ng_event|=4;
     if((op==11 || op==31) && gp_request[20])ng_event|=2;
@@ -27,17 +31,18 @@ void ng_reset_pacts(void) {
     for(i=0;i<4;++i) {gp_alliances[i]=1<<i;ng_state[NG_ALLIES+i]=1<<i;}
     for(i=0;i<32;++i)ng_state[NG_TRUCE+i]=0;
 }
+static void new_impl(void);
 void ng_new(void) {
-    uint8_t i;for(i=0;i<NG_STATE_BYTES;++i)ng_state[i]=0;
-    ng_state[NG_ACTIVE]=3;ng_state[NG_SPEED]=1;ng_state[NG_DIFFICULTY]=1;
-    ng_state[NG_CATEGORY]=2;ng_state[NG_ORIGIN]=255;ng_state[NG_NUKE]=255;
-    ww(ng_state+NG_SEED,0x1991);
-    ng_reset_pacts();
+#if defined(__CC65__) && defined(NATIVE_GAME)
+    extern void gp_ensure_rare(void);gp_ensure_rare();
+#endif
+    new_impl();
 }
 void ng_cache(void) {
     uint8_t i,s;s=world_slot;world_put();
     ng_ruined[s]=(gp_sector[0x448]&64)!=0;
     ng_owners[s]=ng_ruined[s]?255:(uint8_t)r(0x3fe);
+    retired_owner[s]=(gp_sector[0x448]&32)?(uint8_t)r(0x400):255;
     ng_people[s]=r(GP_POP);ng_ages[s]=(uint8_t)r(0x418);
     for(i=0;i<4;++i) {ng_units[s][i]=r(0x2f4+(uint16_t)i*2);ng_strength[s][i]=r(0x3f4+(uint16_t)i*2);}
 }
@@ -94,14 +99,19 @@ uint8_t ng_arm(uint8_t age) {
     w(GP_POP,r(GP_POP)-crew);ng_rule(0,n-crew,0,0);
     for(i=0;i<11;++i)gp_army[i]=0;gp_army[age]=1;ng_rule(20,faction,0,0);return 1;
 }
+static uint8_t defend_impl(uint8_t age,uint8_t building,uint8_t slot);
 uint8_t ng_defend(uint8_t age,uint8_t building,uint8_t slot) {
-    uint16_t crew,at,n;
-    if(age>=10 || building>=4 || !(gp_sector[0x446]&(1<<building)) || slot>=rw(gp_buildings+(uint16_t)building*24+20))return 0;
-    at=rw(gp_buildings+(uint16_t)building*24+22)+slot;
-    if(gp_sector[at]!=255)return 0;
-    crew=rw(gp_defence_rules+40+(uint16_t)age*2);n=r(GP_FREE);
-    if(n<crew || !pay(1,age))return 0;
-    ng_rule(0,n-crew,0,0);ng_rule(22,slot,building,age);return 1;
+#if defined(__CC65__) && defined(NATIVE_GAME)
+    gp_ensure_rare();
+#endif
+    return defend_impl(age,building,slot);
+}
+static uint8_t repair_equipment(uint8_t age,uint8_t building);
+uint8_t ng_repair(uint8_t age,uint8_t building) {
+#if defined(__CC65__) && defined(NATIVE_GAME)
+    gp_ensure_rare();
+#endif
+    return repair_equipment(age,building);
 }
 uint8_t ng_launch(uint8_t from,uint8_t to,uint8_t faction,uint8_t retaliate) {
     uint8_t i,ok;
@@ -145,29 +155,90 @@ void ng_clock(uint16_t elapsed) {
 }
 void ng_outcome(void) {
     uint8_t s,f,h,alive;h=ng_state[NG_HUMAN];alive=0;
-    for(f=0;f<4;++f)ng_presence[f]=0;
+    for(f=0;f<4;++f) {ng_presence[f]=0;gp_owned[f]=0;gp_retired[f]=0;gp_army_sectors[f]=0;}
     for(s=0;s<16;++s)if(ng_terrain[s] && !ng_ruined[s]) {
-        f=ng_owners[s];if(f<4) {alive|=1<<f;ng_presence[f]+=ng_people[s]+1;}
-        for(f=0;f<4;++f)if(ng_units[s][f]) {alive|=1<<f;ng_presence[f]+=ng_units[s][f];}
+        if(retired_owner[s]<4)++gp_retired[retired_owner[s]];
+        f=ng_owners[s];if(f<4) {++gp_owned[f];alive|=1<<f;ng_presence[f]+=ng_people[s]+1;}
+        for(f=0;f<4;++f)if(ng_units[s][f]) {++gp_army_sectors[f];alive|=1<<f;ng_presence[f]+=ng_units[s][f];}
     }
-    if(ng_state[NG_STATUS]!=NG_PLAYING)return;
+    if(ng_state[NG_STATUS]!=NG_PLAYING || ng_state[NG_PHASE])return;
     if(!(alive&(1<<h)) && ng_state[NG_HOTSEAT] && alive) {for(h=0;!(alive&(1<<h));++h) {}ng_state[NG_HUMAN]=h;}
-    if(!(alive&(1<<h)))ng_state[NG_STATUS]=NG_LOST;
+    if(!(alive&(1<<h)))ng_state[NG_STATUS]=(ng_state[NG_WITHDRAW]&(1<<h))?NG_WON:NG_LOST;
     else if(!(alive&~gp_alliances[h]))ng_state[NG_STATUS]=ng_state[NG_ISLAND]==27?NG_COMPLETE:NG_WON;
 }
 #if defined(__CC65__) && defined(NATIVE_GAME)
 #pragma code-name (push, "RARE")
 #endif
+static void new_impl(void) {
+    uint8_t i;for(i=0;i<NG_STATE_BYTES;++i)ng_state[i]=0;
+    ng_state[NG_ACTIVE]=3;ng_state[NG_SPEED]=1;ng_state[NG_DIFFICULTY]=1;
+    ng_state[NG_CATEGORY]=2;ng_state[NG_ORIGIN]=255;ng_state[NG_NUKE]=255;
+    ww(ng_state+NG_SEED,0x1991);
+    ng_reset_pacts();ww(ng_state+NG_POOL,100);ww(ng_state+NG_DEPLOY,20);ng_state[NG_PHASE]=1;ng_state[NG_PAUSED]=1;
+}
+static uint8_t defend_impl(uint8_t age,uint8_t building,uint8_t slot) {
+    uint16_t crew,at,n;
+    if(age>=10 || building>=4 || !(gp_sector[0x446]&(1<<building)) || slot>=rw(gp_buildings+(uint16_t)building*24+20))return 0;
+    at=rw(gp_buildings+(uint16_t)building*24+22)+slot;
+    if(gp_sector[at]!=255)return 0;
+    crew=rw(gp_defence_rules+40+(uint16_t)age*2);n=r(GP_FREE);
+    if(n<crew || !pay(1,age))return 0;
+    ng_rule(0,n-crew,0,0);ng_rule(22,slot,building,age);return 1;
+}
+#ifdef __CC65__
+#pragma code-name (push, "BATTLE")
+#endif
+static uint8_t repair_equipment(uint8_t age,uint8_t building) {
+    if(age>=10 || building>=4 || !(gp_sector[0x446]&(1<<building)) || r(0x3d6+(uint16_t)building*2)>=rw(gp_buildings+(uint16_t)building*24+r(0x418)*2) || !pay(0,age))return 0;
+    ng_rule(40,0,building,age);return (uint8_t)rw(gp_request+12);
+}
+#ifdef __CC65__
+#pragma code-name (pop)
+#endif
+static void prepare_impl(void) {
+    uint8_t i,f,count,start,h;uint16_t men;
+    count=world_factions;h=ng_state[NG_HUMAN];start=ng_state[NG_START];
+    ng_state[NG_ACTIVE]=1<<h;
+    for(f=0;count>1;++f)if(f!=h) {ng_state[NG_ACTIVE]|=1<<f;--count;}
+    if(ng_state[NG_ISLAND]==27) {
+        ng_state[NG_ACTIVE]=0;for(i=0;i<4;++i)if(rw(ng_state+NG_RESERVE+(uint16_t)i*2))ng_state[NG_ACTIVE]|=1<<i;
+    }
+    ng_reset_pacts();f=0;
+    for(i=0;i<16;++i)if(ng_terrain[i]) {
+        get(i);ng_rule(26,0,0,0);
+        if(!ng_state[NG_PHASE] && ng_state[NG_STATUS]==NG_PLAYING) {
+            if(i==start)f=h;
+            else {f=0;while(f<4 && (f==h || !(ng_state[NG_ACTIVE]&(1<<f))))++f;}
+            /* Each faction receives one initial tower, human at the chosen sector. */
+            if(f<4) {
+                men=f==h?rw(ng_state+NG_DEPLOY):20;
+                if(ng_state[NG_ISLAND]==27)men=rw(ng_state+NG_RESERVE+(uint16_t)f*2)/10;
+                ng_rule(39,f,men,0);
+                ng_state[NG_ACTIVE]&=(uint8_t)~(1<<f);
+            }
+        }
+        ng_cache();
+    }
+    if(!ng_state[NG_PHASE]) {ng_state[NG_ACTIVE]=0;
+        for(i=0;i<16;++i)if(ng_terrain[i] && ng_owners[i]<4)ng_state[NG_ACTIVE]|=1<<ng_owners[i];
+    }
+    ng_state[NG_SELECTED]=start;
+}
 static void shutdown_impl(void) {
-    uint8_t i,f;uint16_t n;f=(uint8_t)r(0x3fe);if(f>=4 || !(gp_sector[0x448]&16))return;
-    n=r(GP_POP);ww(ng_state+NG_RESERVE+(uint16_t)f*2,rw(ng_state+NG_RESERVE+(uint16_t)f*2)+n);
-    for(i=1;i<4;++i)if(gp_sector[0x446]&(1<<i))ng_rule(32,0,i,0);
-    w(0x400,f);w(0x3fe,4);w(0x418,9);gp_sector[0x448]|=32;ng_event|=2;
+    uint8_t f;uint16_t n;f=(uint8_t)r(0x3fe);if(f>=4 || !(gp_sector[0x448]&16) || (gp_sector[0x448]&32))return;
+    ng_rule(38,0,0,0);n=rw(gp_request+12);
+    ww(ng_state+NG_RESERVE+(uint16_t)f*2,rw(ng_state+NG_RESERVE+(uint16_t)f*2)+n);ng_state[NG_WITHDRAW]|=1<<f;ng_event|=2;
 }
 #if defined(__CC65__) && defined(NATIVE_GAME)
 #pragma code-name (pop)
 extern void gp_ensure_rare(void);
 #endif
+void ng_prepare_island(void) {
+#if defined(__CC65__) && defined(NATIVE_GAME)
+    gp_ensure_rare();
+#endif
+    prepare_impl();
+}
 void ng_shutdown(void) {
 #if defined(__CC65__) && defined(NATIVE_GAME)
     gp_ensure_rare();
@@ -200,6 +271,7 @@ researched:
         }
         if(!r(0xd8) && r(GP_FREE)>30)ng_rule(13,15,2,8);
     }
+    age=world_last+1;while(age>world_first) {--age;if(ng_repair(age,0))break;}
     age=world_last+1;while(age>world_first) {--age;if(ng_defend(age,0,0))break;}
     age=world_last+1;
     while(age>world_first) {--age;if(age==8 || !(r(0x126)&(1<<age)))continue;

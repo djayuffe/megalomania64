@@ -1,4 +1,4 @@
-# v5 reconstruction in progress
+# v5 native gameplay — intro frozen
 
 The local full disk now shows the original DOS stories in order, changes their
 text in 14 recovered stages, and scrolls all 15 complete credit cards above a
@@ -19,9 +19,11 @@ converted pictures/sprites, resident SID music and streamed effects/voices.
 The launcher prefers this private D81; the packaged fallback D64 uses the older
 fan game.
 
-AI decisions, campaign allocation and the C64 interface are adaptations. This is
-not an exact DOS game reproduction; special future-shutdown branches and human
-balance across the entire campaign remain unverified. See [native build and
+The completed intro is frozen. Gameplay clears its RAM and reclaims the bootstrap
+area, with original terrain tiles, epoch/island selection, deployment pools,
+saved people and verified future-shutdown behavior. AI decisions, opponent
+starting deployment and the C64 interface remain adaptations; human campaign
+balance and physical hardware remain unverified. See [native build and
 controls](docs/NATIVE_INTEGRATION.md) and [original rule comparisons](docs/GAMEPLAY_PORT.md).
 Sections below describe historical v4 releases and their limitations at that time.
 

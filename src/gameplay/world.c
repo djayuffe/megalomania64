@@ -2,7 +2,7 @@
 #ifdef __CC65__
 #pragma code-name ("LOWCODE")
 #endif
-uint8_t world_first,world_last,world_slot;
+uint8_t world_first,world_last,world_slot,world_factions;
 static uint8_t *cursor;
 static uint8_t saving;
 static uint16_t word(const uint8_t *p) {return p[0]|((uint16_t)p[1]<<8);}

@@ -42,7 +42,7 @@ class Oracle:
         self.word(0x1c64,island);self.word(0x1c6c,age);self.word(0x1c6e,min(age+3,9));self.word(0x99f0,age)
         self.call(0x1a17,0x964)
         return [bytes(self.u.mem_read(self.base+SECTOR_BASE+i*SECTOR_BYTES,SECTOR_BYTES))for i in range(16)]
-    def apply(self,opcode,sector,request,recipe,army=None,alliances=None):
+    def apply(self,opcode,sector,request,recipe,army=None,alliances=None,retired=None,field_armies=None,owned=None):
         self.u.mem_write(self.base+SECTOR_BASE,bytes(sector))
         self.u.mem_write(self.base+0x4a00,bytes(recipe))
         self.u.mem_write(self.base+0x4982,bytes(recipe))
@@ -50,7 +50,10 @@ class Oracle:
         self.u.mem_write(self.base+0x4cb8,bytes(army or bytes(11)))
         self.u.mem_write(self.base+0x9c,bytes(alliances or bytes([1,2,4,8])))
         self.word(0x2d16,struct.unpack_from('<H',request,30)[0])
-        self.word(0x1c78,0)
+        for f in range(4):
+            self.word(0x2d38+f*2,(owned or bytes(4))[f])
+            self.word(0x2d40+f*2,(retired or bytes(4))[f]);self.word(0x2d48+f*2,(field_armies or bytes(4))[f]);self.word(0x1cbc+f*2,0)
+        self.word(0x1c78,struct.unpack_from("<H",request,14)[0]);self.word(0x1c74,1)
         self.word(0x2456,0)
         self.word(0x1c64,struct.unpack_from('<H',request,24)[0])
         self.word(0x9a10,SECTOR_BASE)
@@ -70,17 +73,23 @@ class Oracle:
                  (0xd24,0xf91),(0x1471,0xfcd),(0x1a17,0x165f),(0x1471,0x5de),
                  (0xd24,0x1bcd),(0xd24,0xe4e),(0,0x5e55),(0,0x6154),
                  (0x11b9,0x108c),(0xd24,0x2336),(0x11b9,0x1e18),(0x11b9,0x1f93),
-                 (0,0x5a9f),(0,0xcd19),(0,0x670b),(0,0x5b10),(0,0x6366),(0,0x68f4),(0x1471,0x33c),(0,0x6ec4)]
+                 (0,0x5a9f),(0,0xcd19),(0,0x670b),(0,0x5b10),(0,0x6366),(0,0x68f4),(0x1471,0x33c),(0,0x6ec4),(0,0x6b6c),(0,0x74c8),(0xd24,0x1669)]
         if opcode in [18,20,28,29]:self.word(0x9a14,0x4a20)
         if opcode==20:self.word(0x9a18,struct.unpack_from('<H',request,24)[0])
         if opcode in [24,33]:self.word(0x1c6c,struct.unpack_from('<H',request,6)[0])
         if opcode==2:self.word(0x99f4,struct.unpack_from('<H',request,4)[0])
         if opcode==8:
             self.word(0x99f4,struct.unpack_from('<H',request,14)[0]);self.word(0x99f8,struct.unpack_from('<H',request,16)[0])
-        self.call(*entries[opcode],near=opcode in [14,15,24,25,30,31,32,33,34,35,37])
+        if opcode==39:
+            self.word(0x245c,0);self.word(0x9a0c,struct.unpack_from("<H",request,4)[0])
+        if opcode==38:
+            owner=struct.unpack_from("<H",sector,0x3fe)[0];self.word(0x1cbc+owner*2,0)
+        self.call(*entries[opcode],near=opcode in [14,15,24,25,30,31,32,33,34,35,37,38,39])
         self.recipe=bytes(self.u.mem_read(self.base+0x4982,10))
         self.army=bytes(self.u.mem_read(self.base+0x4a20,11))
         if opcode in [30,31]:self.army=bytes(self.u.mem_read(self.base+0x4cb8,11))
         self.army_left=self.word(0x4c94)
+        self.saved=bytes(self.u.mem_read(self.base+0x1cbc,8))
         result=bytes(self.u.mem_read(self.base+SECTOR_BASE,SECTOR_BYTES))
-        return result,self.word(0x99f0),self.word(0x3098),self.word(0x99f2),self.word(0x99f4)
+        value=self.word(0x1cbc+owner*2)if opcode==38 else self.word(0x99f0)
+        return result,value,self.word(0x3098),self.word(0x99f2),self.word(0x99f4)

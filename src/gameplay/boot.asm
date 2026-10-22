@@ -5,19 +5,48 @@
  cld
  ldx #$ff
  txs
+ ; Retire the intro completely before loading any gameplay segment.
+ ; Keep only this bootstrap, KERNAL workspace, hardware stack and device $BA.
+ lda #$36
+ sta $01
+ lda #0
+ sta $d01a
+ sta $d015
+ sta $d418
+ lda #$7f
+ sta $dc0d
+ sta $dd0d
+ lda $dc0d
+ lda $dd0d
+ lda #$0b
+ sta $d011
+ lda #$34
+ sta $01
+ lda #0
+ sta $fb
+ lda #9
+ sta $fc
+ ldy #0
+ lda #0
+boot_clear:
+ sta ($fb),y
+ iny
+ bne boot_clear
+ inc $fc
+ bne boot_clear
+boot_cleared:
+ lda #$36
+ sta $01
  lda #$31
  sta $0314
  lda #$ea
  sta $0315
- lda #0
- sta $d01a
- sta $d015
- lda #$7f
- sta $dd0d
+ lda #$47
+ sta $0318
+ lda #$fe
+ sta $0319
  lda #$81
  sta $dc0d
- lda #$0b
- sta $d011
  cli
  lda #0
  sta boot_index

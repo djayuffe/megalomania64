@@ -19,7 +19,7 @@ class NativeGameTest(unittest.TestCase):
         header=folder/'memory.h';header.write_text('#include <stdint.h>\nextern uint8_t world_memory[10496];\n')
         stub=folder/'memory.c';stub.write_text('#include <stdint.h>\nuint8_t world_memory[10496];\n')
         library=folder/'game.so'
-        subprocess.run([compiler,'-std=c99','-Wall','-Wextra','-Werror','-shared','-fPIC','-DWORLD_ADDRESS=world_memory','-include',str(header),*[str(ROOT/f'src/gameplay/{name}.c')for name in ['core','world','game']],str(stub),'-o',str(library)],check=True,capture_output=True)
+        subprocess.run([compiler,'-std=c99','-Wall','-Wextra','-Werror','-shared','-fPIC','-DWORLD_ADDRESS=world_memory','-include',str(header),*[str(ROOT/f'src/gameplay/{name}.c')for name in ['core','world','game','campaign']],str(stub),'-o',str(library)],check=True,capture_output=True)
         cls.lib=ctypes.CDLL(str(library))
 
     @classmethod
@@ -27,11 +27,12 @@ class NativeGameTest(unittest.TestCase):
 
     def setUp(self):
         core_tests.GameplayCoreTest.setUp(self);self.lib.ng_new()
-        self.state=(ctypes.c_uint8*128).in_dll(self.lib,'ng_state')
+        self.state=(ctypes.c_uint8*128).in_dll(self.lib,'ng_state');self.state[126]=0
         self.terrain=(ctypes.c_uint8*16).in_dll(self.lib,'ng_terrain');self.terrain[:]=bytes(16)
         (ctypes.c_uint8*10).in_dll(self.lib,'gp_combat_rules')[:]=bytes([25,0,75,0,25,0,75,0,100,0])
         ctypes.c_uint8.in_dll(self.lib,'world_first').value=0
         ctypes.c_uint8.in_dll(self.lib,'world_last').value=3
+        ctypes.c_uint8.in_dll(self.lib,'world_factions').value=4
         self.word(0xbe,65535);self.word(0xd2,65535);self.word(0x3fe,0)
         self.word(0x2fc,1);self.s[0x446]=1;self.s[0x448]=128
         self.word(0x3d6,100);self.word(0x404,100);self.word(0x406,100)
@@ -149,3 +150,81 @@ class NativeGameTest(unittest.TestCase):
         self.state[13]=2;self.lib.ng_negotiate(3)
         self.lib.ng_clock(600)
         self.assertEqual(self.buffers['alliances'][:],[1,2,4,8])
+
+    def test_campaign_pool_choice_epoch_and_saved_people_final(self):
+        self.state[126]=1;self.terrain[0]=1
+        self.assertEqual(self.lib.ng_campaign_action(13),1)
+        self.assertEqual(self.state[116],80)
+        self.assertEqual(self.state[126],0)
+        for island in [0,1,2]:
+            self.state[12]=island;self.state[15]=1
+            self.assertEqual(self.lib.ng_campaign_action(ord('N')),1)
+            if island<2:self.lib.ng_campaign_action(13)
+        self.assertEqual(self.state[12],3)
+        self.assertEqual(self.state[116],140)
+        self.state[12]=26;self.state[15]=1;self.state[34+3]|=3
+        self.state[42]=244;self.state[43]=1
+        self.lib.ng_campaign_action(ord('N'))
+        self.assertEqual(self.state[12],27)
+        self.assertEqual(self.state[116],50)
+
+    def test_campaign_spawn_has_chosen_start_and_exact_deployed_population(self):
+        self.save_sector(0);self.save_sector(1);self.save_sector(4);self.save_sector(5)
+        self.state[127]=4;self.state[126]=0;self.state[118]=30
+        self.lib.ng_prepare_island()
+        owners=(ctypes.c_uint8*16).in_dll(self.lib,'ng_owners')
+        self.assertEqual(owners[4],0)
+        self.assertEqual(sorted(owners[i]for i in [0,1,4,5]),[0,1,2,3])
+        self.load_sector(4);self.assertEqual(self.read(0x404),30)
+        self.assertTrue(self.s[0x446]&1)
+
+    def test_shutdown_saves_people_once_and_counts_as_withdrawal(self):
+        self.save_sector(0);self.s[0x448]|=16
+        self.lib.ng_shutdown();self.lib.ng_cache();self.lib.ng_outcome()
+        self.assertEqual(self.state[38]&1,1)
+        self.assertEqual(self.state[15],1)
+        self.assertGreater(self.state[42]|self.state[43]<<8,0)
+        before=bytes(self.state[42:50]);self.lib.ng_shutdown();self.assertEqual(bytes(self.state[42:50]),before)
+
+    def test_computer_future_tower_shutdown_preserves_saved_people(self):
+        self.state[13]=3;self.state[14]=15;self.s[0x448]|=16
+        self.buffers['owned'][0]=2
+        self.lib.ng_rule(34,5000,1,0)
+        self.assertTrue(self.s[0x448]&32)
+        self.assertEqual(self.read(0x3fe),4)
+        self.assertEqual(self.state[42]|self.state[43]<<8,101)
+
+    def test_shield_repairs_selected_building_and_only_pays_when_damaged(self):
+        self.word(0x122,1);self.word(0x3d6,40)
+        self.s[0x19c:0x19c+10]=bytes([255,0])*5
+        self.assertEqual(self.lib.ng_repair(0,0),1)
+        self.assertEqual(self.read(0x3d6),90)
+        self.assertEqual(self.lib.ng_repair(0,0),1)
+        self.assertEqual(self.read(0x3d6),100)
+        self.assertEqual(self.lib.ng_repair(0,0),0)
+        self.assertEqual(self.lib.ng_repair(0,1),0)
+
+    def test_late_shield_uses_factory_inventory(self):
+        self.word(0x122,16);self.word(0xee,1);self.word(0x3d6,1)
+        self.assertEqual(self.lib.ng_repair(4,0),1)
+        self.assertEqual(self.read(0xee),0)
+        self.assertEqual(self.read(0x3d6),100)
+        self.word(0x3d6,1);self.assertEqual(self.lib.ng_repair(4,0),0)
+
+    def test_original_island_faction_count_limits_initial_towers(self):
+        self.word(0x3fe,4);self.s[0x446]=0;self.word(0x2fc,0);self.word(0x404,0);self.word(0x406,0)
+        self.save_sector(0);self.save_sector(1);self.save_sector(4);self.save_sector(5)
+        ctypes.c_uint8.in_dll(self.lib,'world_factions').value=2
+        self.state[127]=0;self.state[126]=0;self.lib.ng_prepare_island()
+        owners=(ctypes.c_uint8*16).in_dll(self.lib,'ng_owners')
+        self.assertEqual(self.state[14],3)
+        self.assertEqual([owners[i]for i in [0,1,4,5]],[0,1,4,4])
+
+    def test_selected_human_faction_survives_two_player_island_transition(self):
+        self.word(0x3fe,4);self.s[0x446]=0;self.word(0x2fc,0);self.word(0x404,0);self.word(0x406,0)
+        self.save_sector(0);self.save_sector(1);self.save_sector(4)
+        ctypes.c_uint8.in_dll(self.lib,'world_factions').value=2
+        self.state[13]=3;self.state[127]=0;self.state[126]=0;self.lib.ng_prepare_island()
+        owners=(ctypes.c_uint8*16).in_dll(self.lib,'ng_owners')
+        self.assertEqual([owners[i]for i in [0,1,4]],[3,0,4])
+        self.assertEqual(self.state[14],9)

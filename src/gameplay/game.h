@@ -20,6 +20,12 @@
 #define NG_SEED 26
 #define NG_CLOCK 28
 #define NG_ALLIES 30
+#define NG_DONE 34
+#define NG_WITHDRAW 38
+#define NG_POOL 116
+#define NG_DEPLOY 118
+#define NG_PHASE 126
+#define NG_START 127
 #define NG_TRUCE 84
 #define NG_RESERVE 42
 #define NG_AI 50
@@ -33,6 +39,8 @@ extern uint8_t ng_state[NG_STATE_BYTES],ng_terrain[16],ng_owners[16],ng_ages[16]
 extern uint16_t ng_people[16],ng_units[16][4],ng_strength[16][4],ng_presence[4];
 void ng_new(void);
 void ng_reset_pacts(void);
+void ng_prepare_island(void);
+uint8_t ng_campaign_action(uint8_t key);
 void ng_rule(uint8_t op,uint16_t a,uint16_t b,uint16_t c);
 void ng_cache(void);
 void ng_step(uint16_t elapsed);
@@ -40,6 +48,7 @@ void ng_clock(uint16_t elapsed);
 void ng_outcome(void);
 uint8_t ng_move(uint8_t from,uint8_t to,uint8_t faction);
 uint8_t ng_arm(uint8_t age);
+uint8_t ng_repair(uint8_t age,uint8_t building);
 uint8_t ng_defend(uint8_t age,uint8_t building,uint8_t slot);
 uint8_t ng_launch(uint8_t from,uint8_t to,uint8_t faction,uint8_t retaliate);
 void ng_negotiate(uint8_t other);
