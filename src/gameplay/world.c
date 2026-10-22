@@ -3,6 +3,8 @@
 #pragma code-name ("LOWCODE")
 #endif
 uint8_t world_first,world_last,world_slot,world_factions;
+uint8_t world_orders[96],world_personalities[224];
+uint16_t world_enemy_men;
 static uint8_t *cursor;
 static uint8_t saving;
 static uint16_t word(const uint8_t *p) {return p[0]|((uint16_t)p[1]<<8);}

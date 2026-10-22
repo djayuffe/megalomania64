@@ -81,7 +81,7 @@ def verify(emulator,disk,native,out,model,handoff=False,expect_load=None,expect_
                 key('\r');assert memory(state+116,2)==bytes([80,0])
             before=sectors('initial_world')
             selected=next(i for i,s in enumerate(before)if word(s,0x3fe)==0)
-            assert word(before[selected],0x404)>=20
+            assert word(before[selected],0x404)==19
             art=(native/'files/NART01').read_bytes();font,_=unpack(art,2048,4)
             assert memory(0x3800,2048,'terrain_font')==font,'original terrain font differs from disk'
             aux=(native/'runtime.bin.aux').read_bytes()
@@ -129,11 +129,20 @@ def verify(emulator,disk,native,out,model,handoff=False,expect_load=None,expect_
             assert memory(state+8,2)==b'\2\0','second save did not rotate slots'
             key('H');key(chr(136));assert memory(0x4000,SLOT*16,'newest_world')==second,'newest valid save was not selected'
             key('H')
+            # Exercise a real AI turn and its disk overlay. Stop after the
+            # economy calls return, before its tactical move is chosen.
+            cmd(f'> {state+23:04x} 00');cmd(f'> {state+17:04x} 00')
+            cmd(f'break {labels["_ng_route_mask"]:04x}');cmd('x');cmd('delete')
+            persona=memory(labels['_gp_personality'],56,'ai_personality')
+            plan=memory(labels['_gp_plan'],28,'ai_worker_plan')
+            assert any(persona) and any(plan),'AI overlay did not plan a turn'
+            assert memory(0xc200,32,'ai_stack_guard')==bytes([0xa5])*32,'AI overflowed software stack'
+            cmd(f'> {state+17:04x} 01');cmd(f'> {state+23:04x} 01');settle()
             key('N');assert memory(state+12,1)==b'\0','campaign advanced before victory'
             key(' ')
             # Destroyed-enemy fixture exercises cache refresh, outcome detection
             # and the next-island UI; detailed combat is checked separately.
-            current=sectors('before_victory');enemy=next(i for i,s in enumerate(current)if word(s,0x3fe)==1)
+            current=sectors('before_victory');enemy=next(i for i,s in enumerate(current)if word(s,0x3fe)in (1,2,3))
             current[enemy][0x448]=(current[enemy][0x448]&127)|64
             fixture=out/'defeated-sector.prg';fixture.write_bytes((0x4000+enemy*SLOT).to_bytes(2,'little')+encode(current[enemy],0,3))
             cmd(f'load "{fixture}" 0');cmd(f'watch store {state+15:04x}');cmd('x');cmd('delete')
@@ -152,7 +161,7 @@ def verify(emulator,disk,native,out,model,handoff=False,expect_load=None,expect_
             assert memory(0xc200,32,'final_stack_guard')==bytes([0xa5])*32,'restart overflowed software stack'
             (out/'vic.txt').write_bytes(cmd('m d000 d02e'))
             cmd(f'screenshot "{out}/native.png" 2')
-            result=dict(model=model,handoff=handoff,ready=True,checks=['clean RAM bootstrap and frozen intro handoff','reclaimed bootstrap graphics loader','original terrain glyphs','campaign preparation, pool and island selection','rules and compressed world','army sprites','resident SID score','deploy, move and return','research allocation','shield repair and payment','player switching','CRC save/load round trip','victory and next island','pool exhaustion, defeat save and restart','compressed effect and voice caches with NMI playback','code bank preserved'])
+            result=dict(model=model,handoff=handoff,ready=True,checks=['clean RAM bootstrap and frozen intro handoff','reclaimed bootstrap graphics loader','original terrain glyphs','original deployment population, randomized faction order, campaign pool and island selection','rules and compressed world','army sprites','resident SID score','deploy, move and return','research allocation','live personality-based AI economy overlay','shield repair and payment','player switching','CRC save/load round trip','victory and next island','pool exhaustion, defeat save and restart','compressed effect and voice caches with NMI playback','code bank preserved'])
             (out/'verification.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,indent=2))
             connection.sendall(b'quit\n')
         finally:

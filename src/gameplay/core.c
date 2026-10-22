@@ -925,6 +925,121 @@ static void battle_tick(uint16_t elapsed,uint16_t first_age) {
 #ifdef __CC65__
 #pragma code-name (pop)
 #endif
+/* DOS 11B9:1B40: own/allied towers can be crossed. Neutral territory
+ * can be crossed only when an active allied army occupies it and no enemy
+ * army is present. Other land is a reachable endpoint, never a corridor. */
+uint8_t gp_routes[16];
+#if defined(__CC65__) && defined(NATIVE_GAME)
+#pragma code-name (push, "BATTLE")
+#endif
+static uint16_t passage(uint16_t faction) {
+    uint16_t owner,i;uint8_t found;
+    if(faction>=4)return 0;
+    owner=rd16(gp_sector+0x3fe);
+    if(owner<4)return (gp_alliances[faction]&(1<<owner))!=0;
+    found=0;
+    for(i=0;i<4;++i)if((gp_request[30]&(1<<i)) && rd16(gp_sector+0x2f4+i*2)) {
+        if(!(gp_alliances[faction]&(1<<i)))return 0;
+        found=1;
+    }
+    return found;
+}
+#if defined(__CC65__) && defined(NATIVE_GAME)
+#pragma code-name (pop)
+#pragma code-name (push, "CAMPAIGN")
+#endif
+/* Equivalent to DOS 0D24:39B1/3BA7; iterative to bound the 6502 stack.
+ * The source may be terminal: only the first visit bypasses that stop. */
+static uint16_t routes(uint16_t source) {
+    uint16_t mask;uint8_t i,j,changed;
+    if(source>=16 || !(gp_routes[source]&1))return 0;
+    gp_routes[source]=4;mask=(uint16_t)1<<source;changed=1;
+    while(changed) {
+        changed=0;
+        for(i=0;i<16;++i)if(gp_routes[i]==4) {
+            for(j=0;j<16;++j)if(((i/4==j/4 && (i+1==j || j+1==i)) || i+4==j || j+4==i) && (gp_routes[j]&1)) {
+                mask|=(uint16_t)1<<j;
+                if(gp_routes[j]==1) {gp_routes[j]=4;changed=1;}
+                else gp_routes[j]=6; /* Reached terminal, never expanded. */
+            }
+        }
+    }
+    for(i=0;i<16;++i)if(gp_routes[i]==6)gp_routes[i]=4;
+    return mask;
+}
+/* DOS 1A17:1383 (atomic) and 12B4 (up to count): inventory first,
+ * then construct early designs directly from resources. Failed atomic buys
+ * preserve both inventory and stock. A partial buy keeps the inventory used. */
+static uint16_t equipment(uint16_t count,uint16_t category,uint16_t age,uint8_t partial) {
+    uint16_t at,have,need,n,stock;uint8_t i,e,cost;
+    if(category>=3 || age>=10)return 0;
+    at=0xe6+category*20+age*2;have=rd16(gp_sector+at);
+    if(count<=have) {wr16(gp_sector+at,have-count);return count;}
+    need=count-have;
+    if(partial)wr16(gp_sector+at,0);
+    if(age>=4 || !(rd16(gp_sector+0x122+category*2)&((uint16_t)1<<age)))return partial?have:0;
+    for(i=0;i<10;++i)gp_recipe[i]=gp_sector[0x19c+category*100+age*10+i];
+    if(partial) {
+        n=need;
+        for(i=0;i<10;i+=2) {e=gp_recipe[i];cost=gp_recipe[i+1];if(e==255)continue;
+            if(e>=20 || !cost)return have;
+            stock=rd16(gp_sector+GP_STOCKS+(uint16_t)e*2)/cost;if(stock<n)n=stock;
+        }
+        spend(n);return have+n;
+    }
+    if(!spend(need))return 0;
+    wr16(gp_sector+at,0);return count;
+}
+#if defined(__CC65__) && defined(NATIVE_GAME)
+#pragma code-name (push, "BATTLE")
+#endif
+static void ai_defence(void) {
+    uint8_t b,slot,age;uint16_t crew,at;
+    b=gp_plan[0];if(b==255)return;slot=gp_plan[1];age=gp_plan[2];
+    crew=rd16(gp_defence_rules+40+(uint16_t)age*2);at=rd16(gp_buildings+(uint16_t)b*24+22)+slot;
+    gp_request[0]=45;wr16(gp_request+2,1);wr16(gp_request+4,1);wr16(gp_request+6,age);gp_dispatch();
+    if(!rd16(gp_request+12))return;
+    if(gp_sector[at]!=255)recall_defence(slot,b);
+    defence_install(slot,b,age);set_free(rd16(gp_sector+GP_FREE)-crew);
+}
+static void ai_repair(void) {
+    uint8_t b,age;uint16_t need,strength,n;
+    b=gp_plan[0];if(b==255)return;need=rd16(gp_plan+4);age=10;
+    while(age) {
+        --age;strength=rd16(gp_shield_rules+(uint16_t)age*2);if(!strength)continue;
+        n=(uint16_t)(need+strength-1)/strength;
+        gp_request[0]=46;wr16(gp_request+2,n);wr16(gp_request+4,0);wr16(gp_request+6,age);gp_dispatch();
+        n=rd16(gp_request+12);if(!n)continue;
+        need-=(uint16_t)(strength*n);
+        /* DOS consumes a batch but invokes the single-shield heal only once. */
+        repair_building(b,age);if((int16_t)need<=0)break;
+    }
+}
+#if defined(__CC65__) && defined(NATIVE_GAME)
+#pragma code-name (pop)
+#endif
+/* DOS 16B4:3156 merges whole alliance groups, not just one pair. */
+static void join_groups(uint16_t a,uint16_t b) {
+    uint8_t i,mask;if(a>=4 || b>=4 || (gp_alliances[a]&(1<<b)))return;
+    mask=gp_alliances[a]|gp_alliances[b];
+    for(i=0;i<4;++i)if(mask&(1<<i))gp_alliances[i]|=mask;
+}
+/* DOS 0D24:3F9D removes the departing faction from every group member. */
+static void leave_group(uint16_t a) {
+    uint8_t i;if(a>=4)return;
+    for(i=0;i<4;++i)gp_alliances[i]&=(uint8_t)~(1<<a);
+    gp_alliances[a]=1<<a;
+}
+#if defined(__CC65__) && defined(NATIVE_GAME)
+#pragma code-name (pop)
+extern void gp_ensure_campaign(void);
+extern void gp_ensure_ai(void);
+extern void gp_ensure_tactics(void);
+#else
+#define gp_ensure_campaign() ((void)0)
+#define gp_ensure_ai() ((void)0)
+#define gp_ensure_tactics() ((void)0)
+#endif
 void gp_dispatch(void) {
     uint16_t a,b,c,n;
     a=rd16(gp_request+2);b=rd16(gp_request+4);c=rd16(gp_request+6);
@@ -979,6 +1094,17 @@ void gp_dispatch(void) {
     case 37:nuclear_explode();break;
     case 38:wr16(gp_request+12,shutdown_sector());break;
     case 40:wr16(gp_request+12,repair_building(b,c));break;
+    case 41:wr16(gp_request+12,passage(a));break;
+    case 42:gp_ensure_campaign();wr16(gp_request+12,routes(a));break;
+    case 43:gp_ensure_campaign();join_groups(a,b);break;
+    case 44:gp_ensure_campaign();leave_group(a);break;
+    case 47:gp_ensure_ai();gp_economy_plan();break;
+    case 48:gp_ensure_rare();stop_tasks();break;
+    case 49:gp_ensure_ai();gp_economy_allocate();break;
+    case 50:gp_ensure_ai();gp_economy_scan();break;
+    case 51:gp_ensure_tactics();gp_defence_plan();ai_defence();break;
+    case 52:gp_ensure_tactics();gp_repair_plan();ai_repair();break;
+    case 45:case 46:gp_ensure_campaign();wr16(gp_request+12,equipment(a,b,c,gp_request[0]==46));break;
     case 39:wr16(gp_sector+0x3fe,a);complete_building(0);wr16(gp_sector+GP_POP,b);set_free(b);break;
     }
 }

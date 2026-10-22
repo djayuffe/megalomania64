@@ -16,6 +16,13 @@
 extern uint8_t gp_sector[GP_SECTOR_BYTES];
 extern uint8_t gp_request[GP_REQ_BYTES];
 extern uint8_t gp_recipe[10];
+extern uint8_t gp_personality[56],gp_plan[28];
+void gp_economy_plan(void);
+void gp_economy_allocate(void);
+void gp_economy_scan(void);
+void gp_defence_plan(void);
+void gp_repair_plan(void);
+extern uint8_t gp_routes[16]; /* 0 sea, 1 traversable, 3 terminal, 4 reached */
 extern uint8_t gp_classes[20];
 /* Four building types: ten age-specific health words, turret count word,
  * turret-record offset word (24 bytes each). Loaded from audited rule data. */

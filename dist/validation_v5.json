@@ -1,8 +1,8 @@
 {
   "version": "5.0.0-dev",
   "date": "2026-10-22",
-  "update": "Frozen intro, reclaimed RAM, original terrain graphics and remaining campaign/shutdown/repair rules",
-  "automated_tests": 294,
+  "update": "Original movement, deployment, alliance groups, equipment purchases and personality-based AI economy/defence/repair",
+  "automated_tests": 299,
   "focused_mutants_killed": 20,
   "prg_sha256": "7254bb35a77c5588acc4cbe5f51ec2146cd8a7fbe31be0ed8b036391617e2f07",
   "fallback_d64_sha256": "940eff171ee6068223e3f5a5bee9c06ddadffc773456c9813e7de028cce01660",
@@ -28,7 +28,7 @@
     }
   },
   "limitations": [
-    "C64 AI decisions, travel, opponent deployment and interface are adaptations",
+    "AI tactical army decisions, negotiation acceptance/proposals, deployment interaction timing and interface remain C64 adaptations",
     "original VGA palette/presentation and Paula synthesis are adapted to C64",
     "physical hardware timing, human listening and campaign balance across every island remain unverified",
     "original-derived native disk and content are private; packaged D64 uses older fan engine"
@@ -110,7 +110,7 @@
     "scope": "Earlier intro/audio validation; retained historical evidence, not remeasured in this native gameplay run"
   },
   "native_gameplay": {
-    "original_rule_scenarios": 7669,
+    "original_rule_scenarios": 15988,
     "original_sector_initializations": 448,
     "backends": [
       "host C",
@@ -125,12 +125,13 @@
       "clean RAM bootstrap and frozen intro handoff",
       "reclaimed bootstrap graphics loader",
       "original terrain glyphs",
-      "campaign preparation, pool and island selection",
+      "original deployment population, randomized faction order, campaign pool and island selection",
       "rules and compressed world",
       "army sprites",
       "resident SID score",
       "deploy, move and return",
       "research allocation",
+      "live personality-based AI economy overlay",
       "shield repair and payment",
       "player switching",
       "CRC save/load round trip",
@@ -149,13 +150,15 @@
       "nuclear destruction, retaliation and interception",
       "victory, defeat and final completion"
     ],
-    "private_disk_sha256": "d02e78f22d5faab7d42fc74b2cdc906defce37e39e89254b961f21403894e622",
+    "private_disk_sha256": "a93d822a93ac387e3324918f9b8ae3b61d033baa141109612d018548d9c77148",
     "formats": {
-      "rules": "NGR2",
-      "rule_payload_bytes": 706,
-      "world": "NGW3",
+      "rules": "NGR4",
+      "rule_payload_bytes": 1026,
+      "world": "NGW4",
       "terrain": "NGF1",
-      "save": "NGSV version 2"
+      "save": "NGSV version 2",
+      "ai_economy": "NGI1",
+      "ai_tactics": "NGT1"
     },
     "memory": {
       "intro_retained_bytes": 0,
@@ -174,8 +177,8 @@
         },
         "AUXCODE": {
           "start": 2048,
-          "end": 2195,
-          "bytes": 148
+          "end": 2248,
+          "bytes": 201
         },
         "LOWCODE": {
           "start": 4096,
@@ -184,13 +187,13 @@
         },
         "RUNTIME": {
           "start": 11008,
-          "end": 12552,
-          "bytes": 1545
+          "end": 12589,
+          "bytes": 1582
         },
         "UIRODATA": {
           "start": 13312,
-          "end": 13957,
-          "bytes": 646
+          "end": 14079,
+          "bytes": 768
         },
         "GRAPHICS": {
           "start": 26880,
@@ -199,8 +202,8 @@
         },
         "BSS": {
           "start": 28672,
-          "end": 32048,
-          "bytes": 3377
+          "end": 32613,
+          "bytes": 3942
         },
         "STARTUP": {
           "start": 32768,
@@ -209,40 +212,109 @@
         },
         "CODE": {
           "start": 32780,
-          "end": 49584,
-          "bytes": 16805
+          "end": 49557,
+          "bytes": 16778
         },
         "RODATA": {
-          "start": 49585,
-          "end": 49602,
-          "bytes": 18
+          "start": 49558,
+          "end": 49573,
+          "bytes": 16
         },
         "DATA": {
-          "start": 49603,
-          "end": 49621,
+          "start": 49574,
+          "end": 49592,
           "bytes": 19
         },
         "BATTLE": {
           "start": 54272,
-          "end": 61153,
-          "bytes": 6882
+          "end": 60773,
+          "bytes": 6502
+        },
+        "AI": {
+          "start": 61184,
+          "end": 64575,
+          "bytes": 3392
         },
         "CAMPAIGN": {
           "start": 61184,
-          "end": 62040,
-          "bytes": 857
+          "end": 65162,
+          "bytes": 3979
         },
         "RARE": {
           "start": 61184,
-          "end": 65508,
-          "bytes": 4325
+          "end": 64152,
+          "bytes": 2969
+        },
+        "TACTICS": {
+          "start": 61184,
+          "end": 62279,
+          "bytes": 1096
         }
       },
       "overlays": [
-        "NGRARE and NGCAMP share EF00-FFF9 with audio; only resident code loads or switches overlays"
+        "NGRARE, NGCAMP, NGAI and NGTACT share EF00-FFF9 with audio; resident wrappers switch overlays after leaf routines return"
       ]
     },
-    "native_files": 97,
-    "rule_evidence": "Private verification: all-remaining-verified/verification.json; host C and native NMOS 6502 compared with owner DOS executable"
+    "native_files": 99,
+    "rule_evidence": "Private verification: gameplay/gaps-final/verification.json; complete sector/plan/alliance/route results and RNG compared with DOS on host C and native NMOS 6502",
+    "per_opcode": {
+      "0": 13,
+      "1": 68,
+      "2": 20,
+      "3": 75,
+      "4": 60,
+      "5": 61,
+      "6": 46,
+      "7": 48,
+      "8": 42,
+      "9": 680,
+      "10": 15,
+      "11": 40,
+      "12": 360,
+      "13": 120,
+      "14": 288,
+      "16": 40,
+      "15": 400,
+      "17": 241,
+      "18": 55,
+      "19": 44,
+      "20": 83,
+      "21": 57,
+      "22": 1130,
+      "23": 200,
+      "24": 81,
+      "25": 60,
+      "26": 54,
+      "27": 216,
+      "28": 48,
+      "29": 48,
+      "30": 48,
+      "31": 165,
+      "32": 48,
+      "33": 96,
+      "34": 276,
+      "35": 4,
+      "36": 10,
+      "37": 202,
+      "38": 40,
+      "39": 87,
+      "40": 2000,
+      "41": 1280,
+      "42": 339,
+      "44": 60,
+      "43": 240,
+      "45": 1620,
+      "46": 1620,
+      "47": 784,
+      "49": 144,
+      "50": 120,
+      "51": 1536,
+      "52": 576
+    },
+    "remaining_gaps": [
+      "AI tactical army decisions, negotiation acceptance/proposals, deployment interaction timing and interface remain C64 adaptations",
+      "original VGA palette/presentation and Paula synthesis are adapted to C64",
+      "physical hardware timing, human listening and campaign balance across every island remain unverified"
+    ]
   }
 }

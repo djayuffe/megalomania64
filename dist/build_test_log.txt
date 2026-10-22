@@ -238,16 +238,21 @@ test_picture_is_bounded_and_retains_source_silhouette (test_native.NativeWorld) 
 test_rejects_invalid_windows_lengths_and_padding (test_native.NativeWorld) ... ok
 test_ai_researches_equips_attacks_and_defeats_an_idle_enemy (test_native_game.NativeGameTest) ... ok
 test_air_transfer_crosses_water_and_leaves_ground_army_at_source (test_native_game.NativeGameTest) ... ok
+test_allied_corridor_and_enemy_occupation_of_neutral_land (test_native_game.NativeGameTest) ... ok
 test_army_move_and_return_conserve_units_and_block_nonadjacent_water (test_native_game.NativeGameTest) ... ok
 test_campaign_pool_choice_epoch_and_saved_people_final (test_native_game.NativeGameTest) ... ok
 test_campaign_spawn_has_chosen_start_and_exact_deployed_population (test_native_game.NativeGameTest) ... ok
 test_computer_future_tower_shutdown_preserves_saved_people (test_native_game.NativeGameTest) ... ok
-test_diplomacy_expires_and_attack_breaks_symmetric_alliance (test_native_game.NativeGameTest) ... ok
+test_diplomacy_persists_until_departure (test_native_game.NativeGameTest) ... ok
+test_exhausted_campaign_pool_has_no_active_factions (test_native_game.NativeGameTest) ... ok
+test_ground_route_crosses_friendly_sectors_but_stops_at_neutral_endpoints (test_native_game.NativeGameTest) ... ok
+test_hotseat_alliance_groups_merge_and_depart_as_groups (test_native_game.NativeGameTest) ... ok
 test_hotseat_elimination_keeps_other_factions_playing (test_native_game.NativeGameTest) ... ok
-test_hotseat_truce_expires_for_its_original_participants (test_native_game.NativeGameTest) ... ok
 test_late_shield_uses_factory_inventory (test_native_game.NativeGameTest) ... ok
 test_nuclear_defence_retaliates_against_original_source (test_native_game.NativeGameTest) ... ok
 test_nuclear_launch_pays_inventory_and_interceptor_prevents_destruction (test_native_game.NativeGameTest) ... ok
+test_original_ai_repair_consumes_batch_but_heals_once_per_shield_age (test_native_game.NativeGameTest) ... ok
+test_original_ai_repair_skips_mine_when_absent_factory_halves_index (test_native_game.NativeGameTest) ... ok
 test_original_island_faction_count_limits_initial_towers (test_native_game.NativeGameTest) ... ok
 test_selected_human_faction_survives_two_player_island_transition (test_native_game.NativeGameTest) ... ok
 test_shield_repairs_selected_building_and_only_pays_when_damaged (test_native_game.NativeGameTest) ... ok
@@ -294,8 +299,8 @@ test_music_tables_are_in_sid_range (test_tools.Tools) ... ok
 test_package_is_reproducible_and_complete (test_tools.Tools) ... ok
 
 ----------------------------------------------------------------------
-Ran 294 tests in 154.402s
+Ran 299 tests in 153.402s
 
 OK
-MegaLoMania64_v5.0.0-dev_Source.zip: 425004 bytes, sha256 3e1b9df93321472a32333b83a2b60f73b1394cbc7cb544551dc294772c45c5a0
-MegaLoMania64_v5.0.0-dev_Source.zip: 425004 bytes, sha256 3e1b9df93321472a32333b83a2b60f73b1394cbc7cb544551dc294772c45c5a0
+MegaLoMania64_v5.0.0-dev_Source.zip: 436347 bytes, sha256 a968191cdb4ef16299a9b340135403b125bec6b308c6e5ada8c4bf390743b762
+MegaLoMania64_v5.0.0-dev_Source.zip: 436347 bytes, sha256 a968191cdb4ef16299a9b340135403b125bec6b308c6e5ada8c4bf390743b762

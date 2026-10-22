@@ -21,8 +21,9 @@ fan game.
 
 The completed intro is frozen. Gameplay clears its RAM and reclaims the bootstrap
 area, with original terrain tiles, epoch/island selection, deployment pools,
-saved people and verified future-shutdown behavior. AI decisions, opponent
-starting deployment and the C64 interface remain adaptations; human campaign
+saved people and verified future-shutdown behavior. Movement, alliance groups, equipment purchases and personality-based AI economy
+now follow DOS rules. AI tactical army choices, negotiation and the C64 interface
+remain adaptations; human campaign
 balance and physical hardware remain unverified. See [native build and
 controls](docs/NATIVE_INTEGRATION.md) and [original rule comparisons](docs/GAMEPLAY_PORT.md).
 Sections below describe historical v4 releases and their limitations at that time.

@@ -71,12 +71,12 @@ def build(dos,content,cc65,out,disk):
     if support.sym['support_loader_end']>0x1000 or support.sym['support_end']>0x2b00:raise ValueError('native support overlaps rules code')
     exports={f'_{name}':support.sym[name]for name in ['hw_open','hw_read','hw_close','hw_key','hw_frames','hw_play','hw_error','clip_voice','hw_store','hw_restore','hw_shadow','hw_crc']}
     exports['_hw_eof']=support.sym['ld_eof']
-    cfg='MEMORY { ZP: start=$0002,size=$001a,type=rw; RAM: start=$7000,size=$1000,type=rw; LOW: start=$1000,size=$1700,type=rw,file="%O.low"; HIGH: start=$8000,size=$4200,type=rw,file=%O; EXTRA: start=$2b00,size=$0640,type=rw,file="%O.extra"; CAMP: start=$ef00,size=$10fa,type=rw,file="%O.camp"; RARE: start=$ef00,size=$10fa,type=rw,file="%O.rare"; BANK: start=$d400,size=$1b00,type=rw,file="%O.bank"; GFX: start=$6900,size=$0700,type=rw,file="%O.gfx"; AUX: start=$0800,size=$0100,type=rw,file="%O.aux"; TEXT: start=$3400,size=$0300,type=rw,file="%O.text"; }\n'
-    cfg+='SEGMENTS { ZEROPAGE:load=ZP,type=zp; STARTUP:load=HIGH,type=ro; CODE:load=HIGH,type=ro; BATTLE:load=BANK,type=ro; RARE:load=RARE,type=ro; CAMPAIGN:load=CAMP,type=ro; LOWCODE:load=LOW,type=ro; GRAPHICS:load=GFX,type=ro; RUNTIME:load=EXTRA,type=ro; AUXCODE:load=AUX,type=ro; UIRODATA:load=TEXT,type=ro; RODATA:load=HIGH,type=ro; DATA:load=HIGH,type=rw; BSS:load=RAM,type=bss,define=yes; }\n'
+    cfg='MEMORY { ZP: start=$0002,size=$001a,type=rw; RAM: start=$7000,size=$1000,type=rw; LOW: start=$1000,size=$1700,type=rw,file="%O.low"; HIGH: start=$8000,size=$4200,type=rw,file=%O; EXTRA: start=$2b00,size=$0640,type=rw,file="%O.extra"; CAMP: start=$ef00,size=$10fa,type=rw,file="%O.camp"; TACTICS: start=$ef00,size=$10fa,type=rw,file="%O.tactics"; AI: start=$ef00,size=$10fa,type=rw,file="%O.ai"; RARE: start=$ef00,size=$10fa,type=rw,file="%O.rare"; BANK: start=$d400,size=$1b00,type=rw,file="%O.bank"; GFX: start=$6900,size=$0700,type=rw,file="%O.gfx"; AUX: start=$0800,size=$0100,type=rw,file="%O.aux"; TEXT: start=$3400,size=$0300,type=rw,file="%O.text"; }\n'
+    cfg+='SEGMENTS { ZEROPAGE:load=ZP,type=zp; STARTUP:load=HIGH,type=ro; CODE:load=HIGH,type=ro; BATTLE:load=BANK,type=ro; RARE:load=RARE,type=ro; AI:load=AI,type=ro; TACTICS:load=TACTICS,type=ro; CAMPAIGN:load=CAMP,type=ro; LOWCODE:load=LOW,type=ro; GRAPHICS:load=GFX,type=ro; RUNTIME:load=EXTRA,type=ro; AUXCODE:load=AUX,type=ro; UIRODATA:load=TEXT,type=ro; RODATA:load=HIGH,type=ro; DATA:load=HIGH,type=rw; BSS:load=RAM,type=bss,define=yes; }\n'
     cfg+='SYMBOLS {'+''.join(f'{name}:type=export,value=${value:04x};'for name,value in exports.items())+'}\n'
     (out/'runtime.cfg').write_text(cfg)
     objects=[]
-    for name in ['core','world','game','campaign','runtime']:
+    for name in ['core','ai','tactics','world','game','campaign','runtime']:
         run([cc65/'bin/cc65','-t','none','-O','-Cl','-D','NATIVE_GAME=1','-o',out/(name+'.s'),ROOT/f'src/gameplay/{name}.c'])
         run([cc65/'bin/ca65','-t','none','-o',out/(name+'.o'),out/(name+'.s')]);objects.append(out/(name+'.o'))
     run([cc65/'bin/ca65','-t','none','-o',out/'entry.o',ROOT/'src/gameplay/entry.s'])
@@ -89,9 +89,11 @@ def build(dos,content,cc65,out,disk):
     aux=(out/'runtime.bin.aux').read_bytes();(files/'NGAUX').write_bytes(b'NGA1'+struct.pack('<H',len(aux))+pack(aux))
     bank=(out/'runtime.bin.bank').read_bytes()
     (files/'NGCODE').write_bytes(b'NGC1'+struct.pack('<H',len(bank))+pack(bank))
+    tactics=(out/'runtime.bin.tactics').read_bytes();(files/'NGTACT').write_bytes(b'NGT1'+struct.pack('<H',len(tactics))+pack(tactics))
+    ai=(out/'runtime.bin.ai').read_bytes();(files/'NGAI').write_bytes(b'NGI1'+struct.pack('<H',len(ai))+pack(ai))
     camp=(out/'runtime.bin.camp').read_bytes();(files/'NGCAMP').write_bytes(b'NGY1'+struct.pack('<H',len(camp))+pack(camp))
     rare=(out/'runtime.bin.rare').read_bytes();(files/'NGRARE').write_bytes(b'NGX1'+struct.pack('<H',len(rare))+pack(rare))
-    data=bytearray(b'NGR2')
+    data=bytearray(b'NGR4')
     for values in [rules['element_classes']]:data+=bytes(values)
     for v in rules['buildings']:data+=struct.pack('<12H',*(v['health']+[v['turrets'],v['turret_offset']]))
     for group in rules['design_patterns']:
@@ -101,11 +103,11 @@ def build(dos,content,cc65,out,disk):
         data+=struct.pack('<'+'H'*len(rules[name]),*rules[name])
     for name in ['army_rules','defence_rules']:
         for field in ['health','strength','crew']:data+=struct.pack('<'+'H'*len(rules[name][field]),*rules[name][field])
-    data+=struct.pack('<5H',*rules['combat_rules']);data+=struct.pack('<10H',*rules['shield_rules']);data+=b''.join(struct.pack('<10H',*v)for v in rules['repair_caps']);data+=bytes([1,2,4,8]);(files/'NGTABLE').write_bytes(data)
+    data+=struct.pack('<5H',*rules['combat_rules']);data+=struct.pack('<10H',*rules['shield_rules']);data+=b''.join(struct.pack('<10H',*v)for v in rules['repair_caps']);data+=bytes([1,2,4,8]);data+=bytes(v for row in rules['deployment_orders']for v in row);data+=b''.join(struct.pack('<28H',*row)for row in rules['personalities']);(files/'NGTABLE').write_bytes(data)
     for island in rules['islands']:
         raw=b''.join(encode(record(s,island['start_age'],rules['element_classes']),island['start_age'],island['max_age'])for s in island['sectors'])
         assert len(raw)==SLOT*16
-        header=b'NGW3'+bytes([island['start_age'],island['max_age'],island['factions']])+bytes(s['tile']for s in island['sectors'])
+        header=b'NGW4'+bytes([island['start_age'],island['max_age'],island['factions']])+struct.pack('<H',island['deployment_people'])+bytes(s['tile']for s in island['sectors'])
         card,inks=picture((content/f'ISL{island["index"]+1:02d}.bin').read_bytes())
         header+=pack(card)+bytes(inks)
         (files/f'NMAP{island["index"]+1:02d}').write_bytes(header+pack(raw))
@@ -134,8 +136,8 @@ def build(dos,content,cc65,out,disk):
     report=dict(immutable_high_bytes=immutable,disk=str(disk),slot_bytes=SLOT,world_bytes=SLOT*16,native_files=len(list(files.iterdir())),runtime_main=labels['_runtime_main'],hardware={name:support.sym[name]for name in ['hw_key','hw_frames','hw_play','native_frames','mu_ready','smp_left']},boot_error=boot.sym['boot_error'],
                 intro_frozen=True,intro_retained_bytes=0,cleared_intro_ram_bytes=0x10000-0x900,reclaimed_bootstrap_bytes=256,
                 game_owned_ram=dict(start=0x800,end=0xffff,bytes=0xf800),segments=segments,
-                overlays=['NGRARE and NGCAMP share EF00-FFF9 with audio; only resident code loads or switches overlays'],
-                limitations=['C64 AI decisions, travel, opponent deployment and interface are adaptations; human campaign balance and physical hardware remain unverified'])
+                overlays=['NGRARE, NGCAMP, NGAI and NGTACT share EF00-FFF9 with audio; resident wrappers switch overlays after leaf routines return'],
+                limitations=['AI tactical army decisions, negotiation and deployment interaction timing remain C64 adaptations; economy, reachability, defence/repair and deployment counts/orders are translated; human campaign balance, interface fidelity and physical hardware remain unverified'])
     (out/'build.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps(report,indent=2))
 
 if __name__=='__main__':

@@ -109,10 +109,10 @@ static void audio(uint8_t clip) {
 static uint8_t rules_load(void) {
     uint8_t ok;
     if(!hw_open("NGTABLE"))return 0;
-    ok=signature("NGR2");
+    ok=signature("NGR4");
     table(gp_classes,20);table(gp_buildings,96);table(gp_patterns,270);table(gp_groups,20);
     table(gp_complexity,14);table(gp_manufacture,14);table(gp_research_points,12);table(gp_technology_points,20);
-    table(gp_army_rules,66);table(gp_defence_rules,60);table(gp_combat_rules,10);table(gp_shield_rules,20);table(gp_repair_caps,80);table(gp_alliances,4);
+    table(gp_army_rules,66);table(gp_defence_rules,60);table(gp_combat_rules,10);table(gp_shield_rules,20);table(gp_repair_caps,80);table(gp_alliances,4);table(world_orders,96);table(world_personalities,224);
     ok=ok&&!hw_error;hw_close();return ok;
 }
 #ifdef __CC65__
@@ -144,16 +144,23 @@ static uint8_t graphics_load(void) {
 #ifdef __CC65__
 #pragma code-name (pop)
 #endif
+#ifdef __CC65__
+#pragma code-name (push, "BATTLE")
+#endif
 static void ensure_overlay(uint8_t kind) {
     uint16_t size;uint8_t ok;
     if(loaded_clip==kind)return;
-    if(!hw_open(kind==254?"NGRARE":"NGCAMP")) {runtime_ready=2;while(1);}
-    ok=signature(kind==254?"NGX1":"NGY1");size=read_word();
+    if(!hw_open(kind==254?"NGRARE":kind==253?"NGCAMP":kind==252?"NGAI":"NGTACT")) {runtime_ready=2;while(1);}
+    ok=signature(kind==254?"NGX1":kind==253?"NGY1":kind==252?"NGI1":"NGT1");size=read_word();
     ok=ok && size && size<=4346 && unpack((uint8_t *)0xef00,size);
     hw_close();if(!ok) {runtime_ready=2;while(1);}loaded_clip=kind;
 }
 void gp_ensure_rare(void) {ensure_overlay(254);}
+void gp_ensure_campaign(void) {ensure_overlay(253);}
+void gp_ensure_ai(void) {ensure_overlay(252);}
+void gp_ensure_tactics(void) {ensure_overlay(251);}
 #ifdef __CC65__
+#pragma code-name (pop)
 #pragma code-name (push, "AUXCODE")
 #endif
 static uint8_t campaign_command(uint8_t key) {ensure_overlay(253);return ng_campaign_action(key);}
@@ -167,8 +174,8 @@ static uint8_t load_island(uint8_t resume) {
     clear();text(400,"LOADING ORIGINAL ISLAND",1);
     filename("NMAP",island+1);
     if(!hw_open(file))return 0;
-    if(!signature("NGW3")) {hw_close();return 0;}
-    world_first=hw_read();world_last=hw_read();world_factions=hw_read();
+    if(!signature("NGW4")) {hw_close();return 0;}
+    world_first=hw_read();world_last=hw_read();world_factions=hw_read();world_enemy_men=read_word();
     if(world_factions<2 || world_factions>4) {hw_close();return 0;}
     table(tiles,16);
     if(!unpack((uint8_t *)0x3c00,96) || !table(picture_inks,12)) {hw_close();return 0;}
@@ -242,7 +249,7 @@ static void draw(void) {
 static char save_file[7]="NSAVE0";
 static uint8_t probe_header[12],probe_valid;
 #ifdef __CC65__
-#pragma code-name (push, "CODE")
+#pragma code-name (push, "UIRODATA")
 #endif
 static uint16_t crc_byte(uint16_t crc,uint8_t value) {
     uint8_t i;crc^=(uint16_t)value<<8;

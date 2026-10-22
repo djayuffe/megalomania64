@@ -24,6 +24,8 @@
 #define NG_WITHDRAW 38
 #define NG_POOL 116
 #define NG_DEPLOY 118
+#define NG_ORDER 120
+#define NG_ORDER_EPOCH 123
 #define NG_PHASE 126
 #define NG_START 127
 #define NG_TRUCE 84
@@ -46,6 +48,7 @@ void ng_cache(void);
 void ng_step(uint16_t elapsed);
 void ng_clock(uint16_t elapsed);
 void ng_outcome(void);
+uint16_t ng_route_mask(uint8_t from,uint8_t faction);
 uint8_t ng_move(uint8_t from,uint8_t to,uint8_t faction);
 uint8_t ng_arm(uint8_t age);
 uint8_t ng_repair(uint8_t age,uint8_t building);

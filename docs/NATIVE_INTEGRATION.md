@@ -11,9 +11,10 @@ defeat, campaign preparation through 28 islands, and disk save/load. A shared
 100-person deployment pool starts the campaign; choose how many people to send
 (default 20), an unfinished island in the current three-island epoch, and a
 starting sector. Unspent people carry forward and the next epoch adds 100.
-The final battle deploys one tenth of each faction's saved people. Computer
-starting populations (20), AI decisions, diplomacy and interface remain C64
-adaptations. Original explicit and automatic future-shutdown routines now have
+The final battle deploys one tenth of each faction's saved people. Initial
+tower population is selected men minus one. Computer population counts and
+faction orders come from the executable. AI tactical army choices, negotiation,
+deployment interaction timing and interface remain C64 adaptations. Original explicit and automatic future-shutdown routines now have
 DOS comparisons, including saved-population bounds and arithmetic quirks.
 Human balance across all 28 islands and real C64 disk timing remain unverified.
 
@@ -92,7 +93,7 @@ During play, start by selecting your tower. Choose attack designs with C/E and a
 inventors with R; repeated presses allocate more. Assign miners where resources
 are available. When research completes, X equips a unit. Early designs pay
 resources immediately; age 4 and later designs require factory inventory.
-Deploy U for additional unarmed troops, then Enter, select adjacent land and
+Deploy U for additional unarmed troops, then Enter, select reachable land and
 Enter to move. Uncontested occupation constructs a tower; enemies trigger
 battles. Build mines, labs and factories as technology permits. Research beyond
 age 5 requires a laboratory. Install researched defences with I. Use category 0, select a shield age and
@@ -103,11 +104,13 @@ research, resources and the current selection.
 
 The AI allocates workers, researches designs, equips defenders and armies,
 manufactures late weapons, expands, attacks, and launches available nuclear
-weapons. Difficulty changes its decision interval. Truces expire after 600
-simulation ticks; attacking an ally breaks the pact. Hotseat disables AI.
-Movement is immediate. Ground troops require adjacent land; age 6/7/9 air
-units can cross water to any land sector, leaving ground troops at the source.
-This travel policy is adapted for C64. The board uses the original 61 terrain
+weapons. Economy plans, worker quotas, research/manufacturing goals, turret
+upgrades and repair follow recovered personality rules. Difficulty changes its
+decision interval. Alliances merge whole groups and persist until departure;
+attacking an ally leaves the group. Hotseat disables AI. Movement is immediate.
+Ground troops cross connected friendly sectors and stop at empty/hostile land.
+Neutral land with only allied armies can be crossed. Age 6/7/9 aircraft can
+cross gaps, leaving ground troops at the source. Reachability follows DOS. The board uses the original 61 terrain
 tiles recovered from `SMALLMAP.DAT`: executable descriptors give their 22×22
 pixels, source offsets and stride. The C64 conversion retains their shapes with
 black plus one foreground colour per character cell. Original army/building
@@ -133,21 +136,23 @@ sprites and island portraits remain available; layout and palette differ from DO
 | `$C200–$C3FF` | C software stack |
 | `$C400–$D3FF` | Resident SID music |
 | `$D400–$EEFF` | Combat and game orchestration code under I/O/KERNAL |
-| `$EF00–$FFF9` | Rare rules, campaign overlay or streamed audio cache |
+| `$EF00–$FFF9` | Rare rules, campaign/equipment/movement, AI economy, AI tactics or streamed audio cache |
 
 C code runs with `$01=$34`. IRQ/NMI wrappers expose I/O/KERNAL, preserve the
 CPU port, and restore the interrupted mapping. Hardware and disk wrappers do
 the same. Audio, rare-rule and campaign overlays invalidate one another's cache. Resident
-code switches overlays only after the previous overlay has returned. Campaign
-menu code touches data only; it cannot evict itself by calling a rare rule. No x86 instructions run on the C64.
+code switches overlays only after the previous overlay has returned. Leaf overlays call only resident rules or their own overlay. Resident wrappers
+apply tactical plans after the decision routine returns, so an equipment or
+rare-rule load cannot evict the executing decision code. The campaign overlay
+also contains equipment and movement helpers. No x86 instructions run on the C64.
 
 Compact sectors preserve fields used by the translated rules within the island's
 legal age window (at most four ages). DOS rendering fields and out-of-window
 inventories are omitted. Python and C codecs are compared for all legal windows
 and all sixteen slots, including active tower construction.
 
-`NGTABLE` has `NGR2` and 706 rule bytes, including shield strengths and original repair-cap tables. `NGCODE`/`NGRARE`/`NGCAMP`/`NGAUX` use `NGC1`/`NGX1`/`NGY1`/`NGA1`,
-a little-endian uncompressed length and RLE code. `NMAPnn` uses `NGW3`, age bounds, the original two-to-four-faction count,
+`NGTABLE` has `NGR4` and 1,026 rule bytes, including shield strengths, original repair-cap tables, faction permutations and personality tables. `NGCODE`/`NGRARE`/`NGCAMP`/`NGAI`/`NGTACT`/`NGAUX` use `NGC1`/`NGX1`/`NGY1`/`NGI1`/`NGT1`/`NGA1`,
+a little-endian uncompressed length and RLE code. `NMAPnn` uses `NGW4`, age bounds, the original two-to-four-faction count and two-byte computer deployment population,
 sixteen terrain IDs, a compressed 96-byte picture, twelve colours and compressed
 10,496-byte world. `NARTnn` uses `NGF1`, a compressed 2,048-byte charset,
 144 board glyph codes and 144 colours. Each island needs at most 144 unique
@@ -163,7 +168,7 @@ full clips, and the existing intro. Generated content is excluded from releases.
 
 F5 alternates `NSAVE0` and `NSAVE1`. Each PRG contains address `$3F80`, 128 bytes
 of version-2 `NGSV` metadata, and the 10,496-byte world. Metadata includes island,
-players, settings, RNG, clock, alliances, truces, AI timers, completed-island bits, deployment pool/selection, preparation state
+players, settings, RNG, clock, alliances, reserved former-truce bytes, AI timers, completed-island bits, deployment pool/selection, epoch permutation choices, preparation state
 and sequence number. Older native version-1 saves are rejected.
 CRC16-CCITT (seed `$FFFF`, checksum bytes treated as zero) covers all 10,624 bytes.
 The completed write is verified by KERNAL. A failed write preserves the other
@@ -194,3 +199,10 @@ elimination, diplomacy, nuclear destruction, retaliation and interception.
 Evidence stays in private output directories. See [rule verification](GAMEPLAY_PORT.md)
 for the original-executable comparisons and their limits. `build.json` records
 segment bounds, game ownership, cleared bytes and reclaimed bootstrap RAM.
+
+
+The AI economy (`NGAI`) and tactics (`NGTACT`) overlays occupy the same
+`$EF00–$FFF9` window, with cache identities distinct from audio, rare rules and
+campaign code. Reclaimed bootstrap RAM holds resident movement wrappers.
+The `$3400–$36FF` resident text stream also holds the CRC byte routine. Private
+`build.json` records all current sizes; the frozen intro PRG remains unchanged.

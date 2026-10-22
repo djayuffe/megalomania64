@@ -3,8 +3,10 @@
 The private native D81 integrates the translated rules into a playable C64 game
 with battles, computer opponents, hotseat, diplomacy, nuclear weapons, campaign
 progression and resilient disk saves. The fallback D64 still uses the older fan
-engine. AI choices, campaign starting allocation and interface are C64 policy;
-they are not translations of the DOS AI or UI. Explicit and automatic future shutdown, saved people, deployment pools and
+engine. Movement reachability, deployment populations/order, alliance group operations and
+AI economy planning/goal selection now use translated DOS rules. Tactical army
+choices, negotiation decisions, deployment interaction timing and the interface
+still include C64 policy. Explicit and automatic future shutdown, saved people, deployment pools and
 within-epoch island selection are now integrated. See [native integration](NATIVE_INTEGRATION.md).
 
 ## Implemented and checked against the DOS executable
@@ -78,8 +80,9 @@ incoming unused-damage budget; this observed quirk is preserved.
 
 Nuclear arrival schedules the original flight timer and records its faction and
 source sector. Detonation is translated; retaliation and interception are orchestrated by the native runtime.
-The optional arrival branch controlled by DOS global `$1C78` is also untranslated;
-the arrival comparisons explicitly set it to zero.
+The optional arrival branch controlled by DOS global `$1C78` only resumes
+DOS pause/UI globals; additional arrival comparisons enable it. Native pause
+handling uses the C64 interface.
 
 Gatherables have a separate raw-deposit quantity and total-stock quantity.
 Conversion decreases the raw deposit without adding to total stock. Its buffer
@@ -95,8 +98,8 @@ technology dates, health tables and research/manufacturing tables. Original per-
 whose indexed read and +1 are checked in the executable. Original game
 tables remain in the owner's private recovery folder.
 
-The local verifier compares all 448 campaign-sector initializations plus more than 7,500
-complete-sector scenarios on host C and native 6502. This includes
+The local verifier compares all 448 campaign-sector initializations plus 15,988
+rule/world-strategy scenarios on host C and native 6502. This includes
 battle scheduling, building damage, tower loss, defence recall and ordinary
 nuclear detonation. Chained scenarios cover Aloha research/resource payment and
 contested occupation through tower completion. See the generated private
@@ -214,8 +217,11 @@ Automatic shutdown preserves the original owned-count indexing quirk: when
 owned-sector count is 0 or 1, the original indexes army-sector counts by that
 count, rather than by faction. Its facility masks 1/2/3 are also retained.
 
-AI decisions, computer starting deployment, diplomacy, travel and the interface
-remain C64 adaptations. Original VGA presentation is converted to VIC character
+AI army/tactical choices, diplomacy acceptance/proposals, deployment interaction
+timing and the interface remain C64 adaptations. The extracted per-island
+computer population and faction-order permutation tables replace fixed starting
+allocations. Ground reachability, aircraft separation and alliance groups now
+follow DOS. Original VGA presentation is converted to VIC character
 colours. The optional arrival `$1C78` branch only resumes DOS pause/UI globals;
 additional sector/RNG comparisons enable it. Native pause handling uses the C64
 interface. Real hardware timing and human balance across every island require
@@ -242,3 +248,49 @@ For labs/factories the DOS routine indexes beyond the four-pointer table and
 reads its caps from DS:0000. The native UI, like the original caller, only
 permits repair below normal building health, so an oversized repair cannot
 be applied repeatedly. AI can repair its tower too.
+
+
+## Further strategy translations
+
+Operations 41 and 42 implement the passage predicate (`11B9:1B40`) and
+four-neighbour reachability (`0D24:39B1/3BA7`). Friendly/allied towers are
+corridors. Neutral land is a corridor only with an active allied army and no
+hostile army. Empty or hostile land is a terminal destination. The starting
+sector bypasses that terminal stop. Aircraft classes 6–9 can cross gaps while
+ground units remain at their origin. The 6502 traversal is iterative to bound
+stack use; random worlds are compared with the DOS recursive traversal.
+
+Operations 43/44 merge whole alliance groups (`16B4:3156`) and remove a
+faction from its entire group (`0D24:3F9D`). The previous fixed truce expiry
+has been removed. Negotiation acceptance is still a C64 policy.
+
+Operations 45/46 translate atomic and partial equipment purchases
+(`1A17:1383/12B4`). Both use existing inventory first, then early-design
+resources. Atomic failures preserve inventory and stocks. Partial purchases
+consume available inventory and as many directly made items as affordable.
+
+Operations 47–50 translate personality-weighted economy plans, worker
+allocation, weighted research/manufacturing goal selection and availability
+scans (`16B4:18F7–2269`, `11B9:1262`, `0000:C54C`). Four original personality
+tables remain private. Whole-sector results, plan bytes and RNG are compared
+with DOS, including existing and newly selected goals. The native simulation
+uses these routines through a leaf AI overlay; payments and rare-rule switches
+occur only after the calling overlay has returned.
+
+Operations 51/52 select and apply original AI turret upgrades and building
+repair (`16B4:0A60/168A`). Random building/slot selection preserves nuclear
+retaliators and prefers up to two nuclear defenders. Repair uses personality
+thresholds and the original double-indexed health caps. Its observed batch
+consumption quirk is retained: multiple shields can be consumed while the
+single-shield repair routine is invoked once for that age. An absent facility
+also halves the loop index before decrementing it, so some lower facilities
+are skipped; that original branch behavior is preserved.
+
+Deployment recovers all 24 faction-order permutations (`DS:1CDA`) and 27
+computer population counts (`DS:1DC0`). Preparation chooses three orders per
+epoch with the original random bound 24, includes the chosen human faction,
+and selects computer land by random rejection sampling. Initial population
+is selected men minus one, matching `CS0:126D/12C8`; the final battle uses
+saved people divided by ten, then subtracts one. The current front end reserves
+the human start before computer placement; the DOS alternating deployment UI
+and remembered computer starts across island re-entry still need translation.

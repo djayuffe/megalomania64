@@ -1,5 +1,17 @@
 # Endringslogg
 
+## Further original strategy and AI ports (22 October 2026)
+
+- Original ground reachability and aircraft separation, whole-group alliances
+  and group departure; removed the fixed C64 truce timeout.
+- Original faction-order permutations, computer deployment populations and
+  initial-population subtraction; random computer land placement.
+- Inventory-first atomic and partial equipment purchases.
+- Personality-weighted AI economy plans, worker distribution, availability
+  scans, research and manufacturing goal selection, turret upgrades and repair.
+- Separate economy/tactics overlays and live AI emulator coverage. Tactical
+  army decisions, negotiation choices and DOS deployment UI timing remain gaps.
+
 ## Frozen intro, reclaimed RAM and remaining campaign rules (21 October 2026)
 
 - Intro frozen with a checked hash manifest. Handoff clears 63,232 bytes and

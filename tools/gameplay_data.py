@@ -54,7 +54,7 @@ def extract(data):
             raise ValueError('campaign resource boundaries disagree')
         factions=block(0x2082+index,1)[0]+1 if index<27 else 4
         if not 2<=factions<=4 or factions>sum(s['land']for s in sectors):raise ValueError('invalid island faction count')
-        islands.append(dict(index=index,factions=factions,start_age=index//3,max_age=min(9,index//3+3),
+        islands.append(dict(index=index,factions=factions,deployment_people=word(0x1dc0+index*2) if index<27 else 0,start_age=index//3,max_age=min(9,index//3+3),
                             resource_pointer=pointer,sectors=sectors))
     ranges=[list(struct.unpack('<HH',block(0x45c0+i*4,4)))for i in range(10)]
     patterns=[]
@@ -77,6 +77,8 @@ def extract(data):
                 defence_rules=dict(health=list(struct.unpack('<10H',block(0x4b6a,20))),
                                    strength=list(struct.unpack('<10H',block(0x4b7e,20))),
                                    crew=list(struct.unpack('<10H',block(0x4bea,20)))),
+                personalities=[list(struct.unpack("<28H",block(word(0x1d9a+i*2),56)))for i in range(4)],
+                deployment_orders=[list(struct.unpack("<4H",block(0x1cda+i*8,8)))for i in range(24)],
                 material_groups=ranges,design_patterns=patterns,
                 speed=list(struct.unpack('<3H',block(0x44,6))),
                 task_bases=dict(zip(['tower','building','birth','mining','research','manufacture','gathering'],struct.unpack('<7H',block(0x4594,14)))),

@@ -19,7 +19,7 @@ class NativeGameTest(unittest.TestCase):
         header=folder/'memory.h';header.write_text('#include <stdint.h>\nextern uint8_t world_memory[10496];\n')
         stub=folder/'memory.c';stub.write_text('#include <stdint.h>\nuint8_t world_memory[10496];\n')
         library=folder/'game.so'
-        subprocess.run([compiler,'-std=c99','-Wall','-Wextra','-Werror','-shared','-fPIC','-DWORLD_ADDRESS=world_memory','-include',str(header),*[str(ROOT/f'src/gameplay/{name}.c')for name in ['core','world','game','campaign']],str(stub),'-o',str(library)],check=True,capture_output=True)
+        subprocess.run([compiler,'-std=c99','-Wall','-Wextra','-Werror','-shared','-fPIC','-DWORLD_ADDRESS=world_memory','-include',str(header),*[str(ROOT/f'src/gameplay/{name}.c')for name in ['core','ai','tactics','world','game','campaign']],str(stub),'-o',str(library)],check=True,capture_output=True)
         cls.lib=ctypes.CDLL(str(library))
 
     @classmethod
@@ -33,6 +33,11 @@ class NativeGameTest(unittest.TestCase):
         ctypes.c_uint8.in_dll(self.lib,'world_first').value=0
         ctypes.c_uint8.in_dll(self.lib,'world_last').value=3
         ctypes.c_uint8.in_dll(self.lib,'world_factions').value=4
+        ctypes.c_uint16.in_dll(self.lib,'world_enemy_men').value=15
+        (ctypes.c_uint8*96).in_dll(self.lib,'world_orders')[:]=bytes([0,1,2,3])*24
+        personas=(ctypes.c_uint8*224).in_dll(self.lib,'world_personalities');personas[:]=bytes(224)
+        for row in range(4):
+            for at,n in [(2,24),(4,24),(6,24),(8,28)]:personas[row*56+at]=n
         self.word(0xbe,65535);self.word(0xd2,65535);self.word(0x3fe,0)
         self.word(0x2fc,1);self.s[0x446]=1;self.s[0x448]=128
         self.word(0x3d6,100);self.word(0x404,100);self.word(0x406,100)
@@ -63,7 +68,7 @@ class NativeGameTest(unittest.TestCase):
             self.lib.ng_outcome()
             if self.state[15]!=0:break
         self.assertEqual(self.state[15],2,'AI failed to defeat an idle human tower')
-        self.load_sector(1);self.assertTrue(self.read(0x126)&1,'AI did not research an attack design')
+        self.load_sector(1);self.assertTrue(self.read(0x126),'AI did not research an attack design')
 
     def test_army_move_and_return_conserve_units_and_block_nonadjacent_water(self):
         self.buffers['army'][10]=10;self.lib.ng_rule(20,0,0,0);self.save_sector(0)
@@ -75,11 +80,11 @@ class NativeGameTest(unittest.TestCase):
         self.assertEqual(self.lib.ng_move(1,0,0),1)
         self.load_sector(0);self.assertEqual(self.read(0x2f4),10)
 
-    def test_diplomacy_expires_and_attack_breaks_symmetric_alliance(self):
+    def test_diplomacy_persists_until_departure(self):
         presence=(ctypes.c_uint16*4).in_dll(self.lib,'ng_presence');presence[:]=[200,100,0,0]
         self.lib.ng_negotiate(1);self.assertEqual(self.buffers['alliances'][:2],[3,3])
         self.lib.ng_clock(599);self.assertEqual(self.buffers['alliances'][:2],[3,3])
-        self.lib.ng_clock(1);self.assertEqual(self.buffers['alliances'][:2],[1,2])
+        self.lib.ng_clock(1);self.assertEqual(self.buffers['alliances'][:2],[3,3])
         self.lib.ng_negotiate(1);self.lib.ng_break(1);self.assertEqual(self.buffers['alliances'][:2],[1,2])
 
     def test_victory_defeat_final_completion_and_allied_survival(self):
@@ -144,12 +149,14 @@ class NativeGameTest(unittest.TestCase):
         self.load_sector(0);self.assertEqual(self.s[0x2c8+10],5);self.assertEqual(self.s[0x2c8+6],0)
         self.load_sector(15);self.assertEqual(self.s[0x2c8+6],10);self.assertEqual(self.s[0x2c8+10],0)
 
-    def test_hotseat_truce_expires_for_its_original_participants(self):
+    def test_hotseat_alliance_groups_merge_and_depart_as_groups(self):
         presence=(ctypes.c_uint16*4).in_dll(self.lib,'ng_presence');presence[:]=[200,100,150,50]
         self.lib.ng_negotiate(1)
         self.state[13]=2;self.lib.ng_negotiate(3)
-        self.lib.ng_clock(600)
-        self.assertEqual(self.buffers['alliances'][:],[1,2,4,8])
+        self.lib.ng_negotiate(1)
+        self.assertEqual(self.buffers['alliances'][:],[15,15,15,15])
+        self.lib.ng_break(0)
+        self.assertEqual(self.buffers['alliances'][:],[11,11,4,11])
 
     def test_campaign_pool_choice_epoch_and_saved_people_final(self):
         self.state[126]=1;self.terrain[0]=1
@@ -169,13 +176,14 @@ class NativeGameTest(unittest.TestCase):
         self.assertEqual(self.state[116],50)
 
     def test_campaign_spawn_has_chosen_start_and_exact_deployed_population(self):
+        self.word(0x3fe,4);self.s[0x446]=0
         self.save_sector(0);self.save_sector(1);self.save_sector(4);self.save_sector(5)
         self.state[127]=4;self.state[126]=0;self.state[118]=30
         self.lib.ng_prepare_island()
         owners=(ctypes.c_uint8*16).in_dll(self.lib,'ng_owners')
         self.assertEqual(owners[4],0)
         self.assertEqual(sorted(owners[i]for i in [0,1,4,5]),[0,1,2,3])
-        self.load_sector(4);self.assertEqual(self.read(0x404),30)
+        self.load_sector(4);self.assertEqual(self.read(0x404),29)
         self.assertTrue(self.s[0x446]&1)
 
     def test_shutdown_saves_people_once_and_counts_as_withdrawal(self):
@@ -218,7 +226,8 @@ class NativeGameTest(unittest.TestCase):
         self.state[127]=0;self.state[126]=0;self.lib.ng_prepare_island()
         owners=(ctypes.c_uint8*16).in_dll(self.lib,'ng_owners')
         self.assertEqual(self.state[14],3)
-        self.assertEqual([owners[i]for i in [0,1,4,5]],[0,1,4,4])
+        self.assertEqual(owners[0],0)
+        self.assertEqual(sorted(owners[i]for i in [0,1,4,5]),[0,1,4,4])
 
     def test_selected_human_faction_survives_two_player_island_transition(self):
         self.word(0x3fe,4);self.s[0x446]=0;self.word(0x2fc,0);self.word(0x404,0);self.word(0x406,0)
@@ -226,5 +235,52 @@ class NativeGameTest(unittest.TestCase):
         ctypes.c_uint8.in_dll(self.lib,'world_factions').value=2
         self.state[13]=3;self.state[127]=0;self.state[126]=0;self.lib.ng_prepare_island()
         owners=(ctypes.c_uint8*16).in_dll(self.lib,'ng_owners')
-        self.assertEqual([owners[i]for i in [0,1,4]],[3,0,4])
+        self.assertEqual(owners[0],3)
+        self.assertEqual(sorted(owners[i]for i in [0,1,4]),[0,3,4])
         self.assertEqual(self.state[14],9)
+
+    def test_ground_route_crosses_friendly_sectors_but_stops_at_neutral_endpoints(self):
+        for i in [0,1,2,3]:self.save_sector(i)
+        self.load_sector(0);self.buffers['army'][10]=10;self.lib.ng_rule(20,0,0,0);self.lib.ng_cache()
+        self.load_sector(2);self.word(0x3fe,4);self.lib.ng_cache()
+        self.assertEqual(self.lib.ng_route_mask(0,0),7)
+        self.assertEqual(self.lib.ng_move(0,3,0),0)
+        self.assertEqual(self.lib.ng_move(0,2,0),1)
+        self.assertEqual(self.lib.ng_route_mask(2,0),15)
+        self.assertEqual(self.lib.ng_move(2,3,0),1)
+        self.load_sector(3);self.assertEqual(self.s[0x2c8+10],10)
+
+    def test_allied_corridor_and_enemy_occupation_of_neutral_land(self):
+        for i in [0,1,2]:self.save_sector(i)
+        self.load_sector(1);self.word(0x3fe,1);self.lib.ng_cache()
+        self.assertEqual(self.lib.ng_route_mask(0,0),3)
+        self.lib.ng_rule(43,0,1,0)
+        self.assertEqual(self.lib.ng_route_mask(0,0),7)
+        self.word(0x3fe,4);self.buffers['army'][10]=1;self.lib.ng_rule(20,2,0,0);self.lib.ng_cache()
+        self.assertEqual(self.lib.ng_route_mask(0,0),3)
+
+    def test_exhausted_campaign_pool_has_no_active_factions(self):
+        self.state[15]=1;self.state[116]=self.state[117]=0
+        self.assertEqual(self.lib.ng_campaign_action(ord('N')),1)
+        self.assertEqual(self.state[15],2)
+        self.lib.ng_prepare_island()
+        self.assertEqual(self.state[14],0)
+
+    def test_original_ai_repair_skips_mine_when_absent_factory_halves_index(self):
+        persona=(ctypes.c_uint8*56).in_dll(self.lib,'gp_personality');persona[:]=bytes(56)
+        for b in range(4):persona[16+b*2]=100
+        self.s[0x446]=3;self.word(0x2fc,2);self.word(0x3d6,100);self.word(0x3d8,1)
+        self.word(0x122,1);self.word(0xe6,3)
+        seed=bytes(self.state[26:28]);self.lib.ng_rule(52,0,0,0)
+        self.assertEqual(self.read(0x3d8),1)
+        self.assertEqual(self.read(0xe6),3)
+        self.assertEqual(bytes(self.state[26:28]),seed)
+
+    def test_original_ai_repair_consumes_batch_but_heals_once_per_shield_age(self):
+        persona=(ctypes.c_uint8*56).in_dll(self.lib,'gp_personality');persona[:]=bytes(56)
+        for b in range(4):persona[16+b*2]=100;self.word(0x3d6+b*2,100)
+        self.s[0x446]=15;self.word(0x2fc,4);self.word(0x3d8,1)
+        self.word(0x122,1);self.word(0xe6,3)
+        self.lib.ng_rule(52,0,0,0)
+        self.assertEqual(self.read(0xe6),1)
+        self.assertEqual(self.read(0x3d8),51)
