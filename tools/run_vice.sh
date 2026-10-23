@@ -33,6 +33,6 @@ else
   set -- -autostart "$DISK"
 fi
 if [ "${VICE_TURBO_FLOPPY:-1}" = 1 ]; then
-  exec "$EMULATOR" -model "${VICE_MODEL:-c64c}" -drive8type "$DRIVE_TYPE" -sound +warp -soundrecdev "" -virtualdev8 +drive8truedrive -autostart-warp "$@"
+  exec "$EMULATOR" +saveres +remotemonitor +binarymonitor -model "${VICE_MODEL:-c64c}" -drive8type "$DRIVE_TYPE" -sound +warp -soundrecdev "" -virtualdev8 +drive8truedrive -autostart-warp "$@"
 fi
-exec "$EMULATOR" -model "${VICE_MODEL:-c64c}" -drive8type "$DRIVE_TYPE" -sound +warp -soundrecdev "" -drive8truedrive +virtualdev8 -autostart "$@"
+exec "$EMULATOR" +saveres +remotemonitor +binarymonitor -model "${VICE_MODEL:-c64c}" -drive8type "$DRIVE_TYPE" -sound +warp -soundrecdev "" -drive8truedrive +virtualdev8 -autostart "$@"

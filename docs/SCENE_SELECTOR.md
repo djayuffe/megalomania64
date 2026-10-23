@@ -6,7 +6,8 @@ intro and its entry PRG are unchanged.
 
 Build the private native disk as described in [native integration](NATIVE_INTEGRATION.md),
 then run `./tools/run_selector.sh`. It attaches the same D81 and uses the turbo
-floppy settings from `run_vice.sh`. On a C64, use `LOAD"NGSELECT",8,1` then `RUN`.
+floppy settings from `run_vice.sh`. Normal launches disable inherited debugger
+servers and do not save temporary emulator settings. On a C64, use `LOAD"NGSELECT",8,1` then `RUN`.
 The normal launcher still starts the complete intro and campaign.
 
 - **I / G** selects intro previews or gameplay islands.
