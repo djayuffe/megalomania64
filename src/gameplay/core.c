@@ -1140,6 +1140,7 @@ void gp_dispatch(void) {
     case 56:gp_ensure_military();wr16(gp_request+12,gp_retreat(a));break;
     case 58:gp_ensure_military();wr16(gp_request+12,gp_sos());break;
     case 59:reinforce_dispatch();break;
+    case 60:gp_ensure_ai();gp_prune_design();break;
     case 57:gp_ensure_military();wr16(gp_request+12,gp_max_army(c,gp_request[28]));break;
     case 45:case 46:wr16(gp_request+12,equipment(a,b,c,gp_request[0]==46));break;
     case 39:wr16(gp_sector+0x3fe,a);complete_building(0);wr16(gp_sector+GP_POP,b);set_free(b);break;

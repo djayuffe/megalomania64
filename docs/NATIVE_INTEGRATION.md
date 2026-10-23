@@ -13,7 +13,7 @@ defeat, campaign preparation through 28 islands, and disk save/load. A shared
 starting sector. Unspent people carry forward and the next epoch adds 100.
 The final battle deploys one tenth of each faction's saved people. Initial
 tower population is selected men minus one. Computer population counts and
-faction orders come from the executable. AI tactical army choices, negotiation,
+faction orders come from the executable. Negotiation,
 deployment interaction timing and interface remain C64 adaptations. Original explicit and automatic future-shutdown routines now have
 DOS comparisons, including saved-population bounds and arithmetic quirks.
 Human balance across all 28 islands and real C64 disk timing remain unverified.
@@ -106,7 +106,7 @@ research, resources and the current selection.
 The AI allocates workers, researches designs, equips defenders and armies,
 manufactures late weapons, expands, attacks, and launches available nuclear
 weapons. Economy plans, worker quotas, research/manufacturing goals, turret
-upgrades and repair follow recovered personality rules. Emergency defence and normal home reinforcement use the original tower-health threshold, strength ratios and equipment rollback; expedition target selection remains adapted. Difficulty changes its
+upgrades and repair follow recovered personality rules. Emergency defence and normal home reinforcement use the original tower-health threshold, strength ratios and equipment rollback; expedition, roaming, force return and peacetime demobilization now follow the recovered tactical routines. Difficulty changes its
 decision interval. Alliances merge whole groups and persist until departure;
 attacking an ally leaves the group. Hotseat disables AI. Movement is immediate.
 Ground troops cross connected friendly sectors and stop at empty/hostile land.
@@ -128,7 +128,7 @@ sprites and island portraits remain available; layout and palette differ from DO
 | `$2700–$2AFF` | Startup, IRQ/NMI and KERNAL wrappers |
 | `$2B00–$313F` | Runtime helpers |
 | `$3140–$327F` | Army/building sprites |
-| `$3280–$36FF` | Input code, driver state, music tables and strings |
+| `$3280–$36FF` | Input code, driver state, music tables, strings and resident demobilization coordinator |
 | `$3700–$3FFF` | Cursor sprites and charset; `$3F80` also stages save metadata |
 | `$4000–$68FF` | Sixteen compact sectors, 656 bytes each |
 | `$6900–$6FFF` | Resident rule dispatcher and drawing driver |
@@ -137,7 +137,7 @@ sprites and island portraits remain available; layout and palette differ from DO
 | `$C200–$C3FF` | C software stack |
 | `$C400–$D3FF` | Resident SID music |
 | `$D400–$EEFF` | Combat and game orchestration code under I/O/KERNAL |
-| `$EF00–$FFF9` | Rare rules, campaign, AI economy, AI tactics, army formation, interface or streamed audio cache |
+| `$EF00–$FFF9` | Rare rules, campaign, AI economy, AI tactics, army formation, strategy, interface or streamed audio cache |
 
 C code runs with `$01=$34`. Interface drawing uses `$35` to expose colour RAM while retaining RAM at `$EF00`; its text helper preserves this mapping so banked strings remain readable. IRQ/NMI wrappers expose I/O/KERNAL, preserve the
 CPU port, and restore the interrupted mapping. Hardware and disk wrappers do
@@ -151,7 +151,7 @@ legal age window (at most four ages). DOS rendering fields and out-of-window
 inventories are omitted. Python and C codecs are compared for all legal windows
 and all sixteen slots, including active tower construction.
 
-`NGTABLE` has `NGR4` and 1,026 rule bytes, including shield strengths, original repair-cap tables, faction permutations and personality tables. `NGCODE`/`NGRARE`/`NGCAMP`/`NGAI`/`NGTACT`/`NGARMY`/`NGUI`/`NGAUX` use `NGC1`/`NGX1`/`NGY1`/`NGI1`/`NGT1`/`NGA2`/`NGU1`/`NGA1`,
+`NGTABLE` has `NGR4` and 1,026 rule bytes, including shield strengths, original repair-cap tables, faction permutations and personality tables. `NGCODE`/`NGRARE`/`NGCAMP`/`NGAI`/`NGTACT`/`NGARMY`/`NGUI`/`NGSTRAT`/`NGAUX` use `NGC1`/`NGX1`/`NGY1`/`NGI1`/`NGT1`/`NGA2`/`NGU1`/`NGS2`/`NGA1`,
 a little-endian uncompressed length and RLE code. `NMAPnn` uses `NGW4`, age bounds, the original two-to-four-faction count and two-byte computer deployment population,
 sixteen terrain IDs, a compressed 96-byte picture, twelve colours and compressed
 10,496-byte world. `NARTnn` uses `NGF1`, a compressed 2,048-byte charset,
@@ -168,7 +168,7 @@ full clips, and the existing intro. Generated content is excluded from releases.
 
 F5 alternates `NSAVE0` and `NSAVE1`. Each PRG contains address `$3F80`, 128 bytes
 of version-2 `NGSV` metadata, and the 10,496-byte world. Metadata includes island,
-players, settings, RNG, clock, alliances, reserved former-truce bytes, AI timers, completed-island bits, deployment pool/selection, epoch permutation choices, preparation state
+players, settings, RNG, clock, alliances, roaming cooldown (byte 39), information view (byte 40), reserved former-truce bytes, AI timers, completed-island bits, deployment pool/selection, epoch permutation choices, preparation state
 and sequence number. Older native version-1 saves are rejected.
 CRC16-CCITT (seed `$FFFF`, checksum bytes treated as zero) covers all 10,624 bytes.
 The completed write is verified by KERNAL. A failed write preserves the other
@@ -221,3 +221,12 @@ The interface is an independent leaf bank (`NGUI`). Drawing invalidates the
 sample cache, so audio verification observes decoded sample bytes before the
 next drawing load. The SID music remains resident. Native VICE checks cycle
 all four views and then exercise movement, repair and saves across bank changes.
+
+
+`NGSTRAT` plans expedition targets, roaming and army return decisions in the
+shared `$EF00–$FFF9` window. Resident coordinators apply the plans after the
+leaf returns. AI turns now process field armies on ownerless sectors before
+checking tower ownership, then perform defence, at most one army action,
+repair, exhausted-design pruning and worker planning. The native per-sector
+decision timer and hotseat controls remain C64 scheduling choices. Roaming's
+global cooldown resets on island preparation and is preserved by version-2 saves.

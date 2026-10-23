@@ -1,8 +1,8 @@
 {
   "version": "5.0.0-dev",
-  "date": "2026-10-22",
-  "update": "Original army formation, retreat losses, emergency/home reinforcement, bank-safe repair and four game information views",
-  "automated_tests": 301,
+  "date": "2026-10-23",
+  "update": "Original expedition, roaming, demobilization and exhausted-design AI rules",
+  "automated_tests": 308,
   "focused_mutants_killed": 20,
   "prg_sha256": "7254bb35a77c5588acc4cbe5f51ec2146cd8a7fbe31be0ed8b036391617e2f07",
   "fallback_d64_sha256": "940eff171ee6068223e3f5a5bee9c06ddadffc773456c9813e7de028cce01660",
@@ -28,7 +28,7 @@
     }
   },
   "limitations": [
-    "AI tactical army decisions, negotiation acceptance/proposals, deployment interaction timing and interface remain C64 adaptations",
+    "Negotiation acceptance/proposals, deployment interaction timing and interface remain C64 adaptations",
     "original VGA palette/presentation and Paula synthesis are adapted to C64",
     "physical hardware timing, human listening and campaign balance across every island remain unverified",
     "original-derived native disk and content are private; packaged D64 uses older fan engine"
@@ -110,7 +110,7 @@
     "scope": "Earlier intro/audio validation; retained historical evidence, not remeasured in this native gameplay run"
   },
   "native_gameplay": {
-    "original_rule_scenarios": 22148,
+    "original_rule_scenarios": 22660,
     "original_sector_initializations": 448,
     "backends": [
       "host C",
@@ -129,9 +129,10 @@
       "rules and compressed world",
       "army sprites",
       "resident SID score",
+      "four information views without portrait overlap",
       "deploy, move and return",
       "research allocation",
-      "live personality-based AI economy overlay",
+      "live personality-based AI economy and military overlays",
       "shield repair and payment",
       "player switching",
       "CRC save/load round trip",
@@ -139,19 +140,23 @@
       "pool exhaustion, defeat save and restart",
       "compressed effect and voice caches with NMI playback",
       "code bank preserved",
-      "all four game information views and army-row portrait exclusion",
-      "damaged newest save falls back to previous valid save",
-      "two invalid saves rejected without world/code loss"
+      "complete tactical/economy AI turn using actual disk banks",
+      "corrupt newest save recovers previous valid save",
+      "two corrupt saves rejected without world/code loss"
     ],
     "synthetic_checks": [
       "AI researches, equips, attacks and defeats idle opponent",
       "tower destruction and capture",
       "air transfer leaves ground troops at source",
-      "hotseat elimination and truce expiry",
+      "hotseat elimination and persistent alliance groups",
       "nuclear destruction, retaliation and interception",
-      "victory, defeat and final completion"
+      "victory, defeat and final completion",
+      "expedition crew accounting, water rejection and nuclear fallback",
+      "ownerless-sector field army and roaming cooldown",
+      "peacetime demobilization returns unarmed before weapons",
+      "exhausted design forgotten while live deposit retains it"
     ],
-    "private_disk_sha256": "f2e071a4876df77ecc357356b272602d88f7d6ab5565271e30690b1b649f56a1",
+    "private_disk_sha256": "7c166c9f297d49cbd8579d20310c1eb5aaa4793138a2df6300739800d863959a",
     "formats": {
       "rules": "NGR4",
       "rule_payload_bytes": 1026,
@@ -161,7 +166,8 @@
       "ai_economy": "NGI1",
       "ai_tactics": "NGT1",
       "NGARMY": "NGA2",
-      "NGUI": "NGU1"
+      "NGUI": "NGU1",
+      "ai_strategy": "NGS2"
     },
     "memory": {
       "intro_retained_bytes": 0,
@@ -195,18 +201,18 @@
         },
         "UIRODATA": {
           "start": 13312,
-          "end": 13514,
-          "bytes": 203
+          "end": 13851,
+          "bytes": 540
         },
         "GRAPHICS": {
           "start": 26880,
-          "end": 28478,
-          "bytes": 1599
+          "end": 28491,
+          "bytes": 1612
         },
         "BSS": {
           "start": 28672,
-          "end": 32611,
-          "bytes": 3940
+          "end": 32622,
+          "bytes": 3951
         },
         "STARTUP": {
           "start": 32768,
@@ -215,33 +221,33 @@
         },
         "CODE": {
           "start": 32780,
-          "end": 49082,
-          "bytes": 16303
+          "end": 49116,
+          "bytes": 16337
         },
         "RODATA": {
-          "start": 49083,
-          "end": 49130,
+          "start": 49117,
+          "end": 49164,
           "bytes": 48
         },
         "DATA": {
-          "start": 49131,
-          "end": 49149,
+          "start": 49165,
+          "end": 49183,
           "bytes": 19
         },
         "BATTLE": {
           "start": 54272,
-          "end": 61090,
-          "bytes": 6819
+          "end": 60875,
+          "bytes": 6604
         },
         "AI": {
           "start": 61184,
-          "end": 64575,
-          "bytes": 3392
+          "end": 65261,
+          "bytes": 4078
         },
         "CAMPAIGN": {
           "start": 61184,
-          "end": 63800,
-          "bytes": 2617
+          "end": 63803,
+          "bytes": 2620
         },
         "INTERFACE": {
           "start": 61184,
@@ -255,8 +261,13 @@
         },
         "RARE": {
           "start": 61184,
-          "end": 64761,
-          "bytes": 3578
+          "end": 64766,
+          "bytes": 3583
+        },
+        "STRATEGY": {
+          "start": 61184,
+          "end": 64023,
+          "bytes": 2840
         },
         "TACTICS": {
           "start": 61184,
@@ -265,11 +276,11 @@
         }
       },
       "overlays": [
-        "NGRARE, NGCAMP, NGAI, NGTACT, NGARMY and NGUI share EF00-FFF9 with audio; resident wrappers switch overlays after leaf routines return"
+        "NGRARE, NGCAMP, NGAI, NGTACT, NGARMY, NGUI and NGSTRAT share EF00-FFF9 with audio; resident wrappers switch overlays after leaf routines return"
       ]
     },
-    "native_files": 101,
-    "rule_evidence": "Private verification: gameplay/parity-final/verification.json; complete sector/army/plan/alliance/route results and RNG compared with DOS on host C and native NMOS 6502",
+    "native_files": 102,
+    "rule_evidence": "Private gameplay/strategy-rules-final/verification.json; complete sector/army/plan/alliance/route results and RNG compared with DOS on C and NMOS 6502",
     "per_opcode": {
       "0": 13,
       "1": 68,
@@ -329,12 +340,69 @@
       "56": 1920,
       "57": 96,
       "58": 320,
-      "59": 960
+      "59": 960,
+      "60": 512
     },
     "remaining_gaps": [
-      "AI expedition/roaming decisions, negotiation acceptance/proposals, deployment interaction timing and interface remain C64 adaptations",
+      "Negotiation acceptance/proposals, deployment interaction timing and interface remain C64 adaptations",
       "original VGA palette/presentation and Paula synthesis are adapted to C64",
       "physical hardware timing, human listening and campaign balance across every island remain unverified"
-    ]
+    ],
+    "whole_world_tactics": {
+      "scenarios": 256,
+      "backends": [
+        "host C",
+        "native banked NMOS 6502"
+      ],
+      "original": "16B4:114F expedition, 0FB2/142A demobilization, 0228 roaming",
+      "routines": {
+        "expedition": {
+          "scenarios": 64,
+          "actions": 7
+        },
+        "weak": {
+          "scenarios": 64,
+          "actions": 6
+        },
+        "demobilize": {
+          "scenarios": 64,
+          "actions": 24
+        },
+        "roam": {
+          "scenarios": 64,
+          "actions": 11
+        }
+      },
+      "world_records_per_scenario": 16,
+      "fixture_setup": "direct identical cache injection",
+      "exe_sha256": "1f6d7bd92a8336818b65cc2157b5929dc353613258bfe8de6c83d23bb07a10ef",
+      "evidence": "Private gameplay/strategy-final/verification.json",
+      "native_cache_setup_sweep": {
+        "scenarios": 256,
+        "backends": [
+          "host C",
+          "native banked NMOS 6502"
+        ],
+        "routines": {
+          "expedition": {
+            "scenarios": 64,
+            "actions": 7
+          },
+          "weak": {
+            "scenarios": 64,
+            "actions": 6
+          },
+          "demobilize": {
+            "scenarios": 64,
+            "actions": 24
+          },
+          "roam": {
+            "scenarios": 64,
+            "actions": 11
+          }
+        },
+        "evidence": "Private gameplay/strategy-world-final/verification.json; development link before exhausted-design pruning"
+      }
+    }
   }
 }

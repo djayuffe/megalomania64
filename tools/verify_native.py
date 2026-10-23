@@ -136,10 +136,10 @@ def verify(emulator,disk,native,out,model,handoff=False,expect_load=None,expect_
             assert memory(state+8,2)==b'\2\0','second save did not rotate slots'
             key('H');key(chr(136));assert memory(0x4000,SLOT*16,'newest_world')==second,'newest valid save was not selected'
             key('H')
-            # Exercise a real AI turn and its disk overlay. Stop after the
-            # economy calls return, before its tactical move is chosen.
+            # Exercise a complete AI turn, including tactical decisions and
+            # economy, using the actual disk overlay loader.
             cmd(f'> {state+23:04x} 00');cmd(f'> {state+17:04x} 00')
-            cmd(f'break {labels["_ng_route_mask"]:04x}');cmd('x');cmd('delete')
+            cmd(f'watch store {labels["_ng_ai_turns"]:04x}');cmd('x');cmd('delete')
             persona=memory(labels['_gp_personality'],56,'ai_personality')
             plan=memory(labels['_gp_plan'],28,'ai_worker_plan')
             assert any(persona) and any(plan),'AI overlay did not plan a turn'

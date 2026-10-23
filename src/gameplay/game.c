@@ -5,7 +5,7 @@
 #pragma code-name ("BATTLE")
 #endif
 static uint8_t retired_owner[16];
-uint8_t ng_state[NG_STATE_BYTES],ng_terrain[16],ng_owners[16],ng_ages[16],ng_ruined[16],ng_event;
+uint8_t ng_state[NG_STATE_BYTES],ng_terrain[16],ng_owners[16],ng_ages[16],ng_ruined[16],ng_event,ng_ai_turns;
 uint16_t ng_people[16],ng_units[16][4],ng_strength[16][4],ng_presence[4];
 static uint16_t rw(const uint8_t *p) {return p[0]|((uint16_t)p[1]<<8);}
 static void ww(uint8_t *p,uint16_t n) {p[0]=(uint8_t)n;p[1]=(uint8_t)(n>>8);}
@@ -18,6 +18,7 @@ void ng_rule(uint8_t op,uint16_t a,uint16_t b,uint16_t c) {
     gp_request[24]=op>=33?ng_state[NG_ISLAND]:ng_state[NG_ORIGIN];
     gp_request[26]=ng_state[NG_HOTSEAT]?(uint8_t)r(0x3fe):ng_state[NG_HUMAN];
     if(op==51)ww(gp_request+14,c);
+    if(op==53)ww(gp_request+8,rw(gp_plan+8));
     gp_request[28]=world_last;gp_request[30]=ng_state[NG_ACTIVE];
     gp_dispatch();ww(ng_state+NG_SEED,rw(gp_request+10));
     if((op==33 || op==34 || op==37) && rw(gp_request+18)) {
@@ -58,6 +59,7 @@ void ng_break(uint8_t other) {
 #if defined(__CC65__) && defined(NATIVE_GAME)
 extern void gp_ensure_rare(void);
 extern void gp_ensure_campaign(void);
+extern void gp_ensure_strategy(void);
 #pragma code-name (push, "CAMPAIGN")
 #endif
 static uint16_t route_mask_impl(uint8_t from,uint8_t faction) {
@@ -191,7 +193,7 @@ static void outcome_impl(void) {
 #pragma code-name (push, "RARE")
 #endif
 static void new_impl(void) {
-    uint8_t i;for(i=0;i<NG_STATE_BYTES;++i)ng_state[i]=0;
+    uint8_t i;for(i=0;i<NG_STATE_BYTES;++i)ng_state[i]=0;ng_ai_turns=0;
     ng_state[NG_ACTIVE]=3;ng_state[NG_SPEED]=1;ng_state[NG_DIFFICULTY]=1;
     ng_state[NG_CATEGORY]=2;ng_state[NG_ORIGIN]=255;ng_state[NG_NUKE]=255;
     ww(ng_state+NG_SEED,0x1991);
@@ -238,7 +240,7 @@ static void prepare_impl(void) {
     if(ng_state[NG_ISLAND]==27) {
         ng_state[NG_ACTIVE]=0;for(i=0;i<4;++i)if(rw(ng_state+NG_RESERVE+(uint16_t)i*2)/10)ng_state[NG_ACTIVE]|=1<<i;
     }
-    ng_reset_pacts();
+    ng_reset_pacts();ng_state[NG_ROAM_COOL]=0;
     for(i=0;i<16;++i)if(ng_terrain[i]) {get(i);ng_rule(26,0,0,0);ng_cache();}
     if(!ng_state[NG_PHASE] && ng_state[NG_STATUS]==NG_PLAYING) {
         get(start);men=rw(ng_state+NG_DEPLOY);ng_rule(39,h,men?men-1:0,0);ng_cache();
@@ -278,53 +280,26 @@ void ng_shutdown(void) {
     shutdown_impl();
 }
 static void ai(uint16_t elapsed) {
-    uint8_t f,i,age,cat,s,target,kind;uint16_t at,timer,power,enemy,reachable;
-    f=(uint8_t)r(0x3fe);s=world_slot;
-    if(f>=4 || f==ng_state[NG_HUMAN] || ng_state[NG_HOTSEAT])return;
+    uint8_t f,i,s,acted;uint16_t at,timer;
+    s=world_slot;if(ng_state[NG_HOTSEAT])return;
     at=NG_AI+(uint16_t)s*2;timer=rw(ng_state+at)+elapsed;
     if(timer<(uint16_t)(4-ng_state[NG_DIFFICULTY])*10) {ww(ng_state+at,timer);return;}ww(ng_state+at,0);
-    /* CS0:72C0 assigns personalities in the 0,2,1,3 character order,
-     * excluding the human. The final entry is reserved for the human. */
-    kind=0;
-    for(i=0;i<4;++i) {
-        cat=i==1?2:i==2?1:i;
-        if(cat==ng_state[NG_HUMAN])continue;
-        if(cat==f)break;++kind;
+    acted=0;if(ng_state[NG_ROAM_COOL])--ng_state[NG_ROAM_COOL];else acted=ng_roam();
+    f=(uint8_t)r(0x3fe);if(f>=4 || f==ng_state[NG_HUMAN] || (gp_sector[0x448]&32))return;
+#if defined(__CC65__) && defined(NATIVE_GAME)
+    gp_ensure_strategy();
+#endif
+    ng_personality(f);ng_rule(48,0,0,0);ng_rule(51,0,0,world_first);
+    if(!acted) {
+        ng_rule(58,0,0,0);
+        if(rw(gp_request+12)) {ng_rule(57,0,0,world_first);if(rw(gp_request+12)) {ng_rule(20,f,0,0);acted=1;}}
+        if(!acted) {ng_rule(59,0,0,0);acted=(uint8_t)rw(gp_request+12);}
+        if(!acted)acted=ng_demobilize(0);
+        if(!acted)acted=ng_expedition();
+        if(!acted)ng_demobilize(1);
     }
-    for(i=0;i<56;++i)gp_personality[i]=world_personalities[(uint16_t)kind*56+i];
-    ng_rule(48,0,0,0);
-    if((r(0x126)&256) && (gp_sector[0x446]&8)) {
-        if(r(0x11e))for(i=0;i<16;++i)if(ng_owners[i]<4 && !(gp_alliances[f]&(1<<ng_owners[i])) && !ng_ruined[i]) {
-            ng_cache();ng_launch(s,i,f,0);return;
-        }
-
-    }
-    ng_rule(51,0,0,world_first);
-    ng_rule(58,0,0,0);
-    if(rw(gp_request+12)) {
-        ng_rule(57,0,0,world_first);
-        if(rw(gp_request+12))ng_rule(20,f,0,0);
-    }else ng_rule(59,0,0,0);
-    ng_rule(52,0,0,0);
-    age=world_last+1;
-    while(age>world_first) {--age;if(age==8 || !(r(0x126)&(1<<age)))continue;
-
-        for(i=0;i<5;++i)if(!ng_arm(age))break;
-        break;
-    }
-    if(r(GP_FREE)>50 && r(0x2f4+(uint16_t)f*2)<30) {
-        for(i=0;i<11;++i)gp_army[i]=0;gp_army[10]=10;
-        w(GP_POP,r(GP_POP)-10);ng_rule(0,r(GP_FREE)-10,0,0);ng_rule(20,f,0,0);
-    }
-    for(i=0;i<28;++i)gp_plan[i]=0;
-    ng_rule(50,0,0,world_first);ng_rule(47,0,0,0);ng_rule(49,0,0,0);
-    power=r(0x3f4+(uint16_t)f*2);target=255;reachable=ng_route_mask(s,f);
-    for(i=0;i<16;++i)if(ng_terrain[i] && !ng_ruined[i] && ng_owners[i]!=f && (ng_owners[i]>=4 || !(gp_alliances[f]&(1<<ng_owners[i])))) {
-        if(!(reachable&((uint16_t)1<<i)) && !gp_sector[0x2c8+(uint16_t)f*11+6] && !gp_sector[0x2c8+(uint16_t)f*11+7] && !gp_sector[0x2c8+(uint16_t)f*11+9])continue;
-        enemy=0;for(cat=0;cat<4;++cat)if(!(gp_alliances[f]&(1<<cat)))enemy+=ng_strength[i][cat];
-        if(power>enemy+enemy/4 && r(0x2f4+(uint16_t)f*2)>=10) {target=i;if(ng_owners[i]==4)break;}
-    }
-    if(target<16) {ng_cache();ng_move(s,target,f);}
+    ng_rule(52,0,0,0);ng_rule(60,0,0,world_first);for(i=0;i<28;++i)gp_plan[i]=0;
+    ng_rule(50,0,0,world_first);ng_rule(47,0,0,0);ng_rule(49,0,0,0);++ng_ai_turns;
 }
 void ng_step(uint16_t elapsed) {
     uint8_t owner;owner=(uint8_t)r(0x3fe);if(gp_sector[0x448]&64) {ng_cache();return;}

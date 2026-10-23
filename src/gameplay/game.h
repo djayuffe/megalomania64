@@ -22,6 +22,7 @@
 #define NG_ALLIES 30
 #define NG_DONE 34
 #define NG_WITHDRAW 38
+#define NG_ROAM_COOL 39
 #define NG_PANEL 40
 #define NG_POOL 116
 #define NG_DEPLOY 118
@@ -38,8 +39,13 @@
 #define NG_WON 1
 #define NG_LOST 2
 #define NG_COMPLETE 3
-extern uint8_t ng_state[NG_STATE_BYTES],ng_terrain[16],ng_owners[16],ng_ages[16],ng_ruined[16],ng_event;
+extern uint8_t ng_state[NG_STATE_BYTES],ng_terrain[16],ng_owners[16],ng_ages[16],ng_ruined[16],ng_event,ng_ai_turns;
 extern uint16_t ng_people[16],ng_units[16][4],ng_strength[16][4],ng_presence[4];
+void ng_personality(uint8_t faction);
+uint8_t ng_roam(void);
+void ng_expedition_plan(uint8_t air,uint16_t reachable);
+uint8_t ng_expedition(void);
+uint8_t ng_demobilize(uint8_t part);
 void ng_draw(void);
 void ng_new(void);
 void ng_reset_pacts(void);

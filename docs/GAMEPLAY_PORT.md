@@ -4,9 +4,9 @@ The private native D81 integrates the translated rules into a playable C64 game
 with battles, computer opponents, hotseat, diplomacy, nuclear weapons, campaign
 progression and resilient disk saves. The fallback D64 still uses the older fan
 engine. Movement reachability, deployment populations/order, alliance group operations and
-AI economy planning/goal selection now use translated DOS rules. Tactical army
-choices, negotiation decisions, deployment interaction timing and the interface
-still include C64 policy. Explicit and automatic future shutdown, saved people, deployment pools and
+AI economy, goal selection and tactical army decisions now use translated DOS
+rules. Negotiation, deployment interaction timing and the interface still
+include C64 policy. Explicit and automatic future shutdown, saved people, deployment pools and
 within-epoch island selection are now integrated. See [native integration](NATIVE_INTEGRATION.md).
 
 ## Implemented and checked against the DOS executable
@@ -98,7 +98,7 @@ technology dates, health tables and research/manufacturing tables. Original per-
 whose indexed read and +1 are checked in the executable. Original game
 tables remain in the owner's private recovery folder.
 
-The local verifier compares all 448 campaign-sector initializations plus 22,148
+The local verifier compares all 448 campaign-sector initializations plus 22,660
 rule/world-strategy scenarios on host C and native 6502. This includes
 battle scheduling, building damage, tower loss, defence recall and ordinary
 nuclear detonation. Chained scenarios cover Aloha research/resource payment and
@@ -217,7 +217,7 @@ Automatic shutdown preserves the original owned-count indexing quirk: when
 owned-sector count is 0 or 1, the original indexes army-sector counts by that
 count, rather than by faction. Its facility masks 1/2/3 are also retained.
 
-AI army/tactical choices, diplomacy acceptance/proposals, deployment interaction
+Diplomacy acceptance/proposals, deployment interaction
 timing and the interface remain C64 adaptations. The extracted per-island
 computer population and faction-order permutation tables replace fixed starting
 allocations. Ground reachability, aircraft separation and alliance groups now
@@ -300,7 +300,45 @@ Army formation and retreat rules (operations 53–59) now cover DOS
 `16B4:22A3`, `0D24:1582`, `11B9:1C9C`, `1471:0278`, `16B4:26AB`,
 `16B4:06DD` and `16B4:0DB1`. Formation consumes available inventory before
 resources, refunds failed attempts and supports the original nuclear fallback.
-The native AI invokes the emergency and normal home reinforcement routines;
-expedition and roaming decisions remain an outstanding fidelity gap.
+The native AI invokes emergency/home reinforcement, expedition, roaming and
+demobilization routines in the recovered order.
 The private military differential run covers 6,160 scenarios on both C and
 6502, including unchanged sector bytes, returned forces, results and PRNG state.
+
+
+## Whole-world tactical turns
+
+`strategy.c` translates `16B4:114F` (expedition), `0228` (roaming), `0FB2`
+(weak-home-army return) and `142A` (peacetime demobilization). `NGSTRAT` is a
+leaf decision bank: its caller returns to resident code before formation,
+retreat or arrival can load another bank. Demobilization orchestration uses
+reclaimed resident space at `$3400`; its code remains present across these loads.
+
+Expeditions replace fixed unit batches and first-target attacks with ascending
+sector candidate lists, uniform random selection, personality strength/crew
+requirements, air-first/ground-retry formation and nuclear fallback. The single
+chance draw is preserved across retries. Roaming selects active armies in
+original descending faction order, including armies on neutral land. It applies
+the original force-balance tests, unarmed-capture exclusions, retreat losses,
+and three-turn global cooldown. Mixed forces with aircraft follow the original
+roaming transfer behavior. Human armies remain under player control.
+
+The verifier `tools/verify_strategy.py` calls the original routines on complete
+16-sector islands and compares every compact sector, result, RNG state and
+roaming cooldown against host C and banked 6502 execution. Only the original
+pointer-valued nuclear origin is converted to the C64 sector index. The CPU
+audit models leaf loads; real disk loads and a complete AI turn are separately
+checked in VICE.
+
+Operation 60 translates `16B4:1831`. It samples a design and, if that recipe
+cannot be paid and its required deposit is exhausted, clears its known bit and
+cancels matching production while returning factory workers. This preserves
+both random draws before economy planning. The focused DOS/C/6502 comparison
+covers 512 stock/deposit/technology/production cases.
+
+
+Use `--fast-setup` for large tactical sweeps to inject identical fixture caches
+into both backends. Every audited routine and its world/record mutations still
+execute; the default additionally executes the native cache/codec while
+constructing each fixture. These are distinct from the primitive-rule scenario
+counts. The final release evidence records both sets separately.

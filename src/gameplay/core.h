@@ -17,6 +17,7 @@ extern uint8_t gp_sector[GP_SECTOR_BYTES];
 extern uint8_t gp_request[GP_REQ_BYTES];
 extern uint8_t gp_recipe[10];
 extern uint8_t gp_personality[56],gp_plan[28];
+void gp_prune_design(void);
 void gp_economy_plan(void);
 void gp_economy_allocate(void);
 void gp_economy_scan(void);

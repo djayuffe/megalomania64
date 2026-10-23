@@ -408,6 +408,16 @@ class GameplayCoreTest(unittest.TestCase):
         self.assertEqual(self.read(0x136, 4), 0xffffffff)
         self.assertEqual(self.read(0x146, 4), 3000)
 
+    def test_exhausted_design_is_forgotten_but_live_deposit_keeps_it(self):
+        for remaining,known in [(0,0),(1,1)]:
+            for category in range(3):
+                self.word(0x122+category*2,1)
+                self.s[0x19c+category*100:0x1a6+category*100]=bytes([0,2]+[255,0]*4)
+            self.word(0x174,0);self.word(0x140,0);self.word(0x142,remaining)
+            self.word(0xd2,65535);self.buffers['request'][:]=bytes(32);self.buffers['request'][0]=60
+            self.lib.gp_dispatch()
+            self.assertEqual(sum(self.read(0x122+category*2)for category in range(3)),2+known)
+
 
 if __name__ == '__main__':
     unittest.main()

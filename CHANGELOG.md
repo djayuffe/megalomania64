@@ -1,5 +1,17 @@
 # Endringslogg
 
+## Original tactical army turns (23 October 2026)
+
+- Original expedition selection, strength/crew formation, air/ground retries and
+  nuclear fallback replace fixed troop batches and first-weak-target attacks.
+- Original field-army roaming, retreat and global cooldown, including neutral
+  sectors; original weak-army return and peacetime demobilization.
+- Shared personality mapping and original exhausted-design pruning before
+  economy planning. Resident coordinators keep bank return addresses valid.
+- Whole-world DOS/C/banked-6502 comparisons and complete AI turns in VICE.
+  Intro remains frozen; negotiation, deployment interaction timing and full
+  presentation fidelity remain gaps.
+
 ## Army formation, retreat and bank-safe interface (22 October 2026)
 
 - Original strength/crew-based army formation, equipment refunds, nuclear fallback

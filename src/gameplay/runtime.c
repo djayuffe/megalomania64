@@ -152,8 +152,8 @@ static uint8_t graphics_load(void) {
 static void ensure_overlay(uint8_t kind) {
     uint16_t size;uint8_t ok;
     if(loaded_clip==kind)return;
-    if(!hw_open(kind==254?"NGRARE":kind==253?"NGCAMP":kind==252?"NGAI":kind==251?"NGTACT":kind==250?"NGARMY":"NGUI")) {runtime_ready=2;while(1);}
-    ok=signature(kind==254?"NGX1":kind==253?"NGY1":kind==252?"NGI1":kind==251?"NGT1":kind==250?"NGA2":"NGU1");size=read_word();
+    if(!hw_open(kind==254?"NGRARE":kind==253?"NGCAMP":kind==252?"NGAI":kind==251?"NGTACT":kind==250?"NGARMY":kind==249?"NGUI":"NGSTRAT")) {runtime_ready=2;while(1);}
+    ok=signature(kind==254?"NGX1":kind==253?"NGY1":kind==252?"NGI1":kind==251?"NGT1":kind==250?"NGA2":kind==249?"NGU1":"NGS2");size=read_word();
     ok=ok && size && size<=4346 && unpack((uint8_t *)0xef00,size);
     hw_close();if(!ok) {runtime_ready=2;while(1);}loaded_clip=kind;
 }
@@ -162,6 +162,7 @@ void gp_ensure_campaign(void) {ensure_overlay(253);}
 void gp_ensure_ai(void) {ensure_overlay(252);}
 void gp_ensure_tactics(void) {ensure_overlay(251);}
 void gp_ensure_military(void) {ensure_overlay(250);}
+void gp_ensure_strategy(void) {ensure_overlay(248);}
 #ifdef __CC65__
 #pragma rodata-name (pop)
 #pragma code-name (pop)

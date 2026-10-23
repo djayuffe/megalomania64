@@ -76,7 +76,7 @@ def verify(dos,cc65,out,focus=None):
         if op==42:
             expected=bytes(sector);value=oracle.route_mask(routes,a);endseed=seed;hi=rate=0
         else:expected,value,endseed,hi,rate=oracle.apply(op,sector,request,recipe,army,alliances,retired,field_armies,owned,personality,plan)
-        if (focus=='future' and retired is None) or (focus=='repair' and op!=40) or (focus=='strategy' and op<41) or (focus=='repair-ai' and op!=52) or (focus=='military' and op<53):return bytearray(expected)
+        if (focus=='future' and retired is None) or (focus=='repair' and op!=40) or (focus=='strategy' and op<41) or (focus=='repair-ai' and op!=52) or (focus=='military' and (op<53 or op>59)) or (focus=='prune' and op!=60):return bytearray(expected)
         for prefix,data in [('gp_personality',personality),('gp_plan',plan),('gp_routes',routes or bytes(16)),('gp_repair_caps',b''.join(struct.pack('<10H',*v)for v in rules['repair_caps'])),('gp_shield_rules',struct.pack('<10H',*rules['shield_rules'])),('gp_owned',owned or bytes(4)),('gp_retired',retired or bytes(4)),('gp_army_sectors',field_armies or bytes(4)),('gp_sector',sector),('gp_request',request),('gp_recipe',recipe),('gp_classes',classes),('gp_buildings',buildings),('gp_patterns',patterns),('gp_groups',groups),('gp_complexity',complexity),('gp_manufacture',manufacture),('gp_research_points',research_points),('gp_technology_points',technology_points),('gp_army',army),('gp_army_rules',army_rules),('gp_defence_rules',defence_rules),('gp_alliances',alliances),('gp_combat_rules',struct.pack('<5H',*rules['combat_rules']))]:
             arr=(ctypes.c_uint8*len(data)).in_dll(lib,prefix);arr[:]=data
             addr=labels['_'+prefix];native.m[addr:addr+len(data)]=data
@@ -96,7 +96,7 @@ def verify(dos,cc65,out,focus=None):
                 raise AssertionError(f'{backend}: automatic shutdown saved population differs')
             if op in [4,5,7,12,18,24,25,28,34,38,40,41,42,45,46,53,55,56,57,58,59] and get(req,12)!=value:
                 raise AssertionError(f'{backend}, op {op}, a={a}, seed={seed}: result {get(req,12)} != original {value}')
-            if op in [7,17,20,24,25,33,34,35,49,50,51,52,54,59] and get(req,10)!=endseed:raise AssertionError(f'{backend}, op {op}: PRNG {get(req,10)} != DOS {endseed}; age={get(sector,0x418)}, buildings={sector[0x446]}, hp={get(sector,0x3d6)}, personality={personality.hex()}, request={request.hex()}')
+            if op in [7,17,20,24,25,33,34,35,49,50,51,52,54,59,60] and get(req,10)!=endseed:raise AssertionError(f'{backend}, op {op}: PRNG {get(req,10)} != DOS {endseed}; age={get(sector,0x418)}, buildings={sector[0x446]}, hp={get(sector,0x3d6)}, personality={personality.hex()}, request={request.hex()}')
             if op in [20,28,29,30,31,53,54,57]:
                 if backend=='C':actual_army=bytes((ctypes.c_uint8*11).in_dll(lib,'gp_army'))
                 else:actual_army=bytes(native.m[labels['_gp_army']:labels['_gp_army']+11])
@@ -611,6 +611,21 @@ def verify(dos,cc65,out,focus=None):
                     for age in range(10):put(sector,0x10e+age*2,10)
                     check(58,sector,personality=struct.pack('<28H',*persona))
                     for seed in [0,1,1991]:check(59,sector,seed=seed,personality=struct.pack('<28H',*persona))
+    for age in [0,3,6,9]:
+        for known in [0,1023]:
+            for stock in [0,1,2,100]:
+                for deposit in [None,0,1,100]:
+                    for seed in range(4):
+                        sector=bytearray(SECTOR_BYTES);put(sector,0x3fe,1);put(sector,0x406,50);put(sector,0x404,60)
+                        put(sector,0xd2,seed%3);put(sector,0xd4,age);put(sector,0xd8,10)
+                        put(sector,0xde,100);put(sector,0xe2,30);put(sector,0xe4,1)
+                        put(sector,0x174,stock)
+                        for category in range(3):
+                            put(sector,0x122+category*2,known)
+                            for a in range(age,min(age+3,9)+1):sector[0x19c+category*100+a*10:0x19c+category*100+a*10+10]=bytes([0,2]+[255,0]*4)
+                        for j in range(4):put(sector,0x140+j*16,65535)
+                        if deposit is not None:put(sector,0x140,0);put(sector,0x142,deposit)
+                        check(60,sector,c=age,max_age=min(age+3,9),seed=seed)
     report=dict(focus=focus,exe_sha256=rules['exe_sha256'],campaign_sectors_verified=448,
                 scenarios=tested,backends=['host C','native NMOS 6502'],per_opcode=per_op,
                 native_code_bytes=sum((out/name).stat().st_size for name in ['core.bin','core.bin.low','core.bin.bank','core.bin.military']),
@@ -618,7 +633,7 @@ def verify(dos,cc65,out,focus=None):
                 chained_scenarios=['Aloha inventors, birth ticks, research completion, resource payment, weapon inventory',
                                   'Neutral occupation, contested construction, hostile army defeated, tower completes and installs owner'],
                 source='Audited original DOS near/far routines; complete sector bytes compared',
-                limitations=['AI tactical army decisions, negotiation, deployment interaction timing and interface remain C64 adaptations',
+                limitations=['Whole-world AI decisions are checked separately by verify_strategy.py; negotiation, deployment interaction timing and interface remain adaptations',
                              'optional arrival pause/UI branch enabled in additional comparisons; native pause UI is adapted',
                              'automatic future shutdown counts are supplied by the native whole-world cache',
                              'rule comparisons do not establish human balance across all islands'])
@@ -628,7 +643,7 @@ def verify(dos,cc65,out,focus=None):
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--dos',type=Path,required=True);p.add_argument('--cc65',type=Path,required=True);p.add_argument('--out',type=Path,required=True)
-    p.add_argument('--focus',choices=['future','repair','strategy','repair-ai','military'],help='compare only the selected rule family; run other oracle chains as setup')
+    p.add_argument('--focus',choices=['future','repair','strategy','repair-ai','military','prune'],help='compare only the selected rule family; run other oracle chains as setup')
     a=p.parse_args()
     if a.out.resolve().is_relative_to(ROOT):p.error('keep original-derived evidence outside checkout')
     verify(a.dos,a.cc65,a.out,a.focus)

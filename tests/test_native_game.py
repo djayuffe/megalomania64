@@ -19,7 +19,7 @@ class NativeGameTest(unittest.TestCase):
         header=folder/'memory.h';header.write_text('#include <stdint.h>\nextern uint8_t world_memory[10496];\n')
         stub=folder/'memory.c';stub.write_text('#include <stdint.h>\nuint8_t world_memory[10496];\n')
         library=folder/'game.so'
-        subprocess.run([compiler,'-std=c99','-Wall','-Wextra','-Werror','-shared','-fPIC','-DWORLD_ADDRESS=world_memory','-include',str(header),*[str(ROOT/f'src/gameplay/{name}.c')for name in ['core','ai','tactics','military','world','game','campaign']],str(stub),'-o',str(library)],check=True,capture_output=True)
+        subprocess.run([compiler,'-std=c99','-Wall','-Wextra','-Werror','-shared','-fPIC','-DWORLD_ADDRESS=world_memory','-include',str(header),*[str(ROOT/f'src/gameplay/{name}.c')for name in ['core','ai','tactics','military','strategy','world','game','campaign']],str(stub),'-o',str(library)],check=True,capture_output=True)
         cls.lib=ctypes.CDLL(str(library))
 
     @classmethod
@@ -37,7 +37,7 @@ class NativeGameTest(unittest.TestCase):
         (ctypes.c_uint8*96).in_dll(self.lib,'world_orders')[:]=bytes([0,1,2,3])*24
         personas=(ctypes.c_uint8*224).in_dll(self.lib,'world_personalities');personas[:]=bytes(224)
         for row in range(4):
-            for at,n in [(2,24),(4,24),(6,24),(8,28)]:personas[row*56+at]=n
+            for at,n in [(2,24),(4,24),(6,24),(8,28),(0x18,100),(0x1a,125),(0x1c,150),(0x1e,20),(0x20,30)]:personas[row*56+at]=n
         self.word(0xbe,65535);self.word(0xd2,65535);self.word(0x3fe,0)
         self.word(0x2fc,1);self.s[0x446]=1;self.s[0x448]=128
         self.word(0x3d6,100);self.word(0x404,100);self.word(0x406,100)
@@ -299,3 +299,53 @@ class NativeGameTest(unittest.TestCase):
         self.lib.ng_rule(52,0,0,0)
         self.assertEqual(self.read(0xe6),1)
         self.assertEqual(self.read(0x3d8),51)
+
+    def expedition_persona(self):
+        persona=(ctypes.c_uint8*56).in_dll(self.lib,'gp_personality');persona[:]=bytes(56)
+        for at,n in [(0x18,100),(0x1a,125),(0x1c,125),(0x1e,20),(0x20,20)]:persona[at]=n
+
+    def empty_sector(self,index,owner=4):
+        self.s[:]=bytes(0x449);self.s[0x3b8:0x3c2]=bytes([255])*10
+        self.word(0x3fe,owner);self.s[0x448]=128;self.word(0xbe,65535);self.word(0xd2,65535);self.save_sector(index)
+
+    def test_expedition_forms_requested_force_and_pays_people(self):
+        self.save_sector(0);self.empty_sector(1);self.load_sector(0);self.expedition_persona()
+        self.assertEqual(self.lib.ng_expedition(),1)
+        self.load_sector(0);self.assertEqual(self.read(0x404),80);self.assertEqual(self.read(0x406),80)
+        self.load_sector(1);self.assertEqual(self.s[0x2c8+10],20)
+
+    def test_expedition_cannot_send_unarmed_force_across_water(self):
+        self.save_sector(0);self.empty_sector(15);self.load_sector(0);self.expedition_persona()
+        self.assertEqual(self.lib.ng_expedition(),0)
+        self.assertEqual(self.read(0x404),100);self.assertEqual(self.read(0x406),100)
+        self.load_sector(15);self.assertEqual(self.read(0x2f4),0)
+
+    def test_expedition_nuclear_fallback_sets_source_and_consumes_inventory(self):
+        ctypes.c_uint8.in_dll(self.lib,'world_first').value=6;ctypes.c_uint8.in_dll(self.lib,'world_last').value=9
+        self.word(0x11e,1);self.save_sector(0);self.empty_sector(15);self.load_sector(0);self.expedition_persona()
+        self.assertEqual(self.lib.ng_expedition(),1)
+        self.load_sector(0);self.assertEqual(self.read(0x11e),0)
+        self.load_sector(15);self.assertGreaterEqual(self.s[0x444],100);self.assertLess(self.s[0x444],140);self.assertEqual(self.read(0x440),0)
+
+    def test_roaming_army_leaves_neutral_sector_without_a_tower(self):
+        self.state[13]=1
+        personas=(ctypes.c_uint8*224).in_dll(self.lib,'world_personalities');personas[0x28]=100
+        self.word(0x3fe,4);self.buffers['army'][10]=30;self.lib.ng_rule(20,0,0,0);self.save_sector(0)
+        self.empty_sector(1,0);self.load_sector(0)
+        self.assertEqual(self.lib.ng_roam(),1);self.assertEqual(self.state[39],3)
+        self.load_sector(0);self.assertEqual(self.read(0x2f4),0)
+        self.load_sector(1);self.assertEqual(self.read(0x2f4),30)
+
+    def test_peacetime_demobilization_returns_unarmed_before_weapons(self):
+        persona=(ctypes.c_uint8*56).in_dll(self.lib,'gp_personality');persona[0x2e]=50
+        self.buffers['army'][0]=10;self.buffers['army'][10]=10;self.lib.ng_rule(20,0,0,0);self.save_sector(0)
+        self.assertEqual(self.lib.ng_demobilize(1),1)
+        self.assertEqual(self.s[0x2c8],10);self.assertEqual(self.s[0x2c8+10],0);self.assertEqual(self.read(0x404),110)
+
+    def test_live_ai_processes_field_armies_and_obeys_roaming_cooldown(self):
+        self.state[13]=1
+        personas=(ctypes.c_uint8*224).in_dll(self.lib,'world_personalities');personas[0x28]=100
+        self.word(0x3fe,4);self.buffers['army'][10]=30;self.lib.ng_rule(20,0,0,0);self.save_sector(0)
+        self.empty_sector(1,0);self.load_sector(0);self.state[39]=1
+        self.lib.ng_step(30);self.assertEqual(self.read(0x2f4),30);self.assertEqual(self.state[39],0)
+        self.lib.ng_step(30);self.load_sector(1);self.assertEqual(self.read(0x2f4),30)

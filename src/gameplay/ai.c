@@ -119,3 +119,27 @@ void gp_economy_allocate(void) {
     }
 }
 
+
+/* 16B4:1831: stop selecting a design whose required deposit is exhausted.
+ * This is not mining allocation: the original clears the known-design bit
+ * and cancels manufacture of that design, releasing its workers. */
+void gp_prune_design(void) {
+    uint16_t category,age,first,last,at,known,mask,free;uint8_t i,j,e;
+    first=r(gp_request+6);last=r(gp_request+28);category=draw(3);age=first+draw(last-first+1);
+    known=0x122+category*2;mask=(uint16_t)1<<age;if(!(r(gp_sector+known)&mask))return;
+    at=0x19c+category*100+age*10;
+    for(i=0;i<10;++i)gp_recipe[i]=gp_sector[at+i];task(4,0,0,0);if(r(gp_request+12))return;
+    for(i=0;i<10;i+=2) {
+        e=gp_sector[at+i];if(e==255)continue;
+        for(j=0;j<4;++j)if(r(gp_sector+0x140+(uint16_t)j*16)==e)break;
+        if(j==4)return;
+        if(!r(gp_sector+0x142+(uint16_t)j*16)) {
+            if(r(gp_sector+0xd2)==category && r(gp_sector+0xd4)==age) {
+                free=r(gp_sector+GP_FREE)+r(gp_sector+0xd8);w(gp_sector+0xd8,0);task(0,free,0,0);
+                for(j=0;j<8;++j)gp_sector[0xde + j]=0;
+                w(gp_sector+0xda,65535);w(gp_sector+0xdc,65535);w(gp_sector+0xd2,65535);
+            }
+            w(gp_sector+known,r(gp_sector+known)&~mask);return;
+        }
+    }
+}
