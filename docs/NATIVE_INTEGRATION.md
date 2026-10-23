@@ -13,8 +13,8 @@ defeat, campaign preparation through 28 islands, and disk save/load. A shared
 starting sector. Unspent people carry forward and the next epoch adds 100.
 The final battle deploys one tenth of each faction's saved people. Initial
 tower population is selected men minus one. Computer population counts and
-faction orders come from the executable. Negotiation,
-deployment interaction timing and interface remain C64 adaptations. Original explicit and automatic future-shutdown routines now have
+faction orders and negotiation decisions come from the executable. Deployment
+interaction timing and presentation remain C64 adaptations. Original explicit and automatic future-shutdown routines now have
 DOS comparisons, including saved-population bounds and arithmetic quirks.
 Human balance across all 28 islands and real C64 disk timing remain unverified.
 
@@ -76,7 +76,8 @@ emulation. Pass an explicit D64 path to run the older fan game.
 | I / O | Install/recall selected defence design at selected facility/slot |
 | Z | Cycle turret slot (0–3; facility capacity still applies) |
 | Q, then Enter | Mark nuclear launch source, then launch at selected target |
-| L | Propose truce with selected sector's faction |
+| L | Propose an alliance with the selected sector's faction |
+| + / - during an incoming alliance prompt | Accept / decline |
 | 0 | Withdraw a tower that has reached the special future state |
 | [ / ] | Select deposit |
 | Space / 1,2,3 | Pause / simulation speed 1x, 3x, 9x |
@@ -115,7 +116,7 @@ cross gaps, leaving ground troops at the source. Reachability follows DOS. The b
 tiles recovered from `SMALLMAP.DAT`: executable descriptors give their 22×22
 pixels, source offsets and stride. The C64 conversion retains their shapes with
 black plus one foreground colour per character cell. Original army/building
-sprites and island portraits remain available; layout and palette differ from DOS. Music remains resident while effects and voices stream from disk.
+sprites and island portraits remain available; layout and palette differ from DOS. Music remains resident while effects and voices stream from disk. Digital clips briefly hold gameplay and bank-changing commands; queued input resumes afterward. Playback time is excluded from the simulation clock.
 
 ## Memory and loading
 
@@ -137,7 +138,7 @@ sprites and island portraits remain available; layout and palette differ from DO
 | `$C200–$C3FF` | C software stack |
 | `$C400–$D3FF` | Resident SID music |
 | `$D400–$EEFF` | Combat and game orchestration code under I/O/KERNAL |
-| `$EF00–$FFF9` | Rare rules, campaign, AI economy, AI tactics, army formation, strategy, interface or streamed audio cache |
+| `$EF00–$FFF9` | Rare rules, campaign, AI economy, AI tactics, army formation, strategy, diplomacy, interface or streamed audio cache |
 
 C code runs with `$01=$34`. Interface drawing uses `$35` to expose colour RAM while retaining RAM at `$EF00`; its text helper preserves this mapping so banked strings remain readable. IRQ/NMI wrappers expose I/O/KERNAL, preserve the
 CPU port, and restore the interrupted mapping. Hardware and disk wrappers do
@@ -151,7 +152,7 @@ legal age window (at most four ages). DOS rendering fields and out-of-window
 inventories are omitted. Python and C codecs are compared for all legal windows
 and all sixteen slots, including active tower construction.
 
-`NGTABLE` has `NGR4` and 1,026 rule bytes, including shield strengths, original repair-cap tables, faction permutations and personality tables. `NGCODE`/`NGRARE`/`NGCAMP`/`NGAI`/`NGTACT`/`NGARMY`/`NGUI`/`NGSTRAT`/`NGAUX` use `NGC1`/`NGX1`/`NGY1`/`NGI1`/`NGT1`/`NGA2`/`NGU1`/`NGS2`/`NGA1`,
+`NGTABLE` has `NGR4` and 1,026 rule bytes, including shield strengths, original repair-cap tables, faction permutations and personality tables. `NGCODE`/`NGRARE`/`NGCAMP`/`NGAI`/`NGTACT`/`NGARMY`/`NGUI`/`NGSTRAT`/`NGDIPLO`/`NGAUX` use `NGC1`/`NGX1`/`NGY1`/`NGI1`/`NGT1`/`NGA2`/`NGU1`/`NGS2`/`NGD1`/`NGA1`,
 a little-endian uncompressed length and RLE code. `NMAPnn` uses `NGW4`, age bounds, the original two-to-four-faction count and two-byte computer deployment population,
 sixteen terrain IDs, a compressed 96-byte picture, twelve colours and compressed
 10,496-byte world. `NARTnn` uses `NGF1`, a compressed 2,048-byte charset,
@@ -230,3 +231,33 @@ checking tower ownership, then perform defence, at most one army action,
 repair, exhausted-design pruning and worker planning. The native per-sector
 decision timer and hotseat controls remain C64 scheduling choices. Roaming's
 global cooldown resets on island preparation and is preserved by version-2 saves.
+
+
+`NGDIPLO` translates the original willingness, timed departure/proposal and
+multi-party consent state machine (`16B4:2A84`). `L` starts a proposal to the
+selected owner's whole group. An incoming offer waits for `+` or `-`; the
+status line shows its initiator and response controls. Consent does not depend
+on the native population/strength comparison that this replaces. Each alliance
+member responds, and group merging/departure follows the original masks.
+Hotseat retains manual proposals and shared consent instead of autonomous
+computer diplomacy.
+
+Negotiation state occupies previously reserved metadata bytes 84–115. Byte 41
+is a `$D1` revision tag. Legacy version-2 saves without it migrate only this
+reserved block before use, retaining alliance groups, world state and RNG.
+Pending offers survive save/load. The first 30 bytes match DOS `19AA–19C7`;
+the final two describe the dialogue-event ID and speaker. Native banners and a
+generic existing alliance voice adapt the original character-specific dialogue.
+
+Sound and leaf code share `$EF00`. The main loop now draws before starting a
+clip and waits for its natural NMI completion before another code-bank load.
+The IRQ accounts for these held frames just as it does disk I/O, preventing a
+simulation jump afterward. VICE observes the natural completion entry, exact
+sample read pointer and stable gameplay-frame counter for effects and speech.
+
+## Separate selector module
+
+`./tools/run_selector.sh` opens the independent intro-scene/game-island selector.
+The private disk contains `NGSELECT` alongside `NGSTART`; the ordinary launcher
+and frozen intro keep their existing entry. See [scene selector](SCENE_SELECTOR.md)
+for the controls, fresh-checkpoint policy, module boundary and verification.

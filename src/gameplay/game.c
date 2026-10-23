@@ -32,6 +32,8 @@ void ng_reset_pacts(void) {
     uint8_t i;
     for(i=0;i<4;++i) {gp_alliances[i]=1<<i;ng_state[NG_ALLIES+i]=1<<i;}
     for(i=0;i<32;++i)ng_state[NG_TRUCE+i]=0;
+    ng_state[NG_DIP_TAG]=NG_DIP_REVISION;ww(ng_state+NG_DIPLO,65535);ww(ng_state+NG_DIPLO+16,1);ng_state[NG_DIPLO+29]=ng_state[NG_ACTIVE];
+    for(i=0;i<4;++i)ww(ng_state+NG_DIPLO+20+(uint16_t)i*2,rw(ng_state+NG_CLOCK));
 }
 static void new_impl(void);
 void ng_new(void) {
@@ -54,12 +56,13 @@ static void sync_pacts(void) {
 }
 void ng_break(uint8_t other) {
     uint8_t human;human=ng_state[NG_HUMAN];if(other>=4 || other==human || !(gp_alliances[human]&(1<<other)))return;
-    ng_rule(44,human,0,0);sync_pacts();
+    ng_rule(44,human,0,0);sync_pacts();ww(ng_state+NG_DIP_ACTIVE,0);
 }
 #if defined(__CC65__) && defined(NATIVE_GAME)
 extern void gp_ensure_rare(void);
 extern void gp_ensure_campaign(void);
 extern void gp_ensure_strategy(void);
+extern void gp_ensure_diplomacy(void);
 #pragma code-name (push, "CAMPAIGN")
 #endif
 static uint16_t route_mask_impl(uint8_t from,uint8_t faction) {
@@ -159,12 +162,16 @@ static void nuclear(uint16_t elapsed) {
     }
     if(!now) {ng_rule(37,r(0x43e),0,0);gp_sector[0x444]=0;ng_event|=8;}
 }
-void ng_negotiate(uint8_t other) {
-    uint8_t h;h=ng_state[NG_HUMAN];if(other>=4 || other==h || !ng_presence[other])return;
-    if(ng_presence[h]<ng_presence[other])return;
-    ng_rule(43,h,other,0);sync_pacts();ng_event|=32;
-}
-void ng_clock(uint16_t elapsed) {ww(ng_state+NG_CLOCK,rw(ng_state+NG_CLOCK)+elapsed);}
+#if defined(__CC65__) && defined(NATIVE_GAME)
+#define DIPLO_LOAD() gp_ensure_diplomacy()
+#else
+#define DIPLO_LOAD() ((void)0)
+#endif
+void ng_diplomacy_prepare(void) {if(ng_state[NG_DIP_TAG]!=NG_DIP_REVISION) {DIPLO_LOAD();ng_diplomacy_initialize();}}
+void ng_negotiate(uint8_t other) {DIPLO_LOAD();ng_diplomacy_propose(other);}
+void ng_answer(uint8_t yes) {DIPLO_LOAD();ng_diplomacy_reply(yes);}
+void ng_diplomacy(void) {DIPLO_LOAD();ng_diplomacy_advance();}
+void ng_clock(uint16_t elapsed) {ww(ng_state+NG_CLOCK,rw(ng_state+NG_CLOCK)+elapsed);ng_diplomacy();}
 static void outcome_impl(void);
 void ng_outcome(void) {
 #if defined(__CC65__) && defined(NATIVE_GAME)

@@ -5,8 +5,8 @@ with battles, computer opponents, hotseat, diplomacy, nuclear weapons, campaign
 progression and resilient disk saves. The fallback D64 still uses the older fan
 engine. Movement reachability, deployment populations/order, alliance group operations and
 AI economy, goal selection and tactical army decisions now use translated DOS
-rules. Negotiation, deployment interaction timing and the interface still
-include C64 policy. Explicit and automatic future shutdown, saved people, deployment pools and
+rules. Deployment interaction timing and the interface still include C64 policy;
+negotiation decisions now follow the original state machine. Explicit and automatic future shutdown, saved people, deployment pools and
 within-epoch island selection are now integrated. See [native integration](NATIVE_INTEGRATION.md).
 
 ## Implemented and checked against the DOS executable
@@ -217,8 +217,7 @@ Automatic shutdown preserves the original owned-count indexing quirk: when
 owned-sector count is 0 or 1, the original indexes army-sector counts by that
 count, rather than by faction. Its facility masks 1/2/3 are also retained.
 
-Diplomacy acceptance/proposals, deployment interaction
-timing and the interface remain C64 adaptations. The extracted per-island
+Deployment interaction timing and the interface remain C64 adaptations. The extracted per-island
 computer population and faction-order permutation tables replace fixed starting
 allocations. Ground reachability, aircraft separation and alliance groups now
 follow DOS. Original VGA presentation is converted to VIC character
@@ -342,3 +341,28 @@ into both backends. Every audited routine and its world/record mutations still
 execute; the default additionally executes the native cache/codec while
 constructing each fixture. These are distinct from the primitive-rule scenario
 counts. The final release evidence records both sets separately.
+
+
+## Negotiation state machine
+
+`diplomacy.c` translates `16B4:2A84`: initial willingness refresh, wrapped
+per-faction timers, personality-based alliance departure and proposal selection,
+whole-group consent, refusal, human confirmation and completion. Pending
+negotiations continue in the same call after a periodic willingness update,
+matching the original branch. Consenting non-initiators lose their willingness
+bits when the groups merge; renewed offers require renewed consent.
+
+`tools/verify_diplomacy.py` compares all 30 original state bytes, alliance masks,
+RNG, presentation-mode arithmetic and dialogue ID/speaker against DOS on host C
+and banked 6502. The far speech entry is modeled as starting playback (ready=0);
+fixtures independently supply subsequent completion. Native speech completion,
+keyboard response and save/load of an incoming offer are checked in VICE.
+Dialogue artwork, character-specific voice selection and exact presentation
+scheduling remain adapted for the C64.
+
+The current sweep covers 4,096 fixtures on both backends: 64 speech events,
+208 group changes, 117 new proposals and 506 human-input cases. Targets include
+an active group member, as live proposals do; the original acceptance routine
+otherwise rejection-samples an empty mask indefinitely. The native routine
+closes that invalid state safely. These counts are separate from the primitive
+rules and whole-world tactical comparisons above.

@@ -1,5 +1,24 @@
 # Endringslogg
 
+## Independent scene and island selector (23 October 2026)
+
+- Separate NGSELECT module previews all 29 intro scenes and selects all 28 game islands.
+- Story patches restore their full background; credits use the frozen scrolling renderer.
+- Keyboard, direct two-digit selection and joystick controls; preview returns to its own menu.
+- Fresh checkpoint handoff is consumed once, with all selector RAM reclaimed by gameplay.
+- Dedicated selector launcher retains turbo floppy loading. Normal intro remains frozen.
+
+## Original negotiation and complete streamed audio (23 October 2026)
+
+- Original willingness timers, alliance departure, proposals, group consent,
+  refusal and player confirmation replace population-based acceptance.
+- L proposes to a faction's group; + / - answers incoming offers. Pending
+  offers survive saves, with migration of the former reserved metadata block.
+- Drawing precedes streamed sound, and bank loads wait for natural playback
+  completion. Held frames are excluded from the simulation clock.
+- Dialogue IDs and speakers follow DOS; banners, generic voice selection and
+  presentation timing remain C64 adaptations. Intro remains frozen.
+
 ## Original tactical army turns (23 October 2026)
 
 - Original expedition selection, strength/crew formation, air/ground retries and

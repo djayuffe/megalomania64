@@ -22,7 +22,17 @@ else
 fi
 DRIVE_TYPE=1541
 case "$DISK" in *.d81|*.D81) DRIVE_TYPE=1581 ;; esac
-if [ "${VICE_TURBO_FLOPPY:-1}" = 1 ]; then
-  exec "$EMULATOR" -model "${VICE_MODEL:-c64c}" -drive8type "$DRIVE_TYPE" -sound +warp -soundrecdev "" -virtualdev8 +drive8truedrive -autostart-warp -autostart "$DISK"
+if [ "${VICE_SELECTOR:-0}" = 1 ]; then
+  SELECTOR=${VICE_SELECTOR_FILE:-"$ROOT/../recovery/native/files/NGSELECT"}
+  if [ ! -f "$SELECTOR" ]; then
+    printf '%s\n' 'Build the native disk and NGSELECT module first.' >&2
+    exit 1
+  fi
+  set -- -8 "$DISK" -autostartprgmode 1 -autostart "$SELECTOR"
+else
+  set -- -autostart "$DISK"
 fi
-exec "$EMULATOR" -model "${VICE_MODEL:-c64c}" -drive8type "$DRIVE_TYPE" -sound +warp -soundrecdev "" -drive8truedrive +virtualdev8 -autostart "$DISK"
+if [ "${VICE_TURBO_FLOPPY:-1}" = 1 ]; then
+  exec "$EMULATOR" -model "${VICE_MODEL:-c64c}" -drive8type "$DRIVE_TYPE" -sound +warp -soundrecdev "" -virtualdev8 +drive8truedrive -autostart-warp "$@"
+fi
+exec "$EMULATOR" -model "${VICE_MODEL:-c64c}" -drive8type "$DRIVE_TYPE" -sound +warp -soundrecdev "" -drive8truedrive +virtualdev8 -autostart "$@"

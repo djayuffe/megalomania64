@@ -5,7 +5,10 @@ a 128-byte metadata block and sixteen compact sectors. CRC16 covers the
 complete snapshot. See [native persistence](NATIVE_INTEGRATION.md) for its
 layout, validation and recovery behavior. Metadata byte 40 selects the game
 information view (0–3). Byte 39 stores the roaming cooldown (0–3); older
-version-2 saves leave both bytes zero. The wire format
+version-2 saves leave both bytes zero. Byte 41 is now a `$D1` diplomacy-state
+revision tag. Saves without it migrate the former unused/truce block at bytes
+84–115 to initialized negotiation state before use, retaining alliances and RNG.
+Tagged saves preserve pending proposals and player responses. The wire format
 and existing saves remain compatible.
 
 The specification below describes the historical fallback game.

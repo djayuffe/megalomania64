@@ -115,6 +115,7 @@ rt_music:
  jsr native_animate
  lda music_hold
  beq rt_running
+rt_hold:
  inc io_frames
  bne rt_irq_exit
  inc io_frames+1
@@ -122,7 +123,7 @@ rt_music:
 rt_running:
  lda smp_left
  ora smp_left+1
- bne rt_irq_exit
+ bne rt_hold
  lda mu_ready
  beq rt_irq_exit
  jsr original_music_tick
@@ -460,6 +461,13 @@ hw_crc_count:
  bne hw_crc_byte
  lda crc_value
  ldx crc_value+1
+ rts
+; Stable busy check across the NMI's 16-bit decrement/borrow.
+hw_audio_busy:
+ lda smp_left
+ ora smp_left+1
+ ora smp_left
+ ldx #0
  rts
 support_end:
 

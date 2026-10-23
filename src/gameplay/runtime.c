@@ -8,6 +8,7 @@ extern uint8_t hw_read(void);
 extern void hw_close(void);
 extern uint8_t hw_key(void);
 extern uint16_t hw_frames(void);
+extern uint8_t hw_audio_busy(void);
 extern void __fastcall__ hw_play(uint16_t count);
 extern uint8_t hw_error,hw_eof,clip_voice;
 extern uint8_t __fastcall__ hw_store(uint8_t slot);
@@ -152,8 +153,8 @@ static uint8_t graphics_load(void) {
 static void ensure_overlay(uint8_t kind) {
     uint16_t size;uint8_t ok;
     if(loaded_clip==kind)return;
-    if(!hw_open(kind==254?"NGRARE":kind==253?"NGCAMP":kind==252?"NGAI":kind==251?"NGTACT":kind==250?"NGARMY":kind==249?"NGUI":"NGSTRAT")) {runtime_ready=2;while(1);}
-    ok=signature(kind==254?"NGX1":kind==253?"NGY1":kind==252?"NGI1":kind==251?"NGT1":kind==250?"NGA2":kind==249?"NGU1":"NGS2");size=read_word();
+    if(!hw_open(kind==254?"NGRARE":kind==253?"NGCAMP":kind==252?"NGAI":kind==251?"NGTACT":kind==250?"NGARMY":kind==249?"NGUI":kind==248?"NGSTRAT":"NGDIPLO")) {runtime_ready=2;while(1);}
+    ok=signature(kind==254?"NGX1":kind==253?"NGY1":kind==252?"NGI1":kind==251?"NGT1":kind==250?"NGA2":kind==249?"NGU1":kind==248?"NGS2":"NGD1");size=read_word();
     ok=ok && size && size<=4346 && unpack((uint8_t *)0xef00,size);
     hw_close();if(!ok) {runtime_ready=2;while(1);}loaded_clip=kind;
 }
@@ -163,6 +164,7 @@ void gp_ensure_ai(void) {ensure_overlay(252);}
 void gp_ensure_tactics(void) {ensure_overlay(251);}
 void gp_ensure_military(void) {ensure_overlay(250);}
 void gp_ensure_strategy(void) {ensure_overlay(248);}
+void gp_ensure_diplomacy(void) {ensure_overlay(247);}
 #ifdef __CC65__
 #pragma rodata-name (pop)
 #pragma code-name (pop)
@@ -194,7 +196,7 @@ static uint8_t load_island(uint8_t resume) {
         if(ng_state[NG_PHASE]) {for(i=0;i<16 && !tiles[i];++i) {}ng_state[NG_START]=i;}
         ng_prepare_island();
     }else for(i=0;i<16;++i)if(tiles[i]) {get(i);save();}
-    if(!graphics_load())return 0;ng_outcome();
+    if(!graphics_load())return 0;ng_outcome();ng_diplomacy_prepare();
     now=hw_frames();for(i=0;i<16;++i)stamps[i]=now;
     last_service=now;clear();dirty=1;return 1;
 }
@@ -302,6 +304,7 @@ static void command(uint8_t key) {
     else if(key>='1' && key<='3')speed=key=='1'?1:key=='2'?3:9;
     else if(key=='P' && ng_state[NG_HOTSEAT] && ng_state[NG_ACTIVE]) {do {player=(player+1)%4;}while(!(ng_state[NG_ACTIVE]&(1<<player)));}
     else if(key==9 || key=='?')ng_state[NG_PANEL]=(ng_state[NG_PANEL]+1)%4;
+    else if((key=='+' || key=='-') && ng_state[NG_DIP_PROMPT])ng_answer(key=='+');
     else if(key=='Y')ng_state[NG_HOTSEAT]^=1;
     else if(key==133)ng_state[NG_DIFFICULTY]=ng_state[NG_DIFFICULTY]%3+1;
     else if(key==135)io_message=persistence(1)?1:2;
@@ -323,7 +326,7 @@ static void command(uint8_t key) {
             else {
                 target=selected;i=source;source=255;
                 if(tiles[target]) {
-                    ng_break(old);ng_move(i,target,player);audio(0);
+                    ng_break(old);ng_move(i,target,player);
                 }
             }
         }else if(old==player) {
@@ -361,6 +364,7 @@ static void service(uint16_t now) {
     if((uint16_t)(now-last_service)<4)return;
     last_service=now;cursor=(cursor+1)&15;
     elapsed=(uint16_t)(now-stamps[cursor])*10/frame_rate;stamps[cursor]=now;
+    if(!cursor && paused && ng_state[NG_DIP_ACTIVE] && !ng_state[NG_PHASE]) {ng_diplomacy();dirty=1;}
     if(paused || ng_state[NG_PHASE] || ng_state[NG_STATUS]!=NG_PLAYING || !elapsed)return;
     elapsed*=speed;if(!cursor)ng_clock(elapsed);
     if(tiles[cursor]) {get(cursor);ng_step(elapsed);}
@@ -371,11 +375,14 @@ void runtime_main(void) {
     uint8_t key;
     frame_rate=REG(0x02a6)?50:60;
     if(!bank_load() || !rules_load())failed();
-    ng_new();if(!load_island(0))failed();
+    ng_new();ng_selector_start();if(!load_island(0))failed();
     runtime_ready=1;
     while(1) {
+        /* The sample and code banks share EF00: finish playback before any
+         * command, simulation or drawing can request another disk bank. */
+        if(hw_audio_busy())continue;
         key=hw_key();if(key) {command(key);runtime_last_key=key;}service(hw_frames());
-        if(ng_event) {key=ng_event;ng_event=0;audio((key&8)?7:(key&1)?11:(key&4)?13:(key&2)?7:(key&32)?12:0);}
         if(dirty)runtime_draw();
+        if(ng_event) {key=ng_event;ng_event=0;audio((key&8)?7:(key&1)?11:(key&4)?13:(key&2)?7:(key&32)?12:0);}
     }
 }

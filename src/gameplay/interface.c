@@ -91,7 +91,10 @@ void ng_draw(void) {
     text(585,"ARMY",1);number(592,rd(0x2f4+(uint16_t)player*2),7);
     panel();
     text(760,"                                      ",6);
-    text(760,io_message==1?"SAVED":io_message==2?"SAVE FAILED":io_message==3?"LOADED":io_message==4?"LOAD FAILED":ng_state[NG_STATUS]==NG_COMPLETE?"CAMPAIGN COMPLETE":ng_state[NG_STATUS]==NG_WON?"VICTORY - N NEXT":ng_state[NG_STATUS]==NG_LOST?"DEFEAT - N RESTART":paused?"PAUSED ":"RUNNING",7);
+    if(ng_state[NG_DIP_ACTIVE]) {
+        text(760,"ALLIANCE P",7);SCR[770]=49+ng_state[NG_DIPLO];COL[770]=7;
+        text(772,ng_state[NG_DIP_PROMPT]?"+ YES - NO":ng_state[NG_DIPLO+12]?"REFUSED":!ng_state[NG_DIPLO+18]?"ACCEPTED":"NEGOTIATING",7);
+    }else text(760,io_message==1?"SAVED":io_message==2?"SAVE FAILED":io_message==3?"LOADED":io_message==4?"LOAD FAILED":ng_state[NG_STATUS]==NG_COMPLETE?"CAMPAIGN COMPLETE":ng_state[NG_STATUS]==NG_WON?"VICTORY - N NEXT":ng_state[NG_STATUS]==NG_LOST?"DEFEAT - N RESTART":paused?"PAUSED ":"RUNNING",7);
     text(800,ng_state[NG_PHASE]?"PREP: N ISLAND +/- MEN ENTER START":"WASD/JOY MOVE ENTER/FIRE SEND ARMY",1);
     text(840,"M/J MINE R/K RESEARCH B/V BUILD F/G MAKE",1);
     text(880,"C TYPE E AGE T BUILDING Z SLOT X ARM",1);

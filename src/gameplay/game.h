@@ -24,13 +24,18 @@
 #define NG_WITHDRAW 38
 #define NG_ROAM_COOL 39
 #define NG_PANEL 40
+#define NG_DIP_TAG 41
+#define NG_DIP_REVISION 0xd1
 #define NG_POOL 116
 #define NG_DEPLOY 118
 #define NG_ORDER 120
 #define NG_ORDER_EPOCH 123
 #define NG_PHASE 126
 #define NG_START 127
-#define NG_TRUCE 84
+#define NG_DIPLO 84
+#define NG_DIP_ACTIVE 88
+#define NG_DIP_PROMPT 90
+#define NG_TRUCE NG_DIPLO
 #define NG_RESERVE 42
 #define NG_AI 50
 #define NG_ORIGIN 82
@@ -41,6 +46,16 @@
 #define NG_COMPLETE 3
 extern uint8_t ng_state[NG_STATE_BYTES],ng_terrain[16],ng_owners[16],ng_ages[16],ng_ruined[16],ng_event,ng_ai_turns;
 extern uint16_t ng_people[16],ng_units[16][4],ng_strength[16][4],ng_presence[4];
+uint8_t ng_select_island(uint8_t island);
+void ng_selector_start(void);
+void ng_diplomacy_prepare(void);
+void ng_diplomacy_initialize(void);
+void ng_diplomacy(void);
+void ng_answer(uint8_t yes);
+void ng_diplomacy_advance(void);
+void ng_diplomacy_propose(uint8_t other);
+void ng_diplomacy_reply(uint8_t yes);
+void gp_diplomacy_tick(uint8_t *state);
 void ng_personality(uint8_t faction);
 uint8_t ng_roam(void);
 void ng_expedition_plan(uint8_t air,uint16_t reachable);

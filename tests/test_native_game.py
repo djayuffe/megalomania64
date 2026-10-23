@@ -19,7 +19,7 @@ class NativeGameTest(unittest.TestCase):
         header=folder/'memory.h';header.write_text('#include <stdint.h>\nextern uint8_t world_memory[10496];\n')
         stub=folder/'memory.c';stub.write_text('#include <stdint.h>\nuint8_t world_memory[10496];\n')
         library=folder/'game.so'
-        subprocess.run([compiler,'-std=c99','-Wall','-Wextra','-Werror','-shared','-fPIC','-DWORLD_ADDRESS=world_memory','-include',str(header),*[str(ROOT/f'src/gameplay/{name}.c')for name in ['core','ai','tactics','military','strategy','world','game','campaign']],str(stub),'-o',str(library)],check=True,capture_output=True)
+        subprocess.run([compiler,'-std=c99','-Wall','-Wextra','-Werror','-shared','-fPIC','-DWORLD_ADDRESS=world_memory','-include',str(header),*[str(ROOT/f'src/gameplay/{name}.c')for name in ['core','ai','tactics','military','strategy','diplomacy','world','game','campaign']],str(stub),'-o',str(library)],check=True,capture_output=True)
         cls.lib=ctypes.CDLL(str(library))
 
     @classmethod
@@ -97,10 +97,10 @@ class NativeGameTest(unittest.TestCase):
 
     def test_diplomacy_persists_until_departure(self):
         presence=(ctypes.c_uint16*4).in_dll(self.lib,'ng_presence');presence[:]=[200,100,0,0]
-        self.lib.ng_negotiate(1);self.assertEqual(self.buffers['alliances'][:2],[3,3])
+        self.lib.ng_rule(43,0,1,0);self.assertEqual(self.buffers['alliances'][:2],[3,3])
         self.lib.ng_clock(599);self.assertEqual(self.buffers['alliances'][:2],[3,3])
         self.lib.ng_clock(1);self.assertEqual(self.buffers['alliances'][:2],[3,3])
-        self.lib.ng_negotiate(1);self.lib.ng_break(1);self.assertEqual(self.buffers['alliances'][:2],[1,2])
+        self.lib.ng_break(1);self.assertEqual(self.buffers['alliances'][:2],[1,2])
 
     def test_victory_defeat_final_completion_and_allied_survival(self):
         self.save_sector(0);self.lib.ng_outcome();self.assertEqual(self.state[15],1)
@@ -166,9 +166,9 @@ class NativeGameTest(unittest.TestCase):
 
     def test_hotseat_alliance_groups_merge_and_depart_as_groups(self):
         presence=(ctypes.c_uint16*4).in_dll(self.lib,'ng_presence');presence[:]=[200,100,150,50]
-        self.lib.ng_negotiate(1)
-        self.state[13]=2;self.lib.ng_negotiate(3)
-        self.lib.ng_negotiate(1)
+        self.lib.ng_rule(43,0,1,0)
+        self.state[13]=2;self.lib.ng_rule(43,2,3,0)
+        self.lib.ng_rule(43,2,1,0)
         self.assertEqual(self.buffers['alliances'][:],[15,15,15,15])
         self.lib.ng_break(0)
         self.assertEqual(self.buffers['alliances'][:],[11,11,4,11])
@@ -349,3 +349,54 @@ class NativeGameTest(unittest.TestCase):
         self.empty_sector(1,0);self.load_sector(0);self.state[39]=1
         self.lib.ng_step(30);self.assertEqual(self.read(0x2f4),30);self.assertEqual(self.state[39],0)
         self.lib.ng_step(30);self.load_sector(1);self.assertEqual(self.read(0x2f4),30)
+
+    def diplomacy_personas(self,willing=100):
+        personas=(ctypes.c_uint8*224).in_dll(self.lib,'world_personalities')
+        for row in range(4):
+            for at,n in [(0x30,0),(0x32,0),(0x34,willing),(0x36,0)]:
+                personas[row*56+at]=n;personas[row*56+at+1]=0
+        return personas
+
+    def diplomacy_poll(self):
+        ctypes.c_uint8.in_dll(self.lib,'ng_event').value=0  # queued speech has played
+        self.lib.ng_diplomacy()
+
+    def incoming_proposal(self):
+        personas=self.diplomacy_personas();personas[56+0x30]=1;personas[56+0x32]=100
+        self.lib.ng_clock(10);self.assertEqual(self.state[84],1);self.assertEqual(self.state[88],1)
+        self.diplomacy_poll();self.assertEqual(self.state[90],1)
+
+    def test_negotiation_uses_willingness_instead_of_population_strength(self):
+        self.diplomacy_personas();presence=(ctypes.c_uint16*4).in_dll(self.lib,'ng_presence');presence[:]=[1,10000,0,0]
+        self.lib.ng_negotiate(1);self.assertEqual(self.buffers['alliances'][:2],[1,2])
+        self.diplomacy_poll();self.assertEqual(self.buffers['alliances'][:2],[3,3]);self.assertEqual(self.state[88],0)
+
+    def test_unwilling_faction_refuses_even_a_stronger_player(self):
+        self.diplomacy_personas(0);presence=(ctypes.c_uint16*4).in_dll(self.lib,'ng_presence');presence[:]=[10000,1,0,0]
+        self.lib.ng_negotiate(1);self.assertEqual(self.state[84+12],1)
+        self.diplomacy_poll();self.assertEqual(self.buffers['alliances'][:2],[1,2]);self.assertEqual(self.state[88],0)
+
+    def test_computer_proposal_waits_for_human_acceptance(self):
+        self.incoming_proposal();self.assertEqual(self.buffers['alliances'][:2],[1,2])
+        self.lib.ng_answer(1);self.assertEqual(self.buffers['alliances'][:2],[3,3]);self.assertEqual(self.state[88],0)
+
+    def test_human_can_decline_computer_proposal(self):
+        self.incoming_proposal();self.lib.ng_answer(0)
+        self.assertEqual(self.buffers['alliances'][:2],[1,2]);self.assertEqual(self.state[88],0)
+
+    def test_group_proposal_requires_all_members_and_merges_the_group(self):
+        self.diplomacy_personas();self.state[14]=7;self.state[84+29]=7
+        self.buffers['alliances'][:]=[1,6,6,8]
+        self.lib.ng_negotiate(1);self.diplomacy_poll()
+        self.assertEqual(self.buffers['alliances'][:],[7,7,7,8]);self.assertEqual(self.state[84+28]&6,0)
+
+    def test_personality_can_leave_an_existing_alliance(self):
+        personas=self.diplomacy_personas();personas[56+0x30]=1;personas[56+0x36]=100
+        self.lib.ng_rule(43,0,1,0);self.lib.ng_clock(10)
+        self.assertEqual(self.buffers['alliances'][:2],[1,2])
+
+    def test_legacy_diplomacy_bytes_migrate_without_changing_alliances_or_seed(self):
+        self.buffers['alliances'][:]=[3,3,4,8];self.state[41]=0;self.state[84:116]=bytes([255])*32
+        seed=bytes(self.state[26:28]);self.lib.ng_diplomacy_prepare()
+        self.assertEqual(self.state[41],0xd1);self.assertEqual(self.state[84:86],[255,255]);self.assertEqual(self.state[88],0)
+        self.assertEqual(self.buffers['alliances'][:],[3,3,4,8]);self.assertEqual(bytes(self.state[26:28]),seed)

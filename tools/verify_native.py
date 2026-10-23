@@ -8,6 +8,7 @@ from scene_format import unpack
 
 def verify(emulator,disk,native,out,model,handoff=False,expect_load=None,expect_reject=False):
     out=out.resolve();out.mkdir(parents=True,exist_ok=True)
+    (out/'verification.json').unlink(missing_ok=True)
     report=json.loads((native/'build.json').read_text())
     work_disk=out/'test.d81';shutil.copyfile(disk,work_disk)
     labels={s.lstrip('.'):int(a,16)for _,a,s in [line.split()for line in(native/'runtime.lbl').read_text().splitlines()]}
@@ -43,22 +44,38 @@ def verify(emulator,disk,native,out,model,handoff=False,expect_load=None,expect_
                 data=path.read_bytes()
                 if len(data)!=size:raise AssertionError(f'invalid memory dump: {len(data)} != {size}')
                 return data
-            def settle():
-                cmd('delete');cmd(f'watch store {labels["_runtime_drawn"]:04x}');cmd('x');cmd('delete')
+            def settle(draw_pending=True):
+                if draw_pending:
+                    cmd('delete');cmd(f'watch store {labels["_runtime_drawn"]:04x}');cmd('x');cmd('delete')
                 cmd(f'watch store {report["hardware"]["native_frames"]:04x}');cmd('x');cmd('x');cmd('delete')
-            def key(value,audio_clip=None):
+            def key(value,audio_clip=None,injected_event=None):
                 cmd('delete');cmd(f'watch store {labels["_runtime_last_key"]:04x}')
-                cmd(f'> 0277 {ord(value):02x}');cmd('> 00c6 01');cmd('step $2000000');cmd('delete')
+                cmd(f'> 0277 {ord(value):02x}');cmd('> 00c6 01');cmd('x');cmd('delete')
                 if memory(labels['_runtime_last_key'],1)!=value.encode('latin1'):
                     print(cmd('r').decode('latin1'));print(cmd('m 0000 001b').decode('latin1'))
                     memory(0xd400,(native/'runtime.bin.bank').stat().st_size,'failed_code_bank')
                     raise AssertionError(f'key {ord(value)} not handled')
+                # Inject at a stopped command boundary. Injecting before the
+                # key can play the entire clip before queued input is handled.
+                if injected_event is not None:cmd(f'> {labels["_ng_event"]:04x} {injected_event:02x}')
                 if audio_clip is not None:
-                    cmd(f'break {labels["_runtime_draw"]:04x}');cmd('x');cmd('delete')
+                    cmd(f'break {labels["_hw_play"]:04x}');stopped=cmd('x');cmd('delete')
+                    if not re.search(rb'Stop on\s+exec',stopped):
+                        memory(0,65536,'unexpected_stop');print(stopped.decode('latin1'));print(cmd('r').decode('latin1'))
+                        print(cmd('d f140 f180').decode('latin1'));print(cmd('io dd00').decode('latin1'));print(cmd('io dc00').decode('latin1'))
+                    assert re.search(rb'Stop on\s+exec',stopped) and f'(C:${labels["_hw_play"]:04x})'.encode() in stopped,('playback checkpoint not reached',stopped)
                     clip=(native/f'files/NSND{audio_clip:02d}').read_bytes();n=int.from_bytes(clip[4:6],'little')
                     expected,_=unpack(clip,(n+1)//2,7)
-                    assert memory(0xef00,len(expected),'audio_cache')==expected,'decoded audio cache differs before interface bank switch'
-                settle()
+                    assert memory(0xef00,len(expected),'audio_cache')==expected,'decoded audio cache differs before playback'
+                    frames=int.from_bytes(memory(report['hardware']['native_frames'],2),'little');held=int.from_bytes(memory(report['hardware']['io_frames'],2),'little')
+                    cmd(f'break {report["hardware"]["sample_finished"]:04x}');stopped=cmd('x');cmd('delete')
+                    assert re.search(rb'Stop on\s+exec',stopped) and f'(C:${report["hardware"]["sample_finished"]:04x})'.encode() in stopped,('completion checkpoint not reached',stopped)
+                    assert memory(report['hardware']['smp_left'],2)==b'\0\0','sample did not finish naturally'
+                    pointer=int.from_bytes(memory(report['hardware']['smp_rd']+1,2),'little')
+                    assert pointer==0xef00+(n+1)//2,'sample was truncated by a code bank load'
+                    end_frames=int.from_bytes(memory(report['hardware']['native_frames'],2),'little');end_held=int.from_bytes(memory(report['hardware']['io_frames'],2),'little')
+                    assert ((end_frames-frames)-(end_held-held))&65535<=1,'sample playback advanced the simulation clock'
+                settle(audio_clip is None)
             def sectors(name):
                 raw=memory(0x4000,SLOT*16,name)
                 first,last=memory(labels['_world_first'],2)
@@ -127,7 +144,7 @@ def verify(emulator,disk,native,out,model,handoff=False,expect_load=None,expect_
             key('C');key('C')
             key('R');after=sectors('research_world');assert word(after[selected],0xc4)==1,'inventor assignment failed'
             key('K');after=sectors('released_world');assert word(after[selected],0xc4)==0,'inventor release failed'
-            cmd(f'> {labels["_ng_event"]:04x} 01');key('Z',audio_clip=11)
+            key('Z',audio_clip=11,injected_event=1)
             key('P');key('P');key(' ')
             snapshot=memory(0x4000,SLOT*16,'saved_world')
             key(chr(135));assert memory(state+8,2)==b'\1\0','disk save failed';key('U');assert memory(0x4000,SLOT*16,'changed_world')!=snapshot
@@ -144,7 +161,32 @@ def verify(emulator,disk,native,out,model,handoff=False,expect_load=None,expect_
             plan=memory(labels['_gp_plan'],28,'ai_worker_plan')
             assert any(persona) and any(plan),'AI overlay did not plan a turn'
             assert memory(0xc200,32,'ai_stack_guard')==bytes([0xa5])*32,'AI overflowed software stack'
-            cmd(f'> {state+17:04x} 01');cmd(f'> {state+23:04x} 01');settle()
+            cmd(f'> {state+17:04x} 01');cmd(f'> {state+23:04x} 01');key('Z')
+            # Exercise the actual controls, HUD and version-2 persistence for
+            # a pending incoming proposal, then an outgoing L-key proposal.
+            clock=memory(state+28,2);proposal=bytearray(32)
+            proposal[0]=1;proposal[4]=proposal[6]=proposal[8]=proposal[16]=1
+            proposal[18]=proposal[19]=1
+            for f in range(4):proposal[20+f*2:22+f*2]=clock
+            cmd(f'> {state+84:04x} '+' '.join(f'{v:02x}'for v in proposal))
+            key('?');screen=memory(0x0400,1000,'proposal_screen')
+            assert screen[772:782]==b'+ YES - NO','human alliance prompt was not visible'
+            key(chr(135));key('-');assert memory(state+88,1)==b'\0','decline did not close proposal'
+            key(chr(136));assert memory(state+90,1)==b'\1','pending proposal was lost in save/load'
+            key('+');assert memory(labels['_gp_alliances'],2)==b'\3\3','accept did not merge alliance groups'
+            def reset_diplomacy():
+                cmd(f'> {labels["_gp_alliances"]:04x} 01 02 04 08');cmd(f'> {state+30:04x} 01 02 04 08')
+                blank=bytearray(32);blank[:2]=b'\xff\xff';blank[16]=1;blank[29]=memory(state+14,1)[0]
+                for f in range(4):blank[20+f*2:22+f*2]=memory(state+28,2)
+                cmd(f'> {state+84:04x} '+' '.join(f'{v:02x}'for v in blank))
+            reset_diplomacy();current=sectors('before_outgoing_proposal')
+            ally=next(i for i,s in enumerate(current)if word(s,0x3fe)in (1,2,3))
+            cmd(f'> {state+18:04x} {ally:02x}');cmd(f'> {labels["_ng_event"]:04x} 00')
+            key('L',audio_clip=12)
+            if memory(state+88,1)!=b'\0':
+                cmd(f'watch store {state+88:04x}');cmd('x');cmd('delete');settle()
+            assert memory(labels['_gp_alliances'],2)==b'\3\3','outgoing proposal did not complete'
+            reset_diplomacy();cmd(f'> {state+18:04x} {selected:02x}')
             key('N');assert memory(state+12,1)==b'\0','campaign advanced before victory'
             key(' ')
             # Destroyed-enemy fixture exercises cache refresh, outcome detection
@@ -168,7 +210,7 @@ def verify(emulator,disk,native,out,model,handoff=False,expect_load=None,expect_
             assert memory(0xc200,32,'final_stack_guard')==bytes([0xa5])*32,'restart overflowed software stack'
             (out/'vic.txt').write_bytes(cmd('m d000 d02e'))
             cmd(f'screenshot "{out}/native.png" 2')
-            result=dict(model=model,handoff=handoff,ready=True,checks=['clean RAM bootstrap and frozen intro handoff','reclaimed bootstrap graphics loader','original terrain glyphs','original deployment population, randomized faction order, campaign pool and island selection','rules and compressed world','army sprites','resident SID score','four information views without portrait overlap','deploy, move and return','research allocation','live personality-based AI economy and military overlays','shield repair and payment','player switching','CRC save/load round trip','victory and next island','pool exhaustion, defeat save and restart','compressed effect and voice caches with NMI playback','code bank preserved'])
+            result=dict(model=model,handoff=handoff,ready=True,checks=['clean RAM bootstrap and frozen intro handoff','reclaimed bootstrap graphics loader','original terrain glyphs','original deployment population, randomized faction order, campaign pool and island selection','rules and compressed world','army sprites','resident SID score','four information views without portrait overlap','deploy, move and return','research allocation','live personality-based AI economy and military overlays','incoming alliance accept/decline and pending-proposal save/load','outgoing L-key proposal and dialogue completion','shield repair and payment','player switching','CRC save/load round trip','victory and next island','pool exhaustion, defeat save and restart','complete effect and voice playback without bank truncation','audio playback excluded from simulation clock','code bank preserved'])
             (out/'verification.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,indent=2))
             connection.sendall(b'quit\n')
         finally:
