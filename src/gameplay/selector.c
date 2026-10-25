@@ -17,9 +17,8 @@ void ng_selector_start(void) {
 #if defined(__CC65__) && defined(NATIVE_GAME)
     volatile uint8_t *p=(uint8_t *)0x02f0;
     uint8_t valid,index,user;index=p[3];user=p[5];
-    valid=p[0]=='S' && p[1]=='E' && p[2]=='L' && p[4]==(uint8_t)~index && p[6]==(uint8_t)~user && user<4;
-    p[0]=0;if(valid)ng_select_island(index);
-    if(valid) {
+    valid=p[0]=='S' && p[1]=='E' && p[2]=='L' && p[4]==(uint8_t)~index && p[6]==(uint8_t)~user && user<4 && index<28;
+    p[0]=0;if(valid && ng_select_island(index)) {
         ng_state[NG_HUMAN]=user;
         ng_state[NG_HOTSEAT]=0;
         ng_state[NG_ACTIVE]=(uint8_t)(1u<<user);

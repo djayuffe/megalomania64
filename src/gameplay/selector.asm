@@ -57,7 +57,6 @@ sel_menu:
  jsr sel_print
  lda sel_mode
  lbeq sel_intro_label
- jsr sel_art_prepare
  lda #<sel_game_text
  ldy #>sel_game_text
  lbne sel_label
@@ -73,6 +72,9 @@ sel_label:
  lda #<sel_controls
  ldy #>sel_controls
  jsr sel_print
+ lda sel_mode
+ lbeq sel_wait
+ jsr sel_art_prepare
 sel_wait:
  jsr $ffe4
  lbne sel_input
@@ -488,9 +490,9 @@ sel_sprite_fail:
 sel_render_art:
  ; Show all 144 converted map glyphs in a compact gallery while the four
  ; selected sprite frames remain visible. This uses the complete NART table.
- lda #<$0500
+ lda #<$0700
  sta PTR
- lda #>$0500
+ lda #>$0700
  sta PTR+1
  lda #<$3c00
  sta CPTR
@@ -502,8 +504,9 @@ sel_gallery_loop:
  ldy #0
  lda (CPTR),y
  sta (PTR),y
- lda #1
- sta $d900,y
+ ldx sel_count
+ lda $3d00,x
+ sta $db00,x
  inc PTR
  bne sel_gallery_ptr
  inc PTR+1
