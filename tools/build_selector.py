@@ -20,7 +20,7 @@ def build(content,target):
         bases.append(latest)
     at=2+a.sym['sel_bases']-base;raw[at:at+29]=bytes(bases)
     target.write_bytes(raw);overlay.unlink()
-    report=dict(file=target.name,entry=a.sym['sel_start'],overlay_end=a.sym['sel_end'],intro_scenes=29,gameplay_islands=28,scene_bases=bases,frozen_entry_sha256=hashlib.sha256(original).hexdigest(),sha256=hashlib.sha256(raw).hexdigest(),symbols={k:v for k,v in a.sym.items()if k.startswith('sel_')})
+    report=dict(file=target.name,entry=a.sym['sel_start'],overlay_end=a.sym['sel_end'],intro_scenes=29,gameplay_islands=28,users=4,graphics_banks=['NART01-NART28','NSPR00-NSPR09'],scene_bases=bases,frozen_entry_sha256=hashlib.sha256(original).hexdigest(),sha256=hashlib.sha256(raw).hexdigest(),symbols={k:v for k,v in a.sym.items()if k.startswith('sel_')})
     target.with_suffix('.json').write_text(json.dumps(report,indent=2)+'\n');return report
 
 if __name__=='__main__':

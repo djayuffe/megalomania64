@@ -14,6 +14,8 @@ The normal launcher still starts the complete intro and campaign.
 - **A / D**, or the joystick directions, selects the previous/next entry.
 - Enter **two digits** to select an entry directly: 01–29 for intro, 01–28 for game.
 - **Return / fire** opens the selection.
+- In game mode, **1–4** chooses the human user/faction. The selected user is
+  carried into the native checkpoint handoff.
 - During an intro preview, **any key / fire** returns to this menu. Release the
   opening fire press before pressing it again to exit.
 
@@ -28,6 +30,11 @@ uses a documented standalone fixture of 1,000 saved people per faction, yielding
 100 deployable people each; there is no preceding campaign to supply reserves.
 F7 remains available in gameplay to load an existing save.
 
+When a game island is highlighted, the selector streams its converted `NART`
+character atlas and matching `NSPR` sprite bank. The complete 144-character
+table is shown in the gallery and four sprite frames are enabled, using the
+same graphics banks that gameplay loads.
+
 ## Module boundary
 
 - `src/gameplay/selector.asm` owns the menu, selection, preview orchestration and
@@ -35,7 +42,7 @@ F7 remains available in gameplay to load an existing save.
   frozen entry's resident renderers. Its replacement entry occupies only
   `$1000–$1FFF`; the original distributed entry PRG is never rewritten.
 - `src/gameplay/selector.c` validates and consumes the one-shot `SEL`, island,
-  complemented-island request at `$02F0–$02F4`, and initializes a fresh checkpoint.
+  user and complemented request at `$02F0–$02F6`, and initializes a fresh checkpoint.
 - `NGSTART` clears all intro/selector RAM before loading gameplay. The selector
   leaves no resident picture, menu code, decoder or graphics allocation in game.
 - Scene catalog metadata lives alongside the private executable as `NGSELECT.json`;

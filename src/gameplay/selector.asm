@@ -12,6 +12,9 @@ sel_start:
  sta $9d
  sta sel_mode
  sta sel_index
+ sta sel_user
+ lda #$ff
+ sta sel_art_loaded
  sta ic_active
  sta title_active
  lda #1
@@ -54,6 +57,7 @@ sel_menu:
  jsr sel_print
  lda sel_mode
  lbeq sel_intro_label
+ jsr sel_art_prepare
  lda #<sel_game_text
  ldy #>sel_game_text
  lbne sel_label
@@ -104,6 +108,17 @@ sel_input:
  lbeq sel_previous
  cmp #'D'
  lbeq sel_next
+ cmp #'1'
+ lbcc sel_digit_input
+ cmp #'5'
+ lbcs sel_digit_input
+ ldx sel_mode
+ lbeq sel_digit_input
+ sec
+ sbc #'1'
+ sta sel_user
+ jmp sel_menu
+sel_digit_input:
  cmp #13
  lbeq sel_activate
  cmp #'0'
@@ -193,6 +208,10 @@ sel_activate:
  sta $02f3
  eor #$ff
  sta $02f4
+ lda sel_user
+ sta $02f5
+ eor #$ff
+ sta $02f6
  jsr native_start
  lda #0
  sta $02f0
@@ -280,6 +299,224 @@ sel_name_ones:
  ldx #<ic_name
  ldy #>ic_name
  jmp ic_load
+
+; Load the converted island character atlas and sprite bank into the selector.
+; The same NGF1/NGP1 streams are consumed by the native game, so selection
+; previews exercise the exact graphics that gameplay will use.
+sel_art_prepare:
+ lda sel_art_loaded
+ cmp sel_index
+ lbeq sel_art_done
+ jsr sel_load_art
+ bcs sel_art_done
+ jsr sel_load_sprites
+ bcs sel_art_done
+ jsr sel_render_art
+ lda sel_index
+ sta sel_art_loaded
+sel_art_done:
+ rts
+sel_load_art:
+ lda sel_index
+ clc
+ adc #1
+ ldx #$30
+sel_art_tens:
+ cmp #10
+ lbcc sel_art_ones
+ sec
+ sbc #10
+ inx
+ lbne sel_art_tens
+sel_art_ones:
+ stx sel_art_file+5
+ clc
+ adc #$30
+ sta sel_art_file+6
+ lda #6
+ ldx #<sel_art_file
+ ldy #>sel_art_file
+ jsr ld_open
+ bcs sel_art_fail
+ ldx #0
+ ldy #0
+ jsr ld_read
+ bcs sel_art_fail_close
+ cmp #'N'
+ lbne sel_art_fail_close
+ jsr ld_read
+ bcs sel_art_fail_close
+ cmp #'G'
+ lbne sel_art_fail_close
+ jsr ld_read
+ bcs sel_art_fail_close
+ cmp #'F'
+ lbne sel_art_fail_close
+ jsr ld_read
+ bcs sel_art_fail_close
+ cmp #'1'
+ lbne sel_art_fail_close
+ lda #<$3800
+ sta PTR
+ lda #>$3800
+ sta PTR+1
+ lda #<$0800
+ sta ld_left
+ lda #>$0800
+ sta ld_left+1
+ jsr ld_unpack
+ bcs sel_art_fail_close
+ lda #<$3c00
+ sta PTR
+ lda #>$3c00
+ sta PTR+1
+ jsr sel_read_144
+ bcs sel_art_fail_close
+ lda #<$3d00
+ sta PTR
+ lda #>$3d00
+ sta PTR+1
+ jsr sel_read_144
+ bcs sel_art_fail_close
+ jsr ld_close
+ lda #$1e
+ sta $d018
+ clc
+ rts
+sel_art_fail_close:
+ jsr ld_close
+sel_art_fail:
+ sec
+ rts
+sel_read_144:
+ ldx #144
+sel_read_144_loop:
+ stx sel_count
+ ldx #0
+ ldy #0
+ jsr ld_read
+ bcs sel_read_144_fail
+ ldy #0
+ sta (PTR),y
+ inc PTR
+ bne sel_read_144_next
+ inc PTR+1
+sel_read_144_next:
+ ldx sel_count
+ dex
+ bne sel_read_144_loop
+ clc
+ rts
+sel_read_144_fail:
+ sec
+ rts
+sel_load_sprites:
+ ldx sel_index
+ lda #$30
+sel_sprite_age:
+ cpx #3
+ lbcc sel_sprite_age_done
+ txa
+ sec
+ sbc #3
+ tax
+ clc
+ adc #1
+ jmp sel_sprite_age
+sel_sprite_age_done:
+ sta sel_sprite_file+5
+ lda #6
+ ldx #<sel_sprite_file
+ ldy #>sel_sprite_file
+ jsr ld_open
+ bcs sel_sprite_fail
+ ldx #0
+ ldy #0
+ jsr ld_read
+ bcs sel_sprite_fail_close
+ cmp #'N'
+ lbne sel_sprite_fail_close
+ jsr ld_read
+ bcs sel_sprite_fail_close
+ cmp #'G'
+ lbne sel_sprite_fail_close
+ jsr ld_read
+ bcs sel_sprite_fail_close
+ cmp #'P'
+ lbne sel_sprite_fail_close
+ jsr ld_read
+ bcs sel_sprite_fail_close
+ cmp #'1'
+ lbne sel_sprite_fail_close
+ lda #<$3140
+ sta PTR
+ lda #>$3140
+ sta PTR+1
+ lda #<$0140
+ sta ld_left
+ lda #>$0140
+ sta ld_left+1
+ jsr ld_unpack
+ bcs sel_sprite_fail_close
+ jsr ld_close
+ lda #$c5
+ sta $07f8
+ clc
+ adc #1
+ sta $07f9
+ clc
+ adc #1
+ sta $07fa
+ clc
+ adc #1
+ sta $07fb
+ lda #$0f
+ sta $d015
+ lda #1
+ sta $d027
+ sta $d028
+ lda #2
+ sta $d029
+ sta $d02a
+ clc
+ rts
+sel_sprite_fail_close:
+ jsr ld_close
+sel_sprite_fail:
+ sec
+ rts
+sel_render_art:
+ ; Show all 144 converted map glyphs in a compact gallery while the four
+ ; selected sprite frames remain visible. This uses the complete NART table.
+ lda #<$0500
+ sta PTR
+ lda #>$0500
+ sta PTR+1
+ lda #<$3c00
+ sta CPTR
+ lda #>$3c00
+ sta CPTR+1
+ lda #0
+ sta sel_count
+sel_gallery_loop:
+ ldy #0
+ lda (CPTR),y
+ sta (PTR),y
+ lda #1
+ sta $d900,y
+ inc PTR
+ bne sel_gallery_ptr
+ inc PTR+1
+sel_gallery_ptr:
+ inc CPTR
+ bne sel_gallery_map
+ inc CPTR+1
+sel_gallery_map:
+ inc sel_count
+ lda sel_count
+ cmp #144
+ lbne sel_gallery_loop
+ rts
 sel_number:
  ldx #$30
 sel_number_tens:
@@ -311,11 +548,16 @@ sel_print_done:
  rts
 sel_mode: !byte 0
 sel_index: !byte 0
+sel_user: !byte 0
+sel_art_loaded: !byte $ff
 sel_tens: !byte $ff
 sel_joy: !byte $ff
+sel_count: !byte 0
 sel_bases: !fill 29,0
 sel_title: !text "MEGA-LO-MANIA 64",13,"SCENE / ISLAND SELECTOR",13,13,0
 sel_intro_text: !text "INTRO PREVIEW 01-29: ",0
 sel_game_text: !text "GAME ISLAND 01-28: ",0
-sel_controls: !text 13,13,"I INTRO   G GAME",13,"A/D OR JOYSTICK: PREVIOUS / NEXT",13,"TWO DIGITS: SELECT DIRECTLY",13,"RETURN / FIRE: OPEN",13,13,"INTRO: ANY KEY / FIRE RETURNS HERE",13,"GAME: STARTS A FRESH CHECKPOINT",13,0
+sel_art_file: !text "NART00",0
+sel_sprite_file: !text "NSPR00",0
+sel_controls: !text 13,13,"I INTRO   G GAME   1-4 USER",13,"A/D OR JOYSTICK: PREVIOUS / NEXT",13,"TWO DIGITS: SELECT DIRECTLY",13,"RETURN / FIRE: OPEN",13,13,"INTRO: ANY KEY / FIRE RETURNS HERE",13,"GAME: STARTS A FRESH CHECKPOINT",13,0
 sel_end:

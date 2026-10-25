@@ -63,14 +63,14 @@ def verify(emulator,disk,native,out,model,all_scenes=False):
                     frames();run(s['sel_preview_wait']);cmd(f'screenshot "{out}/scene-{i+1:02d}.png" 2')
                 key(' ',s['sel_wait'])
                 assert mem(frozen['ic_active'],1)==b'\0'
-            key('G',s['sel_wait']);key('A',s['sel_wait']);assert mem(s['sel_index'],1)==bytes([27])
+            key('G',s['sel_wait']);key('3',s['sel_wait']);key('A',s['sel_wait']);assert mem(s['sel_index'],1)==bytes([27])
             key('\r',build['runtime_main']);cmd(f'watch store {labels["_runtime_ready"]:04x}');cmd('x');cmd('delete')
             state=mem(labels['_ng_state'],128)
-            assert state[12]==27 and state[126]==1,'selected island did not reach gameplay preparation'
+            assert state[12]==27 and state[13]==2 and state[126]==1,'selected island/user did not reach gameplay preparation'
             assert state[42:50]==b'\xe8\x03'*4,'standalone final battle reserves missing'
             assert mem(0x02f0,1)==b'\0','launch request was not consumed'
             expected=(native/'runtime.bin.low').read_bytes();assert mem(0x1000,len(expected))==expected,'selector code retained in game RAM'
-            result=dict(model=model,previews=[i+1 for i in scenes],checks=['keyboard navigation and wrap','two-digit selection','story background restoration','credit scrolling','return to independent menu','island 28 fresh checkpoint','one-shot request consumed','selector RAM reclaimed by gameplay'],intro_frozen=True)
+            result=dict(model=model,previews=[i+1 for i in scenes],checks=['keyboard navigation and wrap','two-digit selection','four-user selection','converted NART/NSPR gallery','story background restoration','credit scrolling','return to independent menu','island 28 fresh checkpoint','one-shot request consumed','selector RAM reclaimed by gameplay'],intro_frozen=True)
             (out/'verification.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,indent=2));connection.sendall(b'quit\n')
         finally:
             if connection:connection.close()
