@@ -80,7 +80,7 @@ void ng_draw(void) {
     get(selected);if(ng_state[NG_PHASE]) {
         number(625,ng_state[NG_DEPLOY]|((uint16_t)ng_state[NG_DEPLOY+1]<<8),7);
         text(665,"POOL",1);number(697,ng_state[NG_POOL]|((uint16_t)ng_state[NG_POOL+1]<<8),7);
-        text(745,"START",1);number(780,ng_state[NG_START]+1,7);
+        text(705,"START",1);number(745,ng_state[NG_START]+1,7);
     }
     text(105,"PLAYER",7);number(112,player+1,7);
     text(185,"SECTOR",1);number(192,selected+1,1);
