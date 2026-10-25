@@ -218,7 +218,10 @@ Retreat losses reproduce the human 10–50% and computer 5–10% draws, with at
 least one casualty from each present weapon class. Emergency and normal home
 defence (`16B4:06DD`/`0DB1`) are exercised by the running AI.
 
-The interface is an independent leaf bank (`NGUI`). Drawing invalidates the
+The interface is an independent leaf bank (`NGUI`). During campaign
+preparation it now shows the remaining shared pool and the selected starting
+sector; diplomacy prompts identify the faction by colour name as well as the
+response controls. Drawing invalidates the
 sample cache, so audio verification observes decoded sample bytes before the
 next drawing load. The SID music remains resident. Native VICE checks cycle
 all four views and then exercise movement, repair and saves across bank changes.

@@ -8,6 +8,7 @@ extern uint16_t hw_frames(void);
 extern void text(uint16_t at,const char *s,uint8_t ink);
 extern void number(uint16_t at,uint16_t n,uint8_t ink);
 extern uint8_t picture_inks[12],board_glyphs[144],board_inks[144],io_message;
+static const char *const faction_names[4]={"RED","BLUE","GREEN","GOLD"};
 #define SCR ((uint8_t *)0x0400)
 #define COL ((uint8_t *)0xd800)
 #define REG(a) (*(volatile uint8_t *)(a))
@@ -76,7 +77,12 @@ void ng_draw(void) {
         SCR[at+44]=48+ages[i];COL[at+44]=3;}
         if(i==selected) {SCR[at]=62;COL[at]=7;}
     }
-    get(selected);if(ng_state[NG_PHASE])number(625,ng_state[NG_DEPLOY]|((uint16_t)ng_state[NG_DEPLOY+1]<<8),7);text(105,"PLAYER",7);number(112,player+1,7);
+    get(selected);if(ng_state[NG_PHASE]) {
+        number(625,ng_state[NG_DEPLOY]|((uint16_t)ng_state[NG_DEPLOY+1]<<8),7);
+        text(665,"POOL",1);number(697,ng_state[NG_POOL]|((uint16_t)ng_state[NG_POOL+1]<<8),7);
+        text(745,"START",1);number(780,ng_state[NG_START]+1,7);
+    }
+    text(105,"PLAYER",7);number(112,player+1,7);
     text(185,"SECTOR",1);number(192,selected+1,1);
     text(225,"IDLE",1);number(232,rd(GP_FREE),7);
     text(265,"DESIGN",1);number(272,design,3);
@@ -92,8 +98,8 @@ void ng_draw(void) {
     panel();
     text(760,"                                      ",6);
     if(ng_state[NG_DIP_ACTIVE]) {
-        text(760,"ALLIANCE P",7);SCR[770]=49+ng_state[NG_DIPLO];COL[770]=7;
-        text(772,ng_state[NG_DIP_PROMPT]?"+ YES - NO":ng_state[NG_DIPLO+12]?"REFUSED":!ng_state[NG_DIPLO+18]?"ACCEPTED":"NEGOTIATING",7);
+        text(760,"ALLIANCE",7);text(810,faction_names[ng_state[NG_DIPLO]<4?ng_state[NG_DIPLO]:0],7);
+        text(850,ng_state[NG_DIP_PROMPT]?"+ YES - NO":ng_state[NG_DIPLO+12]?"REFUSED":!ng_state[NG_DIPLO+18]?"ACCEPTED":"NEGOTIATING",7);
     }else text(760,io_message==1?"SAVED":io_message==2?"SAVE FAILED":io_message==3?"LOADED":io_message==4?"LOAD FAILED":ng_state[NG_STATUS]==NG_COMPLETE?"CAMPAIGN COMPLETE":ng_state[NG_STATUS]==NG_WON?"VICTORY - N NEXT":ng_state[NG_STATUS]==NG_LOST?"DEFEAT - N RESTART":paused?"PAUSED ":"RUNNING",7);
     text(800,ng_state[NG_PHASE]?"PREP: N ISLAND +/- MEN ENTER START":"WASD/JOY MOVE ENTER/FIRE SEND ARMY",1);
     text(840,"M/J MINE R/K RESEARCH B/V BUILD F/G MAKE",1);
