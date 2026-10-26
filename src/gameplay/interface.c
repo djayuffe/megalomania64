@@ -98,8 +98,8 @@ void ng_draw(void) {
     panel();
     text(760,"                                      ",6);
     if(ng_state[NG_DIP_ACTIVE]) {
-        text(760,"ALLIANCE",7);text(810,faction_names[ng_state[NG_DIPLO]<4?ng_state[NG_DIPLO]:0],7);
-        text(850,ng_state[NG_DIP_PROMPT]?"+ YES - NO":ng_state[NG_DIPLO+12]?"REFUSED":!ng_state[NG_DIPLO+18]?"ACCEPTED":"NEGOTIATING",7);
+        text(760,"ALLIANCE",7);text(769,faction_names[ng_state[NG_DIPLO]<4?ng_state[NG_DIPLO]:0],7);
+        text(779,ng_state[NG_DIP_PROMPT]?"+ YES - NO":ng_state[NG_DIPLO+12]?"REFUSED":!ng_state[NG_DIPLO+18]?"ACCEPTED":"NEGOTIATING",7);
     }else text(760,io_message==1?"SAVED":io_message==2?"SAVE FAILED":io_message==3?"LOADED":io_message==4?"LOAD FAILED":ng_state[NG_STATUS]==NG_COMPLETE?"CAMPAIGN COMPLETE":ng_state[NG_STATUS]==NG_WON?"VICTORY - N NEXT":ng_state[NG_STATUS]==NG_LOST?"DEFEAT - N RESTART":paused?"PAUSED ":"RUNNING",7);
     text(800,ng_state[NG_PHASE]?"PREP: N ISLAND +/- MEN ENTER START":"WASD/JOY MOVE ENTER/FIRE SEND ARMY",1);
     text(840,"M/J MINE R/K RESEARCH B/V BUILD F/G MAKE",1);

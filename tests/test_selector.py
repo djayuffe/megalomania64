@@ -39,6 +39,40 @@ class Selector(unittest.TestCase):
         self.assertEqual(self.prg.read_bytes()[:2],PRG.read_bytes()[:2])
         self.assertLess(self.report['overlay_end'],0x2000)
         at=2+0x2000-0x0801;self.assertEqual(self.prg.read_bytes()[at:],PRG.read_bytes()[at:])
+    def test_game_digits_and_user_choice_are_independent(self):
+        c=self.cpu;s=self.sym
+        for island in range(1,29):
+            c.m[s['sel_mode']]=1;c.m[s['sel_tens']]=255
+            for digit in f'{island:02d}':
+                c.a=ord(digit);c.pc=s['sel_input']
+                for _ in range(100):
+                    if c.pc in [s['sel_menu'],s['sel_wait']]:break
+                    c.step()
+            self.assertEqual(c.m[s['sel_index']],island-1)
+        for user in [1,2,3,0]:
+            self.branch('sel_input',1,27,key='U')
+            self.assertEqual(c.m[s['sel_user']],user)
+            self.assertEqual(c.m[s['sel_index']],27)
+    def test_each_island_uses_valid_art_filename_and_sprite_age(self):
+        c=self.cpu;s=self.sym;frozen=symbols()
+        for island in range(28):
+            c.m[s['sel_index']]=island;c.pc=s['sel_load_art']
+            c.run_until(frozen['ld_open'],max_steps=1000)
+            at=s['sel_art_file'];self.assertEqual(bytes(c.m[at:at+6]),f'NART{island+1:02d}'.encode())
+            c.pc=s['sel_load_sprites'];c.run_until(frozen['ld_open'],max_steps=1000)
+            at=s['sel_sprite_file'];self.assertEqual(bytes(c.m[at:at+6]),f'NSPR{island//3:02d}'.encode())
+    def test_gallery_uses_all_mapping_and_inks_without_overwriting_font(self):
+        c=self.cpu;c.m[0xc000:0xc090]=bytes(range(144));c.m[0xc100:0xc190]=bytes(i%16 for i in range(144))
+        before=bytes(c.m[0x3800:0x4000]);c.call(self.sym['sel_render_art'])
+        self.assertEqual(bytes(c.m[0x700:0x790]),bytes(range(144)))
+        self.assertEqual(bytes(c.m[0xdb00:0xdb90]),bytes(i%16 for i in range(144)))
+        self.assertEqual(bytes(c.m[0x3800:0x4000]),before)
+    def test_menu_translates_kernal_letters_to_native_font_without_touching_sprite_pointers(self):
+        c=self.cpu;c.m[0x400:0x7e8]=bytes([1,26,32,48])*250
+        c.m[0x7f8:0x800]=bytes([0xc8])*8
+        c.call(self.sym['sel_text_font'])
+        self.assertEqual(bytes(c.m[0x400:0x7e8]),bytes([65,90,32,48])*250)
+        self.assertEqual(bytes(c.m[0x7f8:0x800]),bytes([0xc8])*8)
     def test_opening_fire_press_must_be_released(self):
         c=self.cpu;s=self.sym;frozen=symbols();c.m[frozen['joy_raw']]=15;c.pc=s['sel_release_fire']
         for _ in range(40):c.step()

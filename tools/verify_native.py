@@ -170,7 +170,7 @@ def verify(emulator,disk,native,out,model,handoff=False,expect_load=None,expect_
             for f in range(4):proposal[20+f*2:22+f*2]=clock
             cmd(f'> {state+84:04x} '+' '.join(f'{v:02x}'for v in proposal))
             key('?');screen=memory(0x0400,1000,'proposal_screen')
-            assert screen[772:782]==b'+ YES - NO','human alliance prompt was not visible'
+            assert screen[779:789]==b'+ YES - NO','human alliance prompt was not visible'
             key(chr(135));key('-');assert memory(state+88,1)==b'\0','decline did not close proposal'
             key(chr(136));assert memory(state+90,1)==b'\1','pending proposal was lost in save/load'
             key('+');assert memory(labels['_gp_alliances'],2)==b'\3\3','accept did not merge alliance groups'

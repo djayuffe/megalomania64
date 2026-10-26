@@ -15,6 +15,7 @@ sel_start:
  sta sel_user
  lda #$ff
  sta sel_art_loaded
+ lda #0
  sta ic_active
  sta title_active
  lda #1
@@ -74,6 +75,14 @@ sel_label:
  jsr sel_print
  lda sel_mode
  lbeq sel_wait
+ lda #<sel_user_text
+ ldy #>sel_user_text
+ jsr sel_print
+ lda sel_user
+ clc
+ adc #1
+ jsr sel_number
+ jsr sel_text_font
  jsr sel_art_prepare
 sel_wait:
  jsr $ffe4
@@ -110,14 +119,12 @@ sel_input:
  lbeq sel_previous
  cmp #'D'
  lbeq sel_next
- cmp #'1'
- lbcc sel_digit_input
- cmp #'5'
- lbcs sel_digit_input
- ldx sel_mode
- lbeq sel_digit_input
- sec
- sbc #'1'
+ cmp #'U'
+ lbne sel_digit_input
+ lda sel_user
+ clc
+ adc #1
+ and #3
  sta sel_user
  jmp sel_menu
 sel_digit_input:
@@ -219,6 +226,8 @@ sel_activate:
  sta $02f0
  jmp sel_error
 sel_preview:
+ lda #$ff
+ sta sel_art_loaded
  lda #0
  sta $c6
  sta ic_skip
@@ -302,20 +311,55 @@ sel_name_ones:
  ldy #>ic_name
  jmp ic_load
 
+; KERNAL writes screen codes 1-26 for uppercase letters. The native atlas
+; reserves those codes for terrain and keeps text at ASCII 65-90 instead.
+sel_text_font:
+ lda #0
+ sta PTR
+ lda #4
+ sta PTR+1
+ ldy #0
+sel_text_cell:
+ lda (PTR),y
+ cmp #1
+ lbcc sel_text_next
+ cmp #27
+ lbcs sel_text_next
+ clc
+ adc #64
+ sta (PTR),y
+sel_text_next:
+ inc PTR
+ bne sel_text_check
+ inc PTR+1
+sel_text_check:
+ lda PTR+1
+ cmp #7
+ lbne sel_text_cell
+ lda PTR
+ cmp #$e8
+ lbne sel_text_cell
+ rts
+
 ; Load the converted island character atlas and sprite bank into the selector.
 ; The same NGF1/NGP1 streams are consumed by the native game, so selection
 ; previews exercise the exact graphics that gameplay will use.
 sel_art_prepare:
  lda sel_art_loaded
  cmp sel_index
- lbeq sel_art_done
+ lbeq sel_art_show
  jsr sel_load_art
  bcs sel_art_done
  jsr sel_load_sprites
  bcs sel_art_done
- jsr sel_render_art
  lda sel_index
  sta sel_art_loaded
+sel_art_show:
+ lda #$1e
+ sta $d018
+ jsr sel_render_art
+ lda #$0f
+ sta $d015
 sel_art_done:
  rts
 sel_load_art:
@@ -331,10 +375,10 @@ sel_art_tens:
  inx
  lbne sel_art_tens
 sel_art_ones:
- stx sel_art_file+5
+ stx sel_art_file+4
  clc
  adc #$30
- sta sel_art_file+6
+ sta sel_art_file+5
  lda #6
  ldx #<sel_art_file
  ldy #>sel_art_file
@@ -368,15 +412,15 @@ sel_art_ones:
  sta ld_left+1
  jsr ld_unpack
  bcs sel_art_fail_close
- lda #<$3c00
+ lda #<$c000
  sta PTR
- lda #>$3c00
+ lda #>$c000
  sta PTR+1
  jsr sel_read_144
  bcs sel_art_fail_close
- lda #<$3d00
+ lda #<$c100
  sta PTR
- lda #>$3d00
+ lda #>$c100
  sta PTR+1
  jsr sel_read_144
  bcs sel_art_fail_close
@@ -413,55 +457,52 @@ sel_read_144_fail:
  sec
  rts
 sel_load_sprites:
- ldx sel_index
- lda #$30
+ lda sel_index
+ ldx #$30
 sel_sprite_age:
- cpx #3
+ cmp #3
  lbcc sel_sprite_age_done
- txa
  sec
  sbc #3
- tax
- clc
- adc #1
+ inx
  jmp sel_sprite_age
 sel_sprite_age_done:
- sta sel_sprite_file+5
+ stx sel_sprite_file+5
  lda #6
  ldx #<sel_sprite_file
  ldy #>sel_sprite_file
  jsr ld_open
- bcs sel_sprite_fail
+ lbcs sel_sprite_fail
  ldx #0
  ldy #0
  jsr ld_read
- bcs sel_sprite_fail_close
+ lbcs sel_sprite_fail_close
  cmp #'N'
  lbne sel_sprite_fail_close
  jsr ld_read
- bcs sel_sprite_fail_close
+ lbcs sel_sprite_fail_close
  cmp #'G'
  lbne sel_sprite_fail_close
  jsr ld_read
- bcs sel_sprite_fail_close
+ lbcs sel_sprite_fail_close
  cmp #'P'
  lbne sel_sprite_fail_close
  jsr ld_read
- bcs sel_sprite_fail_close
+ lbcs sel_sprite_fail_close
  cmp #'1'
  lbne sel_sprite_fail_close
- lda #<$3140
+ lda #<$3200
  sta PTR
- lda #>$3140
+ lda #>$3200
  sta PTR+1
  lda #<$0140
  sta ld_left
  lda #>$0140
  sta ld_left+1
  jsr ld_unpack
- bcs sel_sprite_fail_close
+ lbcs sel_sprite_fail_close
  jsr ld_close
- lda #$c5
+ lda #$c8
  sta $07f8
  clc
  adc #1
@@ -474,6 +515,30 @@ sel_sprite_age_done:
  sta $07fb
  lda #$0f
  sta $d015
+ lda #0
+ sta $d010
+ sta $d017
+ sta $d01d
+ lda #$0f
+ sta $d01c
+ lda #0
+ sta $d025
+ lda #15
+ sta $d026
+ ldx #0
+ lda #60
+sel_sprite_position:
+ sta $d000,x
+ clc
+ adc #48
+ inx
+ pha
+ lda #190
+ sta $d000,x
+ pla
+ inx
+ cpx #8
+ lbne sel_sprite_position
  lda #1
  sta $d027
  sta $d028
@@ -494,9 +559,9 @@ sel_render_art:
  sta PTR
  lda #>$0700
  sta PTR+1
- lda #<$3c00
+ lda #<$c000
  sta CPTR
- lda #>$3c00
+ lda #>$c000
  sta CPTR+1
  lda #0
  sta sel_count
@@ -505,7 +570,7 @@ sel_gallery_loop:
  lda (CPTR),y
  sta (PTR),y
  ldx sel_count
- lda $3d00,x
+ lda $c100,x
  sta $db00,x
  inc PTR
  bne sel_gallery_ptr
@@ -562,5 +627,6 @@ sel_intro_text: !text "INTRO PREVIEW 01-29: ",0
 sel_game_text: !text "GAME ISLAND 01-28: ",0
 sel_art_file: !text "NART00",0
 sel_sprite_file: !text "NSPR00",0
-sel_controls: !text 13,13,"I INTRO   G GAME   1-4 USER",13,"A/D OR JOYSTICK: PREVIOUS / NEXT",13,"TWO DIGITS: SELECT DIRECTLY",13,"RETURN / FIRE: OPEN",13,13,"INTRO: ANY KEY / FIRE RETURNS HERE",13,"GAME: STARTS A FRESH CHECKPOINT",13,0
+sel_user_text: !text 13,"U CHANGE USER: ",0
+sel_controls: !text 13,13,"I INTRO   G GAME   U USER",13,"A/D OR JOYSTICK: PREVIOUS / NEXT",13,"TWO DIGITS: SELECT DIRECTLY",13,"RETURN / FIRE: OPEN",13,13,"INTRO: ANY KEY / FIRE RETURNS HERE",13,"GAME: STARTS A FRESH CHECKPOINT",13,0
 sel_end:

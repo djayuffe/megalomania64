@@ -13,6 +13,10 @@ uint8_t ng_select_island(uint8_t island) {
     ng_state[NG_DEPLOY]=island==27?100:20;ng_state[NG_DEPLOY+1]=0;
     return 1;
 }
+#ifdef __CC65__
+/* Startup handoff executes after NGCODE is loaded, freeing resident CODE. */
+#pragma code-name ("BATTLE")
+#endif
 void ng_selector_start(void) {
 #if defined(__CC65__) && defined(NATIVE_GAME)
     volatile uint8_t *p=(uint8_t *)0x02f0;

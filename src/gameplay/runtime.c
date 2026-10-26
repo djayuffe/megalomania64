@@ -98,6 +98,9 @@ static void audio(uint8_t clip) {
         if(!hw_open(file))return;
         if(!signature("NGS1")) {hw_close();return;}
         count=read_word();clip_voice=hw_read();
+        /* Audio and engines own the same EF00 window. Invalidate before the
+         * first write, including loads that fail partway through decoding. */
+        loaded_engine=255;loaded_clip=255;
         if(!count || (count+1)/2>4346 || !unpack((uint8_t *)0xef00,(count+1)/2)) {hw_close();loaded_clip=255;return;}
         hw_close();loaded_clip=clip;
         /* Keep the length outside the shared sample cache. */
@@ -159,8 +162,10 @@ uint8_t ng_engine_load(uint8_t engine) {
     uint16_t size;uint8_t ok;
     if(engine>=8)return 0;
     if(loaded_engine==engine)return 1;
+    if(hw_audio_busy())return 0;
     if(!hw_open(engine_modules[engine].file)) {runtime_ready=2;return 0;}
     ok=signature(engine_modules[engine].signature);size=read_word();
+    loaded_engine=255;loaded_clip=255;
     ok=ok && size && size<=4346 && unpack((uint8_t *)0xef00,size);
     hw_close();if(!ok) {runtime_ready=2;return 0;}loaded_engine=engine;return 1;
 }

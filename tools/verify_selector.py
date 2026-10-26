@@ -2,6 +2,7 @@
 """Exercise the independent selector, streamed previews and game handoff in VICE."""
 import argparse,json,re,shutil,socket,subprocess,time
 from pathlib import Path
+from scene_format import unpack
 
 def verify(emulator,disk,native,out,model,all_scenes=False):
     out=out.resolve();out.mkdir(parents=True,exist_ok=True);native=native.resolve()
@@ -63,7 +64,14 @@ def verify(emulator,disk,native,out,model,all_scenes=False):
                     frames();run(s['sel_preview_wait']);cmd(f'screenshot "{out}/scene-{i+1:02d}.png" 2')
                 key(' ',s['sel_wait'])
                 assert mem(frozen['ic_active'],1)==b'\0'
-            key('G',s['sel_wait']);key('3',s['sel_wait']);key('A',s['sel_wait']);assert mem(s['sel_index'],1)==bytes([27])
+            key('G',s['sel_wait']);key('U',s['sel_wait']);key('U',s['sel_wait']);key('A',s['sel_wait']);assert mem(s['sel_index'],1)==bytes([27])
+            art=(native/'files/NART28').read_bytes();font,offset=unpack(art,2048,4)
+            assert mem(0x3800,2048)==font,'selector font was overwritten by map tables'
+            assert mem(0x0700,144)==art[offset:offset+144],'selector gallery does not use complete island mapping'
+            sprites,_=unpack((native/'files/NSPR09').read_bytes(),320,4)
+            assert mem(0x3200,320)==sprites,'selector sprite bank differs from selected age'
+            frames();run(s['sel_wait'])
+            cmd(f'screenshot "{out}/game-selector.png" 2')
             key('\r',build['runtime_main']);cmd(f'watch store {labels["_runtime_ready"]:04x}');cmd('x');cmd('delete')
             state=mem(labels['_ng_state'],128)
             assert state[12]==27 and state[13]==2 and state[126]==1,'selected island/user did not reach gameplay preparation'

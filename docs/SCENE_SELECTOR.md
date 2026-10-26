@@ -14,7 +14,7 @@ The normal launcher still starts the complete intro and campaign.
 - **A / D**, or the joystick directions, selects the previous/next entry.
 - Enter **two digits** to select an entry directly: 01–29 for intro, 01–28 for game.
 - **Return / fire** opens the selection.
-- In game mode, **1–4** chooses the human user/faction. The selected user is
+- **U** cycles the four human users/factions. The selected user is
   carried into the native checkpoint handoff.
 - During an intro preview, **any key / fire** returns to this menu. Release the
   opening fire press before pressing it again to exit.
@@ -34,6 +34,12 @@ When a game island is highlighted, the selector streams its converted `NART`
 character atlas and matching `NSPR` sprite bank. The complete 144-character
 table is shown in the gallery and four sprite frames are enabled, using the
 same graphics banks that gameplay loads.
+
+The selector keeps its mapping/ink tables at `$C000`/`$C100`, outside the
+`$3800–$3FFF` font. Its sprites occupy `$3200–$333F`, outside live intro/audio
+state. Entering a preview invalidates the cached art; returning to game mode
+reloads it. Menu redraws restore the cached gallery and sprite registers.
+KERNAL letter codes are translated to the native font before displaying art.
 
 ## Module boundary
 

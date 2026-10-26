@@ -29,6 +29,14 @@ module IDs, signatures, raw sizes and packed sizes for diagnostics.
 are named wrappers used by the rule and UI code. All functions remain
 available while only one engine is resident at a time.
 
+The engine and sample caches share `$EF00–$FFF9`. Loading either invalidates
+the other before decoding begins; a failed partial load invalidates both.
+Engine loads are refused during active sample playback. The startup selector
+handoff runs in the combat bank after `NGCODE` is loaded, conserving resident
+code space. `tests/test_engine_modules.py` executes the production load/cache
+functions against a mocked bus; VICE exercises actual bank changes, complete
+sample playback and persistence.
+
 ## Frozen intro and clean handoff
 
 The intro is complete and frozen by user request. `docs/INTRO_FROZEN.json`
