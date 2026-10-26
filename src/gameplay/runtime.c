@@ -32,7 +32,7 @@ uint8_t runtime_ready,runtime_last_key,runtime_drawn;
 #define ages ng_ages
 #define populations ng_people
 #define rule ng_rule
-static uint8_t source=255,cursor,dirty=1,frame_rate,loaded_clip=255;
+static uint8_t source=255,cursor,dirty=1,frame_rate,loaded_clip=255,loaded_engine=255;
 uint8_t picture_inks[12],io_message;
 static uint16_t stamps[16],last_service;
 uint8_t board_glyphs[144],board_inks[144];
@@ -150,27 +150,36 @@ static uint8_t graphics_load(void) {
 #pragma code-name (push, "BATTLE")
 #pragma rodata-name (push, "RODATA")
 #endif
-static void ensure_overlay(uint8_t kind) {
+typedef struct {const char *file,*signature;} EngineModule;
+static const EngineModule engine_modules[8]={
+    {"NGRARE","NGX1"},{"NGCAMP","NGY1"},{"NGAI","NGI1"},{"NGTACT","NGT1"},
+    {"NGARMY","NGA2"},{"NGUI","NGU1"},{"NGSTRAT","NGS2"},{"NGDIPLO","NGD1"}
+};
+uint8_t ng_engine_load(uint8_t engine) {
     uint16_t size;uint8_t ok;
-    if(loaded_clip==kind)return;
-    if(!hw_open(kind==254?"NGRARE":kind==253?"NGCAMP":kind==252?"NGAI":kind==251?"NGTACT":kind==250?"NGARMY":kind==249?"NGUI":kind==248?"NGSTRAT":"NGDIPLO")) {runtime_ready=2;while(1);}
-    ok=signature(kind==254?"NGX1":kind==253?"NGY1":kind==252?"NGI1":kind==251?"NGT1":kind==250?"NGA2":kind==249?"NGU1":kind==248?"NGS2":"NGD1");size=read_word();
+    if(engine>=8)return 0;
+    if(loaded_engine==engine)return 1;
+    if(!hw_open(engine_modules[engine].file)) {runtime_ready=2;return 0;}
+    ok=signature(engine_modules[engine].signature);size=read_word();
     ok=ok && size && size<=4346 && unpack((uint8_t *)0xef00,size);
-    hw_close();if(!ok) {runtime_ready=2;while(1);}loaded_clip=kind;
+    hw_close();if(!ok) {runtime_ready=2;return 0;}loaded_engine=engine;return 1;
 }
-void gp_ensure_rare(void) {ensure_overlay(254);}
-void gp_ensure_campaign(void) {ensure_overlay(253);}
-void gp_ensure_ai(void) {ensure_overlay(252);}
-void gp_ensure_tactics(void) {ensure_overlay(251);}
-void gp_ensure_military(void) {ensure_overlay(250);}
-void gp_ensure_strategy(void) {ensure_overlay(248);}
-void gp_ensure_diplomacy(void) {ensure_overlay(247);}
+static void ensure_overlay(uint8_t engine) {
+    if(!ng_engine_load(engine))while(1);
+}
+void gp_ensure_rare(void) {ensure_overlay(NG_ENGINE_RARE);}
+void gp_ensure_campaign(void) {ensure_overlay(NG_ENGINE_CAMPAIGN);}
+void gp_ensure_ai(void) {ensure_overlay(NG_ENGINE_AI);}
+void gp_ensure_tactics(void) {ensure_overlay(NG_ENGINE_TACTICS);}
+void gp_ensure_military(void) {ensure_overlay(NG_ENGINE_MILITARY);}
+void gp_ensure_strategy(void) {ensure_overlay(NG_ENGINE_STRATEGY);}
+void gp_ensure_diplomacy(void) {ensure_overlay(NG_ENGINE_DIPLOMACY);}
 #ifdef __CC65__
 #pragma rodata-name (pop)
 #pragma code-name (pop)
 #pragma code-name (push, "AUXCODE")
 #endif
-static uint8_t campaign_command(uint8_t key) {ensure_overlay(253);return ng_campaign_action(key);}
+static uint8_t campaign_command(uint8_t key) {ensure_overlay(NG_ENGINE_CAMPAIGN);return ng_campaign_action(key);}
 static void failed(void) {runtime_ready=2;clear();text(400,"NATIVE CONTENT LOAD FAILED - RESET",2);while(1);}
 #ifdef __CC65__
 #pragma code-name (pop)
@@ -205,7 +214,7 @@ static uint8_t load_island(uint8_t resume) {
 #pragma code-name (push, "GRAPHICS")
 #endif
 void runtime_draw(void) {
-    ensure_overlay(249);ng_draw();dirty=0;++runtime_drawn;
+    ensure_overlay(NG_ENGINE_UI);ng_draw();dirty=0;++runtime_drawn;
 }
 #ifdef __CC65__
 #pragma code-name (pop)
@@ -271,7 +280,7 @@ static uint8_t persistence(uint8_t writing) {
     }
     if(!valid0 && !valid1)return 0;
     for(i=0;i<NG_STATE_BYTES;++i)SNAP[i]=ng_state[i];
-    hw_shadow(0);loaded_clip=255;ok=0;
+    hw_shadow(0);loaded_clip=255;loaded_engine=255;ok=0;
     for(attempt=0;attempt<2 && !ok;++attempt,slot^=1) {
         if((slot && !valid1) || (!slot && !valid0))continue;
         save_file[5]=48+slot;

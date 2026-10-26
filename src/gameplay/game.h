@@ -44,10 +44,20 @@
 #define NG_WON 1
 #define NG_LOST 2
 #define NG_COMPLETE 3
+/* Independently streamed gameplay engines. Only one is resident at EF00. */
+#define NG_ENGINE_RARE 0
+#define NG_ENGINE_CAMPAIGN 1
+#define NG_ENGINE_AI 2
+#define NG_ENGINE_TACTICS 3
+#define NG_ENGINE_MILITARY 4
+#define NG_ENGINE_UI 5
+#define NG_ENGINE_STRATEGY 6
+#define NG_ENGINE_DIPLOMACY 7
 extern uint8_t ng_state[NG_STATE_BYTES],ng_terrain[16],ng_owners[16],ng_ages[16],ng_ruined[16],ng_event,ng_ai_turns;
 extern uint16_t ng_people[16],ng_units[16][4],ng_strength[16][4],ng_presence[4];
 uint8_t ng_select_island(uint8_t island);
 void ng_selector_start(void);
+uint8_t ng_engine_load(uint8_t engine);
 void ng_diplomacy_prepare(void);
 void ng_diplomacy_initialize(void);
 void ng_diplomacy(void);

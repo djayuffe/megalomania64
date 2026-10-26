@@ -18,6 +18,17 @@ interaction timing and presentation remain C64 adaptations. Original explicit an
 DOS comparisons, including saved-population bounds and arithmetic quirks.
 Human balance across all 28 islands and real C64 disk timing remain unverified.
 
+## Streamed engine modules
+
+Gameplay code is split into eight independently loaded motors: rare rules,
+campaign, AI, tactics, military, interface, strategy and diplomacy. Each is
+stored as a separate `NG*` file with a four-byte signature and is loaded into
+the shared overlay window only for the call that needs it. `NGMODS` records the
+module IDs, signatures, raw sizes and packed sizes for diagnostics.
+`ng_engine_load` is the common boundary; the public `gp_ensure_*` entry points
+are named wrappers used by the rule and UI code. All functions remain
+available while only one engine is resident at a time.
+
 ## Frozen intro and clean handoff
 
 The intro is complete and frozen by user request. `docs/INTRO_FROZEN.json`

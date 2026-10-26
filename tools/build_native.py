@@ -99,6 +99,18 @@ def build(dos,content,cc65,out,disk):
     ai=(out/'runtime.bin.ai').read_bytes();(files/'NGAI').write_bytes(b'NGI1'+struct.pack('<H',len(ai))+pack(ai))
     camp=(out/'runtime.bin.camp').read_bytes();(files/'NGCAMP').write_bytes(b'NGY1'+struct.pack('<H',len(camp))+pack(camp))
     rare=(out/'runtime.bin.rare').read_bytes();(files/'NGRARE').write_bytes(b'NGX1'+struct.pack('<H',len(rare))+pack(rare))
+    # Explicit engine directory: every gameplay motor has its own streamed
+    # file, signature, raw size and packed size. Runtime swaps these modules
+    # through ng_engine_load(); no engine code is kept resident unnecessarily.
+    engines=[('NGRARE','NGX1',rare),('NGCAMP','NGY1',camp),('NGAI','NGI1',ai),
+             ('NGTACT','NGT1',tactics),('NGARMY','NGA2',military),('NGUI','NGU1',ui),
+             ('NGSTRAT','NGS2',strategy),('NGDIPLO','NGD1',diplomacy)]
+    directory=bytearray(b'NGM1'+bytes([len(engines)]))
+    for module_id,(name,signature_bytes,payload) in enumerate(engines):
+        packed_module=(files/name).read_bytes()
+        directory+=struct.pack('<BBHH',module_id,len(name),len(payload),len(packed_module)-6)
+        directory+=name.encode('ascii')+signature_bytes.encode('ascii')
+    (files/'NGMODS').write_bytes(directory)
     data=bytearray(b'NGR4')
     for values in [rules['element_classes']]:data+=bytes(values)
     for v in rules['buildings']:data+=struct.pack('<12H',*(v['health']+[v['turrets'],v['turret_offset']]))
@@ -141,7 +153,9 @@ def build(dos,content,cc65,out,disk):
     immutable=int(re.search(r'^DATA\s+([0-9A-F]+)',(out/'runtime.map').read_text(),re.M)[1],16)-0x8000
     segments={name:dict(start=int(start,16),end=int(end,16),bytes=int(size,16))for name,start,end,size in re.findall(r'^([A-Z]+)\s+([0-9A-F]{6})\s+([0-9A-F]{6})\s+([0-9A-F]{6})\s+', (out/'runtime.map').read_text(),re.M)}
     report=dict(immutable_high_bytes=immutable,disk=str(disk),slot_bytes=SLOT,world_bytes=SLOT*16,native_files=sum(p.suffix!=".json"for p in files.iterdir()),runtime_main=labels['_runtime_main'],hardware={name:support.sym[name]for name in ['hw_key','hw_frames','hw_play','native_frames','mu_ready','smp_left','smp_rd','sample_finished','io_frames']},boot_error=boot.sym['boot_error'],
-                selector={k:selector[k]for k in ["file","entry","intro_scenes","gameplay_islands","frozen_entry_sha256"]},intro_frozen=True,intro_retained_bytes=0,cleared_intro_ram_bytes=0x10000-0x900,reclaimed_bootstrap_bytes=256,
+                selector={k:selector[k]for k in ["file","entry","intro_scenes","gameplay_islands","frozen_entry_sha256"]},
+                engines=[dict(id=i,file=n,signature=s,raw_bytes=len(p),packed_bytes=len((files/n).read_bytes())-6)for i,(n,s,p) in enumerate(engines)],
+                intro_frozen=True,intro_retained_bytes=0,cleared_intro_ram_bytes=0x10000-0x900,reclaimed_bootstrap_bytes=256,
                 game_owned_ram=dict(start=0x800,end=0xffff,bytes=0xf800),segments=segments,
                 overlays=['NGRARE, NGCAMP, NGAI, NGTACT, NGARMY, NGUI, NGSTRAT and NGDIPLO share EF00-FFF9 with audio; resident wrappers switch overlays after leaf routines return'],
                 limitations=['Deployment interaction timing and dialogue presentation remain C64 adaptations; negotiation decisions, expedition, roaming, demobilization, formation, retreat, home reinforcement, economy, reachability, defence/repair and deployment counts/orders are translated; human campaign balance, interface fidelity and physical hardware remain unverified'])
