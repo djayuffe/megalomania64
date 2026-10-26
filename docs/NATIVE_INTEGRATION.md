@@ -20,8 +20,8 @@ Human balance across all 28 islands and real C64 disk timing remain unverified.
 
 ## Streamed engine modules
 
-Gameplay code is split into eight independently loaded motors: rare rules,
-campaign, AI, tactics, military, interface, strategy and diplomacy. Each is
+Gameplay code is split into nine independently loaded motors: rare rules,
+campaign, AI, tactics, military, interface, strategy, diplomacy and presentation. Each is
 stored as a separate `NG*` file with a four-byte signature and is loaded into
 the shared overlay window only for the call that needs it. `NGMODS` records the
 module IDs, signatures, raw sizes and packed sizes for diagnostics.
@@ -36,6 +36,14 @@ handoff runs in the combat bank after `NGCODE` is loaded, conserving resident
 code space. `tests/test_engine_modules.py` executes the production load/cache
 functions against a mocked bus; VICE exercises actual bank changes, complete
 sample playback and persistence.
+
+`NGPRES` presents original faction-specific dialogue faces and selects the
+original offer/accept/refuse voice by speaker and dialogue ID. Portraits stream
+from `NFAC00–03` into reserved glyphs 240–255; their 16 ink bytes are resident.
+The cache is invalidated when saving/loading or loading island graphics.
+`NSND20–31` contain the separate dialogue streams. The supplied DOS files omit
+`YOUGOTIT` (faction 4 acceptance); its response remains visible without a
+substitute voice. See [dialogue conversion](DIALOGUE_PORT.md).
 
 ## Frozen intro and clean handoff
 

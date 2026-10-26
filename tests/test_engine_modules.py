@@ -61,7 +61,7 @@ void hw_play(uint16_t size) {(void)size;++plays;}
         ctypes.c_uint16.in_dll(self.lib,'payload_size').value=100
 
     def test_every_engine_reloads_after_audio_and_audio_reloads_after_engine(self):
-        for engine in range(8):
+        for engine in range(9):
             self.assertEqual(self.lib.ng_engine_load(engine),1)
             self.lib.play_clip(7)
             self.assertEqual(self.byte('loaded_engine'),255)
@@ -93,7 +93,7 @@ void hw_play(uint16_t size) {(void)size;++plays;}
     def test_busy_audio_and_invalid_module_do_not_write_overlay(self):
         self.byte('busy',1)
         self.assertEqual(self.lib.ng_engine_load(0),0)
-        self.assertEqual(self.lib.ng_engine_load(8),0)
+        self.assertEqual(self.lib.ng_engine_load(9),0)
         self.assertEqual(self.byte('opens'),0)
         self.assertEqual(self.byte('owner'),0)
 

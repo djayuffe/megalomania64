@@ -1,5 +1,10 @@
 # Engine integration audit — 26 October 2026
 
+This records the 26 October baseline. The subsequent
+[character-dialogue port](DIALOGUE_PORT.md) adds a ninth presentation overlay,
+original portraits and speaker-specific recordings; its documented missing
+source and animation limits supersede the dialogue gap listed below.
+
 The eight streamed engines are built and linked together on the native disk.
 The shared sample/engine window is `$EF00–$FFF9`. Cache ownership is exclusive:
 loading sample bytes invalidates the engine identity, and loading engine bytes

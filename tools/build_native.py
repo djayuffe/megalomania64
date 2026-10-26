@@ -9,6 +9,7 @@ from scene_format import pack,unpack
 from check_intro import verify as verify_intro
 from build_selector import build as build_selector
 from native_graphics import terrain_tiles,resource,palette,convert as terrain_convert
+from dialogue_assets import build as build_dialogue
 
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -74,10 +75,12 @@ def build(dos,content,cc65,out,disk):
     exports['_hw_eof']=support.sym['ld_eof']
     cfg='MEMORY { ZP: start=$0002,size=$001a,type=rw; RAM: start=$7000,size=$1000,type=rw; LOW: start=$1000,size=$1700,type=rw,file="%O.low"; HIGH: start=$8000,size=$4200,type=rw,file=%O; EXTRA: start=$2b00,size=$0640,type=rw,file="%O.extra"; CAMP: start=$ef00,size=$10fa,type=rw,file="%O.camp"; INTERFACE: start=$ef00,size=$10fa,type=rw,file="%O.ui"; MILITARY: start=$ef00,size=$10fa,type=rw,file="%O.military"; DIPLOMACY: start=$ef00,size=$10fa,type=rw,file="%O.diplomacy"; STRATEGY: start=$ef00,size=$10fa,type=rw,file="%O.strategy"; TACTICS: start=$ef00,size=$10fa,type=rw,file="%O.tactics"; AI: start=$ef00,size=$10fa,type=rw,file="%O.ai"; RARE: start=$ef00,size=$10fa,type=rw,file="%O.rare"; BANK: start=$d400,size=$1b00,type=rw,file="%O.bank"; GFX: start=$6900,size=$0700,type=rw,file="%O.gfx"; AUX: start=$0800,size=$0100,type=rw,file="%O.aux"; TEXT: start=$3400,size=$0300,type=rw,file="%O.text"; }\n'
     cfg+='SEGMENTS { ZEROPAGE:load=ZP,type=zp; STARTUP:load=HIGH,type=ro; CODE:load=HIGH,type=ro; BATTLE:load=BANK,type=ro; RARE:load=RARE,type=ro; AI:load=AI,type=ro; TACTICS:load=TACTICS,type=ro; STRATEGY:load=STRATEGY,type=ro; DIPLOMACY:load=DIPLOMACY,type=ro; MILITARY:load=MILITARY,type=ro; INTERFACE:load=INTERFACE,type=ro; CAMPAIGN:load=CAMP,type=ro; LOWCODE:load=LOW,type=ro; GRAPHICS:load=GFX,type=ro; RUNTIME:load=EXTRA,type=ro; AUXCODE:load=AUX,type=ro; UIRODATA:load=TEXT,type=ro; RODATA:load=HIGH,type=ro; DATA:load=HIGH,type=rw; BSS:load=RAM,type=bss,define=yes; }\n'
+    cfg=cfg.replace(' BANK: start=', ' PRESENT: start=$ef00,size=$10fa,type=rw,file="%O.present"; BANK: start=')
+    cfg=cfg.replace(' BATTLE:load=BANK', ' PRESENTATION:load=PRESENT,type=ro; BATTLE:load=BANK')
     cfg+='SYMBOLS {'+''.join(f'{name}:type=export,value=${value:04x};'for name,value in exports.items())+'}\n'
     (out/'runtime.cfg').write_text(cfg)
     objects=[]
-    for name in ['core','ai','tactics','military','strategy','diplomacy','selector','world','game','campaign','interface','runtime']:
+    for name in ['core','ai','tactics','military','strategy','diplomacy','selector','world','game','campaign','interface','presentation','runtime']:
         run([cc65/'bin/cc65','-t','none','-O',*(['-Cl']if name not in ['military','interface','strategy','diplomacy']else[]),'-D','NATIVE_GAME=1','-o',out/(name+'.s'),ROOT/f'src/gameplay/{name}.c'])
         run([cc65/'bin/ca65','-t','none','-o',out/(name+'.o'),out/(name+'.s')]);objects.append(out/(name+'.o'))
     run([cc65/'bin/ca65','-t','none','-o',out/'entry.o',ROOT/'src/gameplay/entry.s'])
@@ -99,12 +102,14 @@ def build(dos,content,cc65,out,disk):
     ai=(out/'runtime.bin.ai').read_bytes();(files/'NGAI').write_bytes(b'NGI1'+struct.pack('<H',len(ai))+pack(ai))
     camp=(out/'runtime.bin.camp').read_bytes();(files/'NGCAMP').write_bytes(b'NGY1'+struct.pack('<H',len(camp))+pack(camp))
     rare=(out/'runtime.bin.rare').read_bytes();(files/'NGRARE').write_bytes(b'NGX1'+struct.pack('<H',len(rare))+pack(rare))
+    present=(out/'runtime.bin.present').read_bytes();(files/'NGPRES').write_bytes(b'NGP2'+struct.pack('<H',len(present))+pack(present))
+    dialogue=build_dialogue(dos,files)
     # Explicit engine directory: every gameplay motor has its own streamed
     # file, signature, raw size and packed size. Runtime swaps these modules
     # through ng_engine_load(); no engine code is kept resident unnecessarily.
     engines=[('NGRARE','NGX1',rare),('NGCAMP','NGY1',camp),('NGAI','NGI1',ai),
              ('NGTACT','NGT1',tactics),('NGARMY','NGA2',military),('NGUI','NGU1',ui),
-             ('NGSTRAT','NGS2',strategy),('NGDIPLO','NGD1',diplomacy)]
+             ('NGSTRAT','NGS2',strategy),('NGDIPLO','NGD1',diplomacy),('NGPRES','NGP2',present)]
     directory=bytearray(b'NGM1'+bytes([len(engines)]))
     for module_id,(name,signature_bytes,payload) in enumerate(engines):
         packed_module=(files/name).read_bytes()
@@ -154,10 +159,10 @@ def build(dos,content,cc65,out,disk):
     segments={name:dict(start=int(start,16),end=int(end,16),bytes=int(size,16))for name,start,end,size in re.findall(r'^([A-Z]+)\s+([0-9A-F]{6})\s+([0-9A-F]{6})\s+([0-9A-F]{6})\s+', (out/'runtime.map').read_text(),re.M)}
     report=dict(immutable_high_bytes=immutable,disk=str(disk),slot_bytes=SLOT,world_bytes=SLOT*16,native_files=sum(p.suffix!=".json"for p in files.iterdir()),runtime_main=labels['_runtime_main'],hardware={name:support.sym[name]for name in ['hw_key','hw_frames','hw_play','native_frames','mu_ready','smp_left','smp_rd','sample_finished','io_frames']},boot_error=boot.sym['boot_error'],
                 selector={k:selector[k]for k in ["file","entry","intro_scenes","gameplay_islands","frozen_entry_sha256"]},
-                engines=[dict(id=i,file=n,signature=s,raw_bytes=len(p),packed_bytes=len((files/n).read_bytes())-6)for i,(n,s,p) in enumerate(engines)],
+                engines=[dict(id=i,file=n,signature=s,raw_bytes=len(p),packed_bytes=len((files/n).read_bytes())-6)for i,(n,s,p) in enumerate(engines)],dialogue=dialogue,
                 intro_frozen=True,intro_retained_bytes=0,cleared_intro_ram_bytes=0x10000-0x900,reclaimed_bootstrap_bytes=256,
                 game_owned_ram=dict(start=0x800,end=0xffff,bytes=0xf800),segments=segments,
-                overlays=['NGRARE, NGCAMP, NGAI, NGTACT, NGARMY, NGUI, NGSTRAT and NGDIPLO share EF00-FFF9 with audio; resident wrappers switch overlays after leaf routines return'],
+                overlays=['NGRARE, NGCAMP, NGAI, NGTACT, NGARMY, NGUI, NGSTRAT, NGDIPLO and NGPRES share EF00-FFF9 with audio; resident wrappers switch overlays after leaf routines return'],
                 limitations=['Deployment interaction timing and dialogue presentation remain C64 adaptations; negotiation decisions, expedition, roaming, demobilization, formation, retreat, home reinforcement, economy, reachability, defence/repair and deployment counts/orders are translated; human campaign balance, interface fidelity and physical hardware remain unverified'])
     (out/'build.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps(report,indent=2))
 

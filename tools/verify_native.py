@@ -6,7 +6,7 @@ from native_world import decode,encode,SLOT
 from scene_format import unpack
 
 
-def verify(emulator,disk,native,out,model,handoff=False,expect_load=None,expect_reject=False):
+def verify(emulator,disk,native,out,model,handoff=False,expect_load=None,expect_reject=False,dialogue=False):
     out=out.resolve();out.mkdir(parents=True,exist_ok=True)
     (out/'verification.json').unlink(missing_ok=True)
     report=json.loads((native/'build.json').read_text())
@@ -182,7 +182,7 @@ def verify(emulator,disk,native,out,model,handoff=False,expect_load=None,expect_
             reset_diplomacy();current=sectors('before_outgoing_proposal')
             ally=next(i for i,s in enumerate(current)if word(s,0x3fe)in (1,2,3))
             cmd(f'> {state+18:04x} {ally:02x}');cmd(f'> {labels["_ng_event"]:04x} 00')
-            key('L',audio_clip=12)
+            key('L',audio_clip=24)
             if memory(state+88,1)!=b'\0':
                 cmd(f'watch store {state+88:04x}');cmd('x');cmd('delete');settle()
             assert memory(labels['_gp_alliances'],2)==b'\3\3','outgoing proposal did not complete'
@@ -208,9 +208,33 @@ def verify(emulator,disk,native,out,model,handoff=False,expect_load=None,expect_
             key(chr(135));key(chr(136));assert memory(state+15,1)==b'\2','defeat save failed to load'
             key('P');key('N');assert memory(state+126,1)==b'\1' and memory(state+116,2)==bytes([100,0])
             assert memory(0xc200,32,'final_stack_guard')==bytes([0xa5])*32,'restart overflowed software stack'
+            dialogue_checks=[]
+            if dialogue:
+                music_before=memory(0xc400,4096,'dialogue_music_before')
+                for entry in report['dialogue']:
+                    proposal=bytearray(32);proposal[0]=entry['faction'];proposal[4]=1
+                    proposal[30]=entry['dialogue_id'];proposal[31]=entry['faction']
+                    cmd(f'> {state+84:04x} '+' '.join(f'{v:02x}'for v in proposal))
+                    clip=int(entry['file'][4:])
+                    key('Z',audio_clip=clip if entry['available'] else None,injected_event=32)
+                    art,_=unpack((native/f'files/NFAC{entry["faction"]:02d}').read_bytes(),128,4)
+                    actual=memory(0x3f80,128,'dialogue_font')
+                    if actual!=art[:128]:
+                        memory(state,128,'dialogue_state')
+                        raise AssertionError('speaker portrait font differs')
+                    screen=memory(0x400,1000,'dialogue_screen')
+                    for row in range(4):
+                        assert screen[425+40*row:429+40*row]==bytes(range(240+row*4,244+row*4)),'speaker portrait is not visible'
+                    if entry['faction']==0 and entry['kind']==0:
+                        key(chr(135));key(chr(136))
+                        assert memory(0x3f80,128,'dialogue_after_save')==art[:128],'save/load did not restore portrait'
+                    cmd(f'screenshot "{out}/speaker-{entry["faction"]}-{entry["kind"]}.png" 2')
+                    dialogue_checks.append(dict(source=entry['source'],speaker=entry['faction'],available=entry['available'],portrait=True))
+                assert memory(0xc400,4096,'dialogue_music_after')==music_before,'portraits overwrote resident music'
             (out/'vic.txt').write_bytes(cmd('m d000 d02e'))
             cmd(f'screenshot "{out}/native.png" 2')
             result=dict(model=model,handoff=handoff,ready=True,checks=['clean RAM bootstrap and frozen intro handoff','reclaimed bootstrap graphics loader','original terrain glyphs','original deployment population, randomized faction order, campaign pool and island selection','rules and compressed world','army sprites','resident SID score','four information views without portrait overlap','deploy, move and return','research allocation','live personality-based AI economy and military overlays','incoming alliance accept/decline and pending-proposal save/load','outgoing L-key proposal and dialogue completion','shield repair and payment','player switching','CRC save/load round trip','victory and next island','pool exhaustion, defeat save and restart','complete effect and voice playback without bank truncation','audio playback excluded from simulation clock','code bank preserved'])
+            result['dialogue']=dialogue_checks
             (out/'verification.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,indent=2))
             connection.sendall(b'quit\n')
         finally:
@@ -219,5 +243,5 @@ def verify(emulator,disk,native,out,model,handoff=False,expect_load=None,expect_
             process.wait(timeout=10)
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--emulator',default='x64sc');p.add_argument('--disk',type=Path,required=True);p.add_argument('--native',type=Path,required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--model',default='pal',choices=['pal','ntsc']);p.add_argument('--handoff',action='store_true');p.add_argument('--expect-load',type=Path);p.add_argument('--expect-reject',action='store_true');a=p.parse_args()
-    verify(a.emulator,a.disk,a.native,a.out,a.model,a.handoff,a.expect_load,a.expect_reject)
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--emulator',default='x64sc');p.add_argument('--disk',type=Path,required=True);p.add_argument('--native',type=Path,required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--model',default='pal',choices=['pal','ntsc']);p.add_argument('--handoff',action='store_true');p.add_argument('--expect-load',type=Path);p.add_argument('--expect-reject',action='store_true');p.add_argument('--dialogue',action='store_true');a=p.parse_args()
+    verify(a.emulator,a.disk,a.native,a.out,a.model,a.handoff,a.expect_load,a.expect_reject,a.dialogue)

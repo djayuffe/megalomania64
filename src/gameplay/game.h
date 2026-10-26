@@ -53,11 +53,14 @@
 #define NG_ENGINE_UI 5
 #define NG_ENGINE_STRATEGY 6
 #define NG_ENGINE_DIPLOMACY 7
+#define NG_ENGINE_PRESENTATION 8
 extern uint8_t ng_state[NG_STATE_BYTES],ng_terrain[16],ng_owners[16],ng_ages[16],ng_ruined[16],ng_event,ng_ai_turns;
 extern uint16_t ng_people[16],ng_units[16][4],ng_strength[16][4],ng_presence[4];
 uint8_t ng_select_island(uint8_t island);
 void ng_selector_start(void);
 uint8_t ng_engine_load(uint8_t engine);
+uint8_t ng_dialogue_voice(void);
+void ng_dialogue_draw(void);
 void ng_diplomacy_prepare(void);
 void ng_diplomacy_initialize(void);
 void ng_diplomacy(void);

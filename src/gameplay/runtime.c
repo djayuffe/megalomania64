@@ -15,6 +15,7 @@ extern uint8_t __fastcall__ hw_store(uint8_t slot);
 extern void __fastcall__ hw_shadow(uint8_t restore);
 extern uint16_t hw_crc(void);
 uint8_t runtime_ready,runtime_last_key,runtime_drawn;
+extern uint8_t ng_face_owner;
 #define SCR ((uint8_t *)0x0400)
 #define COL ((uint8_t *)0xd800)
 #define REG(a) (*(volatile uint8_t *)(a))
@@ -67,7 +68,7 @@ static void clear(void) {uint16_t i;uint8_t bank;bank=REG(1);REG(1)=0x35;for(i=0
 #endif
 static uint16_t read_word(void) {uint16_t n;n=hw_read();return n|((uint16_t)hw_read()<<8);}
 static uint8_t signature(const char *s) {while(*s)if(hw_read()!=(uint8_t)*s++)return 0;return !hw_error;}
-static uint8_t unpack(uint8_t *dest,uint16_t left) {
+uint8_t unpack(uint8_t *dest,uint16_t left) {
     uint16_t count;uint8_t control,value;
     while(left && !hw_error) {
         control=hw_read();count=(control&128)?control-125:control+1;
@@ -141,7 +142,7 @@ static uint8_t bank_load(void) {
 #pragma code-name (push, "AUXCODE")
 #endif
 static uint8_t graphics_load(void) {
-    uint8_t ok;filename("NART",island+1);
+    uint8_t ok;ng_face_owner=255;filename("NART",island+1);
     if(!hw_open(file))return 0;
     ok=signature("NGF1") && unpack((uint8_t *)0x3800,2048) && table(board_glyphs,144) && table(board_inks,144);
     hw_close();return ok;
@@ -154,13 +155,13 @@ static uint8_t graphics_load(void) {
 #pragma rodata-name (push, "RODATA")
 #endif
 typedef struct {const char *file,*signature;} EngineModule;
-static const EngineModule engine_modules[8]={
+static const EngineModule engine_modules[9]={
     {"NGRARE","NGX1"},{"NGCAMP","NGY1"},{"NGAI","NGI1"},{"NGTACT","NGT1"},
-    {"NGARMY","NGA2"},{"NGUI","NGU1"},{"NGSTRAT","NGS2"},{"NGDIPLO","NGD1"}
+    {"NGARMY","NGA2"},{"NGUI","NGU1"},{"NGSTRAT","NGS2"},{"NGDIPLO","NGD1"},{"NGPRES","NGP2"}
 };
 uint8_t ng_engine_load(uint8_t engine) {
     uint16_t size;uint8_t ok;
-    if(engine>=8)return 0;
+    if(engine>=9)return 0;
     if(loaded_engine==engine)return 1;
     if(hw_audio_busy())return 0;
     if(!hw_open(engine_modules[engine].file)) {runtime_ready=2;return 0;}
@@ -219,7 +220,9 @@ static uint8_t load_island(uint8_t resume) {
 #pragma code-name (push, "GRAPHICS")
 #endif
 void runtime_draw(void) {
-    ensure_overlay(NG_ENGINE_UI);ng_draw();dirty=0;++runtime_drawn;
+    ensure_overlay(NG_ENGINE_UI);ng_draw();
+    if(ng_state[NG_DIP_ACTIVE]) {ensure_overlay(NG_ENGINE_PRESENTATION);ng_dialogue_draw();}
+    dirty=0;++runtime_drawn;
 }
 #ifdef __CC65__
 #pragma code-name (pop)
@@ -272,6 +275,7 @@ static uint8_t snapshot_valid(void) {
 }
 static uint8_t persistence(uint8_t writing) {
     uint16_t seq0,seq1,next;uint8_t valid0,valid1,slot,i,ok,attempt;
+    ng_face_owner=255; /* SNAP reuses the portrait's final 16 font slots. */
     seq0=probe_save(0);valid0=probe_valid;seq1=probe_save(1);valid1=probe_valid;
     slot=valid1 && (!valid0 || (uint16_t)(seq1-seq0)<32768)?1:0;
     next=slot?seq1:seq0;
@@ -396,7 +400,12 @@ void runtime_main(void) {
          * command, simulation or drawing can request another disk bank. */
         if(hw_audio_busy())continue;
         key=hw_key();if(key) {command(key);runtime_last_key=key;}service(hw_frames());
+        if(ng_event&32)dirty=1; /* Automatic offers must paint before speech. */
         if(dirty)runtime_draw();
-        if(ng_event) {key=ng_event;ng_event=0;audio((key&8)?7:(key&1)?11:(key&4)?13:(key&2)?7:(key&32)?12:0);}
+        if(ng_event) {
+            key=ng_event;ng_event=0;
+            if(key&32) {ensure_overlay(NG_ENGINE_PRESENTATION);key=ng_dialogue_voice();if(key!=255)audio(key);}
+            else audio((key&8)?7:(key&1)?11:(key&4)?13:(key&2)?7:0);
+        }
     }
 }

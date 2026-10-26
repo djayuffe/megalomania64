@@ -357,8 +357,10 @@ RNG, presentation-mode arithmetic and dialogue ID/speaker against DOS on host C
 and banked 6502. The far speech entry is modeled as starting playback (ready=0);
 fixtures independently supply subsequent completion. Native speech completion,
 keyboard response and save/load of an incoming offer are checked in VICE.
-Dialogue artwork, character-specific voice selection and exact presentation
-scheduling remain adapted for the C64.
+Original dialogue faces and character-specific voice selection now use the
+`NGPRES` presentation overlay and private `NFAC`/`NSND` streams. Exact original
+mouth animation and presentation scheduling remain adaptations. The supplied
+assets omit one acceptance clip; see [dialogue conversion](DIALOGUE_PORT.md).
 
 The current sweep covers 4,096 fixtures on both backends: 64 speech events,
 208 group changes, 117 new proposals and 506 human-input cases. Targets include
